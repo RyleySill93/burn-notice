@@ -105,14 +105,14 @@ BOUNDARIES = [
     'platform.event',
     'platform.files',
     'platform.audit',
+    'platform.slack',
     'core.user',
     'core.authentication',
     'core.authorization',
     'core.invitation',
-    'app.todos',
-    'app.projects',
-    'app.sections',
-    'app.tasks',
+    'app.engineers',
+    'app.usage',
+    'app.leaderboard',
 ]
 
 REDIS_DOMAIN = config('REDIS_DOMAIN', default='localhost')
@@ -179,6 +179,7 @@ SENTRY_DEFAULT_SAMPLE_RATE = config('SENTRY_DEFAULT_SAMPLE_RATE', default=1, cas
 SLACK_EVENT_CHANNEL = config('SLACK_EVENT_CHANNEL', default='#test-slack-client')
 SLACK_BOT_TOKEN = config('SLACK_BOT_TOKEN', default=None)
 SLACK_SIGNING_SECRET = config('SLACK_SIGNING_SECRET', default=None)
+SLACK_LEADERBOARD_WEBHOOK_URL = config('SLACK_LEADERBOARD_WEBHOOK_URL', default=None)
 
 # AI
 OPENAI_API_KEY = config('OPENAI_API_KEY', default=None)

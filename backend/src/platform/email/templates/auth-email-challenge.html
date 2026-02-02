@@ -1,0 +1,28 @@
+{% from "components.html" import button %}
+{% extends "base.html" %}
+{% block content %}
+<h1 style="margin: 0 0 20px 0; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 28px; font-weight: bold; line-height: 36px; color: #252525;">
+  Sign In to {{ company_name }}
+</h1>
+
+<p style="margin: 0 0 30px 0; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 16px; line-height: 24px; color: #525252;">
+  Click the button below to securely sign in to your account. No password needed!
+</p>
+
+{{ button("Sign In", auth_challenge_url) }}
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 30px 0;">
+  <tr>
+    <td bgcolor="#fafafa" style="padding: 20px; border-left: 4px solid #252525;">
+      <p style="margin: 0; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 14px; line-height: 20px; color: #525252;">
+        <strong>Why magic links?</strong><br/>
+        Magic links are more secure than passwords and easier to use. Just click the button and you're in!
+      </p>
+    </td>
+  </tr>
+</table>
+
+<p style="margin: 0; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 14px; line-height: 20px; color: #8e8e8e;">
+  <em>This link will expire in 15 minutes for your security.</em>
+</p>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% from "components.html" import button, reporting_cycle_card, heading %} {%
+extends "base.html" %} {% block content %}
+<table>
+  {{ heading( "Excel Plugin Authorization", "You've requested to interact with
+  your account via the Excel plugin. Use the token below to authorize:" ) }}
+  <tr>
+    <td
+            align="center"
+      style="
+        background-color: #f7f6f4;
+        border: 1px solid #dcdbd9;
+        padding: 12px;
+        border-radius: 5px;
+      "
+    >
+      <table>
+        <tr>
+          <td style="height: 0px" align="center">
+            <span style="font-size: 18px">Your Token:</span>
+          </td>
+        </tr>
+        <tr>
+          <td
+            id="token"
+            align="center"
+            style="
+              color: #85d388;
+              font-size: 24px;
+              font-weight: bold;
+              word-break: break-all;
+            "
+          >
+            {{token}}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding-bottom: 12px; padding-top: 12px">
+      <p>
+        Copy and paste this token into the required field in the Excel plugin.
+      </p>
+    </td>
+  </tr>
+</table>
+{% endblock %}

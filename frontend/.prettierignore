@@ -1,0 +1,21 @@
+# Ignore artifacts
+dist
+build
+coverage
+.vite
+
+# Ignore all generated files
+*.min.js
+*.min.css
+src/generated
+src/network/api/generated
+
+# Ignore vendor files
+node_modules
+
+# Ignore config files
+*.config.js
+*.config.ts
+
+# Ignore design tokens output
+src/styles/tokens.css

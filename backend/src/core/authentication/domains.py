@@ -1,0 +1,224 @@
+import ipaddress
+from datetime import datetime, timezone
+from typing import List
+from uuid import UUID, uuid4
+
+from pydantic import Field, IPvAnyNetwork
+
+from src.common.domain import BaseDomain
+from src.common.nanoid import NanoIdType
+from src.core.authentication.constants import AuthenticationMethodEnum, MFAMethodTypeEnum, MultiFactorMethodEnum
+from src.core.authentication.oidc.domains import OIDCProviderOption
+
+
+class AuthenticationUrl(BaseDomain):
+    url: str
+    challenge_token: str | None = None  # Optional - not needed for OIDC
+
+
+class AuthenticationChallenge(BaseDomain):
+    user_id: NanoIdType
+    email: str
+    token: str
+    url: str | None = None
+
+
+class Token(BaseDomain):
+    access_token: str
+    refresh_token: str
+    token_type: str = 'bearer'
+
+
+class MfaToken(BaseDomain):
+    token: str
+    configured_mfa_methods: list[str] = []  # Which MFA methods user has actually set up
+
+
+class TokenContent(BaseDomain):
+    ### Reserved fields
+    # user id or email
+    sub: str
+    # expires
+    exp: int
+    # issued at
+    iat: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    # not before
+    nbf: int = Field(default_factory=lambda: int(datetime.now(timezone.utc).timestamp()))
+    # JWT id
+    jti: UUID = Field(default_factory=uuid4)
+    # Impersonator user id
+    imp_sub: str | None = None
+    # IP Address
+    ip: str | None = None
+    # OIDC Provider id
+    oidc_provider_id: str | None = None
+    # Authentication method used to issue token
+    auth_method: str | None = None
+
+
+class AuthenticatedUser(BaseDomain):
+    id: NanoIdType
+    token: TokenContent
+    impersonator_id: NanoIdType | None = None
+
+
+class CustomerAuthSettingsCreate(BaseDomain):
+    id: NanoIdType | None = None
+    customer_id: NanoIdType
+    # Security Settings
+    enabled_auth_methods: List[AuthenticationMethodEnum] | None = None
+    mfa_methods: List[MultiFactorMethodEnum] | None = None
+    ip_whitelist: List[IPvAnyNetwork] | None = None
+    token_refresh_frequency: int | None = None
+    oidc_provider_id: NanoIdType | None = None
+
+
+class CustomerAuthSettingsUpdate(CustomerAuthSettingsCreate):
+    id: NanoIdType
+
+
+class CustomerAuthSettingsRead(CustomerAuthSettingsUpdate):
+    pass
+
+
+class MfaAuthCodeCreate(BaseDomain):
+    id: NanoIdType | None = None
+    expiration_at: datetime | None = None
+    user_id: NanoIdType
+    code: str
+
+
+class MfaAuthCodeRead(MfaAuthCodeCreate):
+    pass
+
+
+class ChallengeTokenCreate(BaseDomain):
+    id: NanoIdType | None = None
+    jwt_id: UUID
+    expiration_at: datetime
+
+
+class ChallengeTokenRead(ChallengeTokenCreate):
+    pass
+
+
+class UserAuthSettings(BaseDomain):
+    """
+    domain derived from many CustomerAuthSettings where
+    the settings are the most strict among all memberships
+    """
+
+    # only email for now
+    mfa_methods: List[str] | None
+    # strictest of memberships
+    auth_methods: List[str] = [AuthenticationMethodEnum.MAGIC_LINK]
+    # what to do about ranges w/ different entities
+    ip_whitelist: List[IPvAnyNetwork] | None = None
+    # minimum frequency among memberships
+    token_refresh_frequency: int | None = None
+    oidc_provider: OIDCProviderOption | None = None
+
+    def is_ip_within_range(self, user_ip: str):
+        if not self.ip_whitelist:
+            return True
+        # Convert the string ip address
+        ip = ipaddress.ip_address(user_ip)
+        for allowed_ip in self.ip_whitelist:
+            if ip in allowed_ip:
+                return True
+        return False
+
+    @classmethod
+    def for_anonymous_user(cls):
+        """
+        If a user is anonymous, lets force them down this path
+        """
+        return cls(
+            mfa_methods=None,
+            auth_methods=[AuthenticationMethodEnum.PASSWORD],
+            ip_whitelist=None,
+            token_refresh_frequency=900,
+        )
+
+
+class RefreshTokenPayload(BaseDomain):
+    refresh: str
+
+
+class MFASecretCreate(BaseDomain):
+    """Create a new MFA secret (TOTP or SMS)"""
+
+    id: NanoIdType | None = None
+    user_id: NanoIdType
+    mfa_method: MFAMethodTypeEnum
+    secret: str | None = None  # Required for TOTP, null for SMS
+    phone_number: str | None = None  # Required for SMS (E.164), null for TOTP
+    is_verified: bool = False
+    verification_attempts: int = 0
+    backup_codes: List[str] | None = None
+
+
+class MFASecretRead(MFASecretCreate):
+    created_at: datetime
+    verified_at: datetime | None = None
+    last_used_at: datetime | None = None
+
+
+class TOTPSetupResponse(BaseDomain):
+    """Response when user initiates TOTP setup"""
+
+    secret: str  # Base32-encoded secret for manual entry
+    qr_code: str  # Base64-encoded PNG image for QR scanning
+    backup_codes: List[str]  # Emergency recovery codes
+
+
+class TOTPEnableRequest(BaseDomain):
+    """Request to enable TOTP during setup"""
+
+    code: str  # 6-digit verification code
+
+
+class TOTPSetupPayload(BaseDomain):
+    """Payload for TOTP setup during MFA flow (requires MFA token)"""
+
+    email: str
+    mfa_token: str
+
+
+class TOTPEnablePayload(BaseDomain):
+    """Payload for enabling TOTP during MFA flow (requires MFA token)"""
+
+    email: str
+    mfa_token: str
+    code: str
+
+
+# SMS MFA domains
+class SMSSetupPayload(BaseDomain):
+    """Payload for SMS MFA setup during MFA flow (requires MFA token)"""
+
+    email: str
+    mfa_token: str
+    phone_number: str  # E.164 format: +1234567890
+
+
+class SMSSetupResponse(BaseDomain):
+    """Response when SMS setup code is sent"""
+
+    phone_number: str  # Partially masked: +1****567890
+    code_sent: bool = True
+
+
+class SMSEnablePayload(BaseDomain):
+    """Payload for enabling SMS during MFA flow (requires MFA token)"""
+
+    email: str
+    mfa_token: str
+    code: str  # 6-digit verification code sent via SMS
+
+
+class SMSCodePayload(BaseDomain):
+    """Payload for sending SMS code during login"""
+
+    email: str
+    mfa_token: str

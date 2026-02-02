@@ -1,0 +1,73 @@
+import { createBrowserRouter, Navigate } from "react-router"
+import { RootLayout } from "@/components/RootLayout"
+import { AuthenticatedLayout } from "@/views/AuthenticatedLayout"
+import { ProjectsPage } from "@/views/projects/ProjectsPage"
+import { ManageTeamPage } from "@/views/team/ManageTeamPage"
+import { LoginPage } from "@/views/LoginPage"
+import { SignupPage } from "@/views/SignupPage"
+import { AuthCallback } from "@/views/AuthCallback"
+import { ForgotPasswordPage } from "@/views/ForgotPasswordPage"
+import { ResetPasswordPage } from "@/views/ResetPasswordPage"
+import { CreateTeamPage } from "@/views/CreateTeamPage"
+import { AcceptInvitationPage } from "@/views/AcceptInvitationPage"
+
+export const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <RootLayout />,
+    children: [
+      // Public routes
+      {
+        path: "login",
+        element: <LoginPage />,
+      },
+      {
+        path: "signup",
+        element: <SignupPage />,
+      },
+      {
+        path: "auth/callback",
+        element: <AuthCallback />,
+      },
+      {
+        path: "forgot-password",
+        element: <ForgotPasswordPage />,
+      },
+      {
+        path: "reset-password/:userId/:token",
+        element: <ResetPasswordPage />,
+      },
+      {
+        path: "accept-invitation",
+        element: <AcceptInvitationPage />,
+      },
+      // Create customer route (requires auth but not membership)
+      {
+        path: "create-customer",
+        element: <CreateTeamPage />,
+      },
+      // Authenticated routes with layout (requires auth and membership)
+      {
+        element: <AuthenticatedLayout />,
+        children: [
+          {
+            index: true,
+            element: <Navigate to="/projects" replace />,
+          },
+          {
+            path: "projects",
+            element: <ProjectsPage />,
+          },
+          {
+            path: "projects/:projectId",
+            element: <ProjectsPage />,
+          },
+          {
+            path: "team",
+            element: <ManageTeamPage />,
+          },
+        ],
+      },
+    ],
+  },
+])

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+    <title>{{ task_name }}</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+    <link href="https://fonts.googleapis.com/css2?family=Meow+Script&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ css_path }}">
+</head>
+
+<body>
+<div class="wrapper">
+    <div class="content">
+        <div class="header">
+            <h2>{{ task_name }}</h2>
+            <h4 class="margin-bottom-negative">From {{ entity_name }} for {{ start_date }} - {{ end_date }}</h4>
+            <p>Submitted by {{ completed_by }} on {{ completed_at }}</p>
+            <div class="title-divider"></div>
+        </div>
+
+        {% for block in blocks %}
+
+            {% if block.block_type == "RICH_TEXT" %}
+                <div class="block">
+                    {{ block.rendered_body }}
+                </div>
+            {% elif block.block_type == "SIGNATURE" %}
+                <div class="block-body">
+                    Signature
+                </div>
+                <div class="block">
+                    <section class="signature-section">
+                        <div class="signature">{{ block.value.signature }}</div>
+                        <div class="signature-caption">{{ block.value.caption }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</div>
+                        <div class="signature-underline"/>
+                    </section>
+                </div>
+            {% elif block.block_type != "CONDITIONAL_GROUP" %}
+                <div class="block"{% if block.commentary_index %} id="block-{{ block.commentary_index }}"{% endif %}>
+                    <div class="block-body">
+                        {{ block.rendered_body }}
+                    </div>
+                    {% if block.is_na %}
+                        <div class="short-value">
+                            <i>{{ block.value }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                        </div>
+                    {% elif block.block_type == "NUMBER" %}
+                        <div class="short-value">
+                            <i>{{ "{:,.2f}".format(block.value) if block.value else "—" }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                        </div>
+                    {% elif block.block_type == "CURRENCY" %}
+                        <div class="short-value">
+                            <i>{{ "${:,.2f}".format(block.value) if block.value else "—" }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                        </div>
+                    {% elif block.block_type == "PERCENT" %}
+                        <div class="short-value">
+                            <i>{{ "{:.2f}%".format(block.value) if block.value else "—" }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                        </div>
+                    {% elif block.block_type == "SHORT_TEXT" %}
+                        <div class="short-value">
+                            <i>{{ block.value }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                        </div>
+                    {% elif block.block_type == "LONG_TEXT" %}
+                        <div class="long-value">
+                            <i>{{ block.value }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                        </div>
+                    {% elif block.block_type == "SINGLE_SELECT" %}
+                        <div class="single-select-value">
+                            <i>{{ block.value }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                        </div>
+                    {% elif block.block_type == "MULTI_SELECT" %}
+                        {% for value in block.value %}
+                            <div class="multie-select-value">
+                                <i>{{ value }}{% if loop.last and block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                            </div>
+                        {% endfor %}
+                    {% elif block.block_type in ["YES_OR_NO", "CHECKBOX"] %}
+                        <div class="short-value">
+                            {% if block.value == True %}
+                                <i>Yes{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                            {% elif block.value == False %}
+                                <i>No{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                            {% else %}
+                                <i>—{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                            {% endif %}
+                        </div>
+                    {% elif block.block_type == "DATE" %}
+                        <div class="short-value">
+                            <i>{{ block.value }}{% if block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                        </div>
+                    {% elif block.block_type == "DOCUMENT" %}
+                        <div class="document-value">
+                            {% for file in block.value %}
+                                <i>{{ file }}{% if loop.last and block.commentary_index %}<span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>{% endif %}</i>
+                            {% endfor %}
+                        </div>
+                    {% elif block.block_type == "DATABASE" %}
+                        <table>
+                            <tr>
+                                {% for column_id, column_name in block.value.column_name_by_id.items() %}
+                                    <th>{{ column_name }}</th>
+                                {% endfor %}
+                            </tr>
+                            {% for row in block.value.values_by_column_ids %}
+                                <tr>
+                                    {% for column_id in block.value.column_name_by_id %}
+                                        <td>{{ row[column_id] }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </table>
+                        {% if block.commentary_index %}
+                            <span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>
+                        {% endif %}
+
+                    {% elif block.block_type == "FINANCIAL_ACCOUNTS" %}
+                        {% if block.value.documents %}
+                            <table class="financial-accounts">
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Account</th>
+                                </tr>
+                                {% for document in block.value.documents %}
+                                    <tr>
+                                        <td>{{ document.file_name if document.file_name else "—" }}</td>
+                                        <td>{{ document.account_label if document.account_label else "-" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </table>
+                        {% endif %}
+                        <br/>
+                        <table class="financial-accounts">
+                            <tr>
+                                <th>Account</th>
+                                {% if block.value.should_show_subsidiary %}
+                                <th>Subsidiary</th>
+                                {% endif %}
+                                <th class="right-aligned">Balance</th>
+                                <th class="center-aligned">Is new account?</th>
+                                <th class="center-aligned">Is closed account?</th>
+                                <th class="center-aligned">Subject to control agreement?</th>
+                            </tr>
+                            {% for account in block.value.asset_accounts %}
+                                <tr>
+                                    <td>{{ account.financial_institution_name }} {{ account.asset_account_number }}: {{ account.asset_account_purpose }}</td>
+                                    {% if block.value.should_show_subsidiary %}
+                                    <td>{{ account.asset_account_subsidiary if account.asset_account_subsidiary else "—" }}</td>
+                                    {% endif %}
+                                    <td class="right-aligned">{{ account.currency ~ '{:,.2f}'.format(account.value) if account.value else "—" }}</td>
+                                    <td class="center-aligned">{% if account.is_new == True %}<span class="checkbox">☑</span>{% elif account.is_new == False %}<span class="checkbox">☐</span>{% else %}—{% endif %}</td>
+                                    <td class="center-aligned">{% if account.is_archived == True %}<span class="checkbox">☑</span>{% elif account.is_archived == False %}<span class="checkbox">☐</span>{% else %}—{% endif %}</td>
+                                    <td class="center-aligned">{% if account.subject_to_daca == True %}<span class="checkbox">☑</span>{% elif account.subject_to_daca == False %}<span class="checkbox">☐</span>{% else %}—{% endif %}</td>
+                                </tr>
+                            {% endfor %}
+                        </table>
+                        {% if block.commentary_index %}
+                            <span class="commentary-superscript"><a href="#commentary-{{ block.commentary_index }}">[{{ block.commentary_index }}]</a></span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% for image_path in block.image_paths %}
+                <img src="{{ image_path }}" width="600" />
+            {% endfor %}
+
+        {% endfor %}
+
+        {% if commentaries %}
+            <div class="commentary-page">
+                <div class="commentary-title">Commentary</div>
+                {% for commentary in commentaries %}
+                    <div class="commentary-item" id="commentary-{{ commentary.index }}">
+                        <div class="commentary-header">
+                            <span class="commentary-index"><a href="#block-{{ commentary.index }}">[{{ commentary.index }}]</a></span>
+                            <span class="commentary-label">{{ commentary.label|truncate(50, true, '...') }}</span>
+                        </div>
+                        <div class="commentary-text">{{ commentary.commentary }}</div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+</body>
+
+</html>

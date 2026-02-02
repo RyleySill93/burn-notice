@@ -1,0 +1,83 @@
+{% from "components.html" import button, summary_card, heading %}
+{% extends "base.html" %}
+{% block content %}
+<table>
+  {% if deliverables_completed %}
+    {{ heading("Deliverables completed", "") }}
+    {% for summary in deliverables_completed %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if documents_uploaded %}
+    {{ heading("Documents uploaded", "") }}
+    {% for summary in documents_uploaded %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if extraction_published %}
+    {{ heading("Extractions published", "") }}
+    {% for summary in extraction_published %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if field_values_updated %}
+    {{ heading("Fields updated", "") }}
+    {% for summary in field_values_updated %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if deliverables_due %}
+    {{ heading("Deliverables outstanding", "") }}
+    {% for summary in deliverables_due %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if deliverables_assigned %}
+    {{ heading("Deliverables assigned", "") }}
+    {% for summary in deliverables_assigned %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if customer_tasks_due %}
+    {{ heading("You have tasks outstanding", "") }}
+    {% for summary in customer_tasks_due %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if customer_tasks_assigned %}
+    {{ heading("You've been assigned tasks", "") }}
+    {% for summary in customer_tasks_assigned %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if entities_created %}
+    {{ heading("Entities created", "") }}
+    {% for summary in entities_created %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if asset_account_created_and_archived %}
+    {{ heading("Bank account updates", "") }}
+    {% for summary in asset_account_created_and_archived %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if memberships_invited %}
+    {{ heading("Members invited", "") }}
+    {% for summary in memberships_invited %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  {% if memberships_activated %}
+    {{ heading("Memberships activated", "") }}
+    {% for summary in memberships_activated %}
+      {{ summary_card(summary) }}
+    {% endfor %}
+  {% endif %}
+  <tr>
+    <td style="padding-bottom: 32px">
+        {{ button("Log in", log_in_url) }}
+    </td>
+  </tr>
+</table>
+{% endblock %}

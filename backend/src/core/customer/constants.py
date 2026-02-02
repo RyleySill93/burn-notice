@@ -1,0 +1,1 @@
+CUSTOMER_PK_ABBREV = 'cust'

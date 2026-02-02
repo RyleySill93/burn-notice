@@ -1,0 +1,1 @@
+PROJECT_PK_ABBREV = 'proj'

@@ -1,0 +1,1 @@
+MEMBERSHIP_PK_ABBREV = 'memb'

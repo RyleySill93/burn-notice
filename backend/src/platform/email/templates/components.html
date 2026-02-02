@@ -1,0 +1,117 @@
+{% macro button(label, link) %}
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="center" style="padding: 30px 0 20px 0;">
+      <!--[if mso]>
+      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{link}}" style="height:48px;v-text-anchor:middle;width:200px;" arcsize="8%" strokecolor="#252525" fillcolor="#252525">
+        <w:anchorlock/>
+        <center style="color:#fafafa;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">{{label}}</center>
+      </v:roundrect>
+      <![endif]-->
+      
+      <!--[if !mso]><!-->
+      <table border="0" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" style="border-radius: 6px;" bgcolor="#252525">
+            <a href="{{link}}" target="_blank" style="display: inline-block; padding: 14px 32px; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 16px; color: #fafafa; text-decoration: none; border-radius: 6px; background-color: #252525; border: 1px solid #252525; font-weight: 600;">{{label}}</a>
+          </td>
+        </tr>
+      </table>
+      <!--<![endif]-->
+    </td>
+  </tr>
+  <tr>
+    <td align="center" style="padding: 0 0 30px 0;">
+      <p style="margin: 0 0 8px 0; font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif; font-size: 13px; line-height: 20px; color: #8e8e8e;">
+        Or copy and paste this link into your browser:
+      </p>
+      <p style="margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 20px; color: #525252; word-break: break-all;">
+        {{link}}
+      </p>
+    </td>
+  </tr>
+</table>
+{% endmacro %}
+
+
+{% macro summary_card(summary) %}
+<tr style="padding-bottom: 16px">
+  <td
+    style="
+      border: 1px solid #dcdbd9;
+      border-radius: 8px;
+      padding: 16px 20px 8px 20px;
+    "
+  >
+    <p style="font-size: 20px; font-weight: 500">
+      {{summary.title}}
+    </p>
+    <table style="margin-top: 8px">
+      {% for item in summary.elements %}
+      <tr>
+        <td style="font-size: 16px; font-weight: 400; height: 0px">
+          •&nbsp;&nbsp;{{item.text}}
+        </td>
+        {% if item.subtext %}
+          <td style="font-size: 16px; font-weight: 400; height: 0px" align="right">
+            {{item.subtext}}
+          </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </table>
+  </td>
+</tr>
+<tr>
+  <td style="height: 16px; line-height: 16px">&nbsp;</td>
+</tr>
+{% endmacro %}
+
+{% macro heading(title, subtitle) %}
+<tr>
+  <td>
+    <p style="padding-bottom: {% if subtitle %}16px{% else%}4px{% endif %}; font-size: 24px; font-weight: 500">
+      {{title}}
+    </p>
+  </td>
+</tr>
+{% if subtitle %}
+  <tr>
+  <td>
+    <p style="padding-bottom: 16px; font-size: 16px">
+      {{subtitle}}
+    </p>
+  </td>
+</tr>
+{% endif %}
+{% endmacro %}
+
+{% macro sharing_records_card(sharing_records) %}
+<tr style="padding-bottom: 16px">
+  <td
+    style="
+      border: 1px solid #dcdbd9;
+      border-radius: 8px;
+      padding: 16px 20px 8px 20px;
+    "
+  >
+    <table style="margin-top: 8px">
+      {% for sharing_record in sharing_records %}
+      <tr>
+        <td style="font-size: 16px; font-weight: 400; height: 0px">
+          •&nbsp;&nbsp;{{sharing_record.name}}
+        </td>
+        {% if sharing_record.effective_date %}
+          <td style="font-size: 16px; font-weight: 400; height: 0px" align="right">
+            {{sharing_record.effective_date}}
+          </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </table>
+  </td>
+</tr>
+<tr>
+  <td style="height: 16px; line-height: 16px">&nbsp;</td>
+</tr>
+{% endmacro %}

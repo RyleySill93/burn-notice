@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<table style="width: 100%; border-collapse: collapse;">
+    <tr>
+        <td style="padding: 24px; text-align: center;">
+            <p style="font-size: 16px; color: #333;">
+                Your Multi-Factor Authentication (MFA) code is:
+            </p>
+            <p style="font-size: 24px; font-weight: bold; color: #2c3e50; margin: 16px 0;">
+                {{ mfa_code }}
+            </p>
+            <p style="font-size: 14px; color: #7f8c8d;">
+                Please enter this code on the verification page to proceed. The code will expire in 10 minutes.
+            </p>
+        </td>
+    </tr>
+</table>
+{% endblock %}

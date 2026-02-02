@@ -10,12 +10,37 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'burn001'
-down_revision = None
+down_revision = 'd71b24224f51'
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
+    # Customer table (teams)
+    op.create_table(
+        'customer',
+        sa.Column('id', sa.String(length=50), nullable=False),
+        sa.Column('name', sa.String(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+        sa.Column('modified_at', sa.DateTime(), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+    )
+
+    # Membership table (user-team relationship)
+    op.create_table(
+        'membership',
+        sa.Column('id', sa.String(length=50), nullable=False),
+        sa.Column('customer_id', sa.String(length=50), nullable=False),
+        sa.Column('user_id', sa.String(length=50), nullable=False),
+        sa.Column('is_active', sa.Boolean(), default=False),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+        sa.Column('modified_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['customer_id'], ['customer.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['user_id'], ['user.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('customer_id', 'user_id'),
+    )
+
     # Engineer table
     op.create_table(
         'engineer',
@@ -70,3 +95,5 @@ def downgrade() -> None:
     op.drop_table('usagedaily')
     op.drop_table('usage')
     op.drop_table('engineer')
+    op.drop_table('membership')
+    op.drop_table('customer')

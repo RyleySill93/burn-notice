@@ -61,7 +61,7 @@ export function CreateTeamPage() {
         <div className="text-center">
           <h2 className="text-3xl font-bold">Create your team</h2>
           <p className="mt-2 text-gray-600">
-            Get started with {config.projectName} by creating your first team
+            Start tracking your team's Claude Code token usage
           </p>
         </div>
 

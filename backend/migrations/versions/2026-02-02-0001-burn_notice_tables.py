@@ -1,7 +1,7 @@
 """burn-notice tables: engineer, usage, usage_daily
 
 Revision ID: burn001
-Revises: 01-app_audit
+Revises: None
 Create Date: 2026-02-02
 """
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'burn001'
-down_revision = None  # Set to last base migration if needed
+down_revision = None
 branch_labels = None
 depends_on = None
 
@@ -20,13 +20,16 @@ def upgrade() -> None:
     op.create_table(
         'engineer',
         sa.Column('id', sa.String(length=50), nullable=False),
+        sa.Column('customer_id', sa.String(length=50), nullable=False),
         sa.Column('external_id', sa.String(length=200), nullable=False),
         sa.Column('display_name', sa.String(length=200), nullable=False),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.Column('modified_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['customer_id'], ['customer.id']),
         sa.PrimaryKeyConstraint('id'),
     )
-    op.create_index('ix_engineer_external_id', 'engineer', ['external_id'], unique=True)
+    op.create_index('ix_engineer_customer_id', 'engineer', ['customer_id'])
+    op.create_index('idx_engineer_customer_external', 'engineer', ['customer_id', 'external_id'], unique=True)
 
     # Usage table (raw events)
     op.create_table(

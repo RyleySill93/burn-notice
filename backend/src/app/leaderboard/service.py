@@ -10,18 +10,19 @@ from src.network.database import db
 
 class LeaderboardService:
     @staticmethod
-    def get_leaderboard(as_of: date | None = None) -> Leaderboard:
+    def get_leaderboard(customer_id: str, as_of: date | None = None) -> Leaderboard:
         """Build leaderboard data for daily, weekly, and monthly views."""
         as_of = as_of or date.today()
 
-        daily = LeaderboardService._get_daily_leaderboard(as_of)
-        weekly = LeaderboardService._get_weekly_leaderboard(as_of)
-        monthly = LeaderboardService._get_monthly_leaderboard(as_of)
+        daily = LeaderboardService._get_daily_leaderboard(customer_id, as_of)
+        weekly = LeaderboardService._get_weekly_leaderboard(customer_id, as_of)
+        monthly = LeaderboardService._get_monthly_leaderboard(customer_id, as_of)
 
         return Leaderboard(date=as_of, daily=daily, weekly=weekly, monthly=monthly)
 
     @staticmethod
     def _get_ranked_entries(
+        customer_id: str,
         start_date: date,
         end_date: date,
         prev_start_date: date | None = None,
@@ -36,7 +37,11 @@ class LeaderboardService:
                 func.sum(UsageDaily.total_tokens).label('tokens'),
             )
             .join(Engineer, UsageDaily.engineer_id == Engineer.id)
-            .filter(UsageDaily.date >= start_date, UsageDaily.date <= end_date)
+            .filter(
+                Engineer.customer_id == customer_id,
+                UsageDaily.date >= start_date,
+                UsageDaily.date <= end_date,
+            )
             .group_by(UsageDaily.engineer_id, Engineer.display_name)
             .having(func.sum(UsageDaily.total_tokens) > 0)
             .order_by(func.sum(UsageDaily.total_tokens).desc())
@@ -51,7 +56,12 @@ class LeaderboardService:
                     UsageDaily.engineer_id,
                     func.sum(UsageDaily.total_tokens).label('tokens'),
                 )
-                .filter(UsageDaily.date >= prev_start_date, UsageDaily.date <= prev_end_date)
+                .join(Engineer, UsageDaily.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    UsageDaily.date >= prev_start_date,
+                    UsageDaily.date <= prev_end_date,
+                )
                 .group_by(UsageDaily.engineer_id)
                 .having(func.sum(UsageDaily.total_tokens) > 0)
                 .order_by(func.sum(UsageDaily.total_tokens).desc())
@@ -75,12 +85,13 @@ class LeaderboardService:
         return entries
 
     @staticmethod
-    def _get_daily_leaderboard(as_of: date) -> list[LeaderboardEntry]:
+    def _get_daily_leaderboard(customer_id: str, as_of: date) -> list[LeaderboardEntry]:
         """Get daily leaderboard with rank changes from previous day."""
         yesterday = as_of - timedelta(days=1)
         day_before = as_of - timedelta(days=2)
 
         return LeaderboardService._get_ranked_entries(
+            customer_id=customer_id,
             start_date=yesterday,
             end_date=yesterday,
             prev_start_date=day_before,
@@ -88,7 +99,7 @@ class LeaderboardService:
         )
 
     @staticmethod
-    def _get_weekly_leaderboard(as_of: date) -> list[LeaderboardEntry]:
+    def _get_weekly_leaderboard(customer_id: str, as_of: date) -> list[LeaderboardEntry]:
         """Get weekly leaderboard with rank changes from previous week."""
         ref_date = as_of - timedelta(days=1)
         week_start = ref_date - timedelta(days=ref_date.weekday())
@@ -96,6 +107,7 @@ class LeaderboardService:
         prev_week_end = week_start - timedelta(days=1)
 
         return LeaderboardService._get_ranked_entries(
+            customer_id=customer_id,
             start_date=week_start,
             end_date=ref_date,
             prev_start_date=prev_week_start,
@@ -103,7 +115,7 @@ class LeaderboardService:
         )
 
     @staticmethod
-    def _get_monthly_leaderboard(as_of: date) -> list[LeaderboardEntry]:
+    def _get_monthly_leaderboard(customer_id: str, as_of: date) -> list[LeaderboardEntry]:
         """Get monthly leaderboard with rank changes from previous month."""
         ref_date = as_of - timedelta(days=1)
         month_start = ref_date.replace(day=1)
@@ -111,6 +123,7 @@ class LeaderboardService:
         prev_month_start = prev_month_end.replace(day=1)
 
         return LeaderboardService._get_ranked_entries(
+            customer_id=customer_id,
             start_date=month_start,
             end_date=ref_date,
             prev_start_date=prev_month_start,

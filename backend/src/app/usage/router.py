@@ -1,11 +1,14 @@
 from datetime import date
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from src.app.engineers.service import EngineerService
 from src.app.usage.domains import UsageRead
 from src.app.usage.service import UsageService
+from src.core.authentication.dependencies import get_current_membership
+from src.core.customer.models import Customer
+from src.core.membership.domains import MembershipRead
 
 router = APIRouter()
 
@@ -25,10 +28,24 @@ class RollupResponse(BaseModel):
 
 
 @router.post('', response_model=UsageRead)
-def record_usage(request: UsageCreateRequest) -> UsageRead:
-    """Record token usage. Auto-registers engineer if not exists."""
+def record_usage(
+    request: UsageCreateRequest,
+    x_team_api_key: str = Header(..., alias='X-Team-API-Key'),
+) -> UsageRead:
+    """
+    Record token usage. Auto-registers engineer if not exists.
+
+    Requires X-Team-API-Key header with the team's customer ID.
+    This endpoint is designed for CLI/automation usage without user auth.
+    """
+    # Validate the team exists
+    customer = Customer.get_or_none(id=x_team_api_key)
+    if not customer:
+        raise HTTPException(status_code=401, detail='Invalid team API key')
+
     # Get or create the engineer
     engineer = EngineerService.get_or_create(
+        customer_id=customer.id,
         external_id=request.external_id,
         display_name=request.display_name,
     )
@@ -43,12 +60,15 @@ def record_usage(request: UsageCreateRequest) -> UsageRead:
 
 
 @router.post('/rollup', response_model=RollupResponse)
-def run_rollup(for_date: date | None = None) -> RollupResponse:
-    """Manually trigger daily rollup."""
+def run_rollup(
+    for_date: date | None = None,
+    membership: MembershipRead = Depends(get_current_membership),
+) -> RollupResponse:
+    """Manually trigger daily rollup for the team."""
     from datetime import timedelta, timezone
     from datetime import datetime as dt
 
     target_date = for_date or (dt.now(timezone.utc) - timedelta(days=1)).date()
-    count = UsageService.rollup_daily(target_date)
+    count = UsageService.rollup_daily(target_date, customer_id=membership.customer_id)
 
     return RollupResponse(date=target_date, engineers_processed=count)

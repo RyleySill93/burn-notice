@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from "react-router"
 import { RootLayout } from "@/components/RootLayout"
 import { AuthenticatedLayout } from "@/views/AuthenticatedLayout"
-import { ProjectsPage } from "@/views/projects/ProjectsPage"
+import { LeaderboardPage } from "@/views/LeaderboardPage"
 import { ManageTeamPage } from "@/views/team/ManageTeamPage"
 import { LoginPage } from "@/views/LoginPage"
 import { SignupPage } from "@/views/SignupPage"
@@ -43,7 +43,7 @@ export const router = createBrowserRouter([
       },
       // Create customer route (requires auth but not membership)
       {
-        path: "create-customer",
+        path: "create-team",
         element: <CreateTeamPage />,
       },
       // Authenticated routes with layout (requires auth and membership)
@@ -52,15 +52,11 @@ export const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <Navigate to="/projects" replace />,
+            element: <Navigate to="/leaderboard" replace />,
           },
           {
-            path: "projects",
-            element: <ProjectsPage />,
-          },
-          {
-            path: "projects/:projectId",
-            element: <ProjectsPage />,
+            path: "leaderboard",
+            element: <LeaderboardPage />,
           },
           {
             path: "team",

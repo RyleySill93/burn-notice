@@ -1,7 +1,8 @@
 from datetime import date, datetime, timedelta, timezone
 
-from sqlalchemy import func, text
+from sqlalchemy import func
 
+from src.app.engineers.models import Engineer
 from src.app.usage.domains import UsageCreate, UsageDailyCreate, UsageDailyRead, UsageRead
 from src.app.usage.models import Usage, UsageDaily
 from src.network.database import db
@@ -28,13 +29,13 @@ class UsageService:
         )
 
     @staticmethod
-    def rollup_daily(for_date: date | None = None) -> int:
+    def rollup_daily(for_date: date | None = None, customer_id: str | None = None) -> int:
         """Aggregate raw usage into daily rollups. Returns count of engineers processed."""
         if for_date is None:
             for_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
-        # Get aggregated data for the date
-        results = (
+        # Build query for aggregated data
+        query = (
             db.session.query(
                 Usage.engineer_id,
                 func.sum(Usage.tokens_input + Usage.tokens_output).label('total_tokens'),
@@ -43,9 +44,15 @@ class UsageService:
                 func.count(func.distinct(Usage.session_id)).label('session_count'),
             )
             .filter(func.date(Usage.created_at) == for_date)
-            .group_by(Usage.engineer_id)
-            .all()
         )
+
+        # Filter by customer if specified
+        if customer_id:
+            query = query.join(Engineer, Usage.engineer_id == Engineer.id).filter(
+                Engineer.customer_id == customer_id
+            )
+
+        results = query.group_by(Usage.engineer_id).all()
 
         for row in results:
             # Upsert daily record
@@ -73,21 +80,31 @@ class UsageService:
         return len(results)
 
     @staticmethod
-    def get_daily_totals(for_date: date) -> list[UsageDailyRead]:
+    def get_daily_totals(for_date: date, customer_id: str | None = None) -> list[UsageDailyRead]:
         """Get daily totals for a specific date."""
+        if customer_id:
+            return (
+                db.session.query(UsageDaily)
+                .join(Engineer)
+                .filter(UsageDaily.date == for_date, Engineer.customer_id == customer_id)
+                .all()
+            )
         return UsageDaily.list(date=for_date)
 
     @staticmethod
-    def get_range_totals(start_date: date, end_date: date) -> dict[str, int]:
+    def get_range_totals(start_date: date, end_date: date, customer_id: str | None = None) -> dict[str, int]:
         """Get total tokens per engineer for a date range."""
-        results = (
+        query = (
             db.session.query(
                 UsageDaily.engineer_id,
                 func.sum(UsageDaily.total_tokens).label('total'),
             )
             .filter(UsageDaily.date >= start_date, UsageDaily.date <= end_date)
-            .group_by(UsageDaily.engineer_id)
-            .all()
         )
+
+        if customer_id:
+            query = query.join(Engineer).filter(Engineer.customer_id == customer_id)
+
+        results = query.group_by(UsageDaily.engineer_id).all()
 
         return {row.engineer_id: row.total or 0 for row in results}

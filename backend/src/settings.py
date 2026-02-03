@@ -86,12 +86,24 @@ AUTH_SETTINGS = {
     'EXCEL_CHALLENGE_TOKEN_LIFETIME': timedelta(minutes=15),
 }
 
-DB_NAME = config('DB_NAME')
-DB_USER = config('DB_USER')
-DB_PASSWORD = config('DB_PASSWORD', default='dev1')
-DB_HOST = config('DB_HOST', default='127.0.0.1')
+# Support both DATABASE_URL (Railway) and individual vars (local)
+DATABASE_URL = config('DATABASE_URL', default=None)
+if DATABASE_URL:
+    # Parse DATABASE_URL: postgresql://user:password@host:port/dbname
+    from urllib.parse import urlparse
+    parsed = urlparse(DATABASE_URL)
+    DB_NAME = parsed.path[1:]  # Remove leading /
+    DB_USER = parsed.username
+    DB_PASSWORD = parsed.password
+    DB_HOST = parsed.hostname
+    DB_PORT = parsed.port or 5432
+else:
+    DB_NAME = config('DB_NAME')
+    DB_USER = config('DB_USER')
+    DB_PASSWORD = config('DB_PASSWORD', default='dev1')
+    DB_HOST = config('DB_HOST', default='127.0.0.1')
+    DB_PORT = config('DB_PORT', default=5432, cast=int)
 DB_HOST_RO = config('DB_HOST_RO', default=DB_HOST)
-DB_PORT = config('DB_PORT', default=5432, cast=int)
 DB_LOG_STATEMENTS = config('DB_LOG_STATEMENTS', default=False, cast=bool)
 DB_ENCRYPTION_KEY = config('DB_ENCRYPTION_KEY', default='default-key')
 DB_ENCRYPTION_SALT = config('DB_ENCRYPTION_SALT', default=f'{COMPANY_NAME}-encryption-salt')
@@ -115,15 +127,23 @@ BOUNDARIES = [
     'app.leaderboard',
 ]
 
-REDIS_DOMAIN = config('REDIS_DOMAIN', default='localhost')
-REDIS_PORT = config('REDIS_PORT', default=6379)
-REDIS_URL = f'redis://{REDIS_DOMAIN}:{REDIS_PORT}'
+# Support REDIS_URL (Railway) or individual vars (local)
+REDIS_URL = config('REDIS_URL', default=None)
+if REDIS_URL:
+    from urllib.parse import urlparse
+    parsed_redis = urlparse(REDIS_URL)
+    REDIS_DOMAIN = parsed_redis.hostname
+    REDIS_PORT = parsed_redis.port or 6379
+else:
+    REDIS_DOMAIN = config('REDIS_DOMAIN', default='localhost')
+    REDIS_PORT = config('REDIS_PORT', default=6379)
+    REDIS_URL = f'redis://{REDIS_DOMAIN}:{REDIS_PORT}'
 
 FRONTEND_ORIGIN = config('FRONTEND_ORIGIN', default='http://localhost:5173')
 BACKEND_ORIGIN = config('BACKEND_ORIGIN', default='http://localhost:80')
 
 # Document Storage
-AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='burn-notice-files')
 AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default=None)
 AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default=None)
 AWS_REGION_NAME = config('AWS_REGION_NAME', default='us-east-1')
@@ -133,7 +153,7 @@ AWS_SNS_ACCESS_KEY_ID = config('AWS_SNS_ACCESS_KEY_ID', default=None)
 AWS_SNS_SECRET_ACCESS_KEY = config('AWS_SNS_SECRET_ACCESS_KEY', default=None)
 
 # Email
-EMAIL_FROM_ADDRESS = config('EMAIL_FROM_ADDRESS')
+EMAIL_FROM_ADDRESS = config('EMAIL_FROM_ADDRESS', default='noreply@burn-notice.app')
 EMAIL_BACKEND = config('EMAIL_BACKEND', default='file', cast=Choices(['file', 'mailpit', 'live']))
 # Used for mailpit only
 EMAIL_SMTP_PORT = config('EMAIL_SMTP_PORT', default=1025)

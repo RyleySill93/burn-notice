@@ -1,0 +1,10 @@
+[build]
+builder = "nixpacks"
+
+[build.nixpacks]
+buildCmd = "npm install && npm run build"
+
+[deploy]
+startCommand = "npx serve -s dist -l 8080"
+healthcheckPath = "/"
+healthcheckTimeout = 100

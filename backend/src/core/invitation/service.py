@@ -189,7 +189,14 @@ class InvitationService:
             from src.core.user import UserUpdate
 
             hashed_password = AuthenticationService.hash_password(payload.password)
-            self.user_service.update_user(user.id, UserUpdate(hashed_password=hashed_password))
+            self.user_service.update_user(
+                user.id,
+                UserUpdate(
+                    first_name=payload.first_name,
+                    last_name=payload.last_name,
+                    hashed_password=hashed_password,
+                ),
+            )
 
         # Create membership (with auto-generated API key)
         membership = self.membership_service.create_customer_membership(

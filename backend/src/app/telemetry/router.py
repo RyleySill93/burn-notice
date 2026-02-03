@@ -1,13 +1,17 @@
 """
 OTLP (OpenTelemetry Protocol) receiver for Claude Code metrics.
 
-Receives metrics at /v1/metrics and stores token usage data.
+Receives metrics at /v1/metrics and stores full telemetry data.
 """
+from typing import Any
+
 from fastapi import APIRouter, Header, HTTPException, Request
 from loguru import logger
 from pydantic import BaseModel
 
 from src.app.engineers.service import EngineerService
+from src.app.usage.domains import TelemetryEventCreate
+from src.app.usage.models import TelemetryEvent
 from src.app.usage.service import UsageService
 from src.core.customer.models import Customer
 from src.core.membership import MembershipService
@@ -20,7 +24,7 @@ class OTLPResponse(BaseModel):
     partialSuccess: dict | None = None
 
 
-def extract_attribute(attributes: list[dict], key: str) -> str | int | None:
+def extract_attribute(attributes: list[dict], key: str) -> str | int | float | None:
     """Extract a value from OTLP attributes list."""
     for attr in attributes:
         if attr.get('key') == key:
@@ -32,7 +36,31 @@ def extract_attribute(attributes: list[dict], key: str) -> str | int | None:
                 return int(value['intValue'])
             if 'doubleValue' in value:
                 return value['doubleValue']
+            if 'boolValue' in value:
+                return value['boolValue']
     return None
+
+
+def attributes_to_dict(attributes: list[dict]) -> dict[str, Any]:
+    """Convert OTLP attributes list to a dictionary."""
+    result = {}
+    for attr in attributes:
+        key = attr.get('key')
+        if key:
+            value = attr.get('value', {})
+            if 'stringValue' in value:
+                result[key] = value['stringValue']
+            elif 'intValue' in value:
+                result[key] = int(value['intValue'])
+            elif 'doubleValue' in value:
+                result[key] = value['doubleValue']
+            elif 'boolValue' in value:
+                result[key] = value['boolValue']
+            elif 'arrayValue' in value:
+                result[key] = value['arrayValue']
+            elif 'kvlistValue' in value:
+                result[key] = value['kvlistValue']
+    return result
 
 
 @router.post('/v1/metrics', response_model=OTLPResponse)
@@ -45,12 +73,9 @@ async def receive_metrics(
     authorization: str = Header(None),
 ) -> OTLPResponse:
     """
-    Receive OTLP metrics from Claude Code.
+    Receive OTLP metrics from Claude Code with full granularity capture.
 
-    Expects one of:
-    - X-API-Key header with personal API key (preferred, identifies both user and team)
-    - X-Team-API-Key header with customer ID (legacy, requires X-User-Id/X-User-Name)
-    - Authorization: Bearer <customer_id> header (legacy)
+    Stores every metric with full payload for complete telemetry.
     """
     customer = None
     user_from_key = None
@@ -89,21 +114,18 @@ async def receive_metrics(
         logger.error(f'Failed to parse OTLP payload: {e}')
         raise HTTPException(status_code=400, detail='Invalid JSON payload')
 
-    # Debug: log headers and payload
-    import json
-    logger.info(f'OTLP headers - X-User-Id: {x_user_id}, X-User-Name: {x_user_name}')
-    logger.info(f'OTLP payload: {json.dumps(body, indent=2)}')
-
     # Process resource metrics
     resource_metrics = body.get('resourceMetrics', [])
-    metrics_recorded = 0
+    events_recorded = 0
+    usage_recorded = 0
 
     for rm in resource_metrics:
         # Extract resource attributes (user info, etc.)
         resource = rm.get('resource', {})
         resource_attrs = resource.get('attributes', [])
+        resource_attrs_dict = attributes_to_dict(resource_attrs)
 
-        # Try to get user identifier - prefer API key lookup, then headers, then resource attributes
+        # Try to get user identifier
         external_id = (
             user_from_key or
             x_user_id or
@@ -120,84 +142,121 @@ async def receive_metrics(
             external_id
         )
 
+        # Get or create engineer
+        engineer = EngineerService.get_or_create(
+            customer_id=customer.id,
+            external_id=str(external_id),
+            display_name=str(display_name),
+        )
+
         # Process scope metrics
         for sm in rm.get('scopeMetrics', []):
             scope = sm.get('scope', {})
             scope_name = scope.get('name', '')
+            scope_attrs_dict = {'scope_name': scope_name, 'scope_version': scope.get('version')}
 
             # Process individual metrics
             for metric in sm.get('metrics', []):
                 metric_name = metric.get('name', '')
+                metric_description = metric.get('description', '')
+                metric_unit = metric.get('unit', '')
 
-                # Look for token usage metrics
-                # Claude Code might use names like:
-                # - claude.tokens.input, claude.tokens.output
-                # - llm.token.count with attributes
-                # - api.tokens.used
-
-                tokens_input = 0
-                tokens_output = 0
-                model = None
-                session_id = None
-
-                # Handle sum metrics (counters)
+                # Get data points from sum, gauge, or histogram
+                data_points = []
                 if 'sum' in metric:
                     data_points = metric['sum'].get('dataPoints', [])
-                    for dp in data_points:
-                        dp_attrs = dp.get('attributes', [])
-                        value = dp.get('asInt') or dp.get('asDouble', 0)
-
-                        # Check metric name patterns
-                        if 'input' in metric_name.lower() or 'prompt' in metric_name.lower():
-                            tokens_input = int(value)
-                        elif 'output' in metric_name.lower() or 'completion' in metric_name.lower():
-                            tokens_output = int(value)
-                        elif 'token' in metric_name.lower():
-                            # Generic token metric - check attributes for direction
-                            direction = extract_attribute(dp_attrs, 'direction') or extract_attribute(dp_attrs, 'type')
-                            if direction in ('input', 'prompt'):
-                                tokens_input = int(value)
-                            elif direction in ('output', 'completion'):
-                                tokens_output = int(value)
-
-                        # Extract model and session from attributes
-                        model = model or extract_attribute(dp_attrs, 'model') or extract_attribute(dp_attrs, 'llm.model')
-                        session_id = session_id or extract_attribute(dp_attrs, 'session.id') or extract_attribute(dp_attrs, 'session_id')
-
-                # Handle gauge metrics
                 elif 'gauge' in metric:
                     data_points = metric['gauge'].get('dataPoints', [])
-                    for dp in data_points:
-                        dp_attrs = dp.get('attributes', [])
-                        value = dp.get('asInt') or dp.get('asDouble', 0)
+                elif 'histogram' in metric:
+                    data_points = metric['histogram'].get('dataPoints', [])
 
-                        if 'input' in metric_name.lower():
+                for dp in data_points:
+                    dp_attrs = dp.get('attributes', [])
+                    dp_attrs_dict = attributes_to_dict(dp_attrs)
+                    value = dp.get('asInt') or dp.get('asDouble', 0)
+
+                    # Extract common fields
+                    model = (
+                        extract_attribute(dp_attrs, 'model') or
+                        extract_attribute(dp_attrs, 'llm.model') or
+                        extract_attribute(dp_attrs, 'gen_ai.response.model')
+                    )
+                    session_id = (
+                        extract_attribute(dp_attrs, 'session.id') or
+                        extract_attribute(dp_attrs, 'session_id') or
+                        extract_attribute(dp_attrs, 'conversation.id')
+                    )
+
+                    # Extract token counts based on metric name
+                    tokens_input = 0
+                    tokens_output = 0
+                    cache_read_tokens = 0
+                    cache_creation_tokens = 0
+
+                    metric_lower = metric_name.lower()
+                    if 'input' in metric_lower or 'prompt' in metric_lower:
+                        tokens_input = int(value)
+                    elif 'output' in metric_lower or 'completion' in metric_lower:
+                        tokens_output = int(value)
+                    elif 'cache_read' in metric_lower:
+                        cache_read_tokens = int(value)
+                    elif 'cache_creation' in metric_lower:
+                        cache_creation_tokens = int(value)
+                    elif 'token' in metric_lower:
+                        # Generic token metric - check attributes
+                        direction = extract_attribute(dp_attrs, 'direction') or extract_attribute(dp_attrs, 'type')
+                        if direction in ('input', 'prompt'):
                             tokens_input = int(value)
-                        elif 'output' in metric_name.lower():
+                        elif direction in ('output', 'completion'):
                             tokens_output = int(value)
 
-                        model = model or extract_attribute(dp_attrs, 'model')
-                        session_id = session_id or extract_attribute(dp_attrs, 'session.id')
+                    # Extract tool usage
+                    tool_name = extract_attribute(dp_attrs, 'tool.name') or extract_attribute(dp_attrs, 'tool')
+                    tool_result = extract_attribute(dp_attrs, 'tool.result') or extract_attribute(dp_attrs, 'result')
 
-                # Record usage if we have token data
-                if tokens_input > 0 or tokens_output > 0:
-                    engineer = EngineerService.get_or_create(
-                        customer_id=customer.id,
-                        external_id=str(external_id),
-                        display_name=str(display_name),
-                    )
+                    # Extract timing
+                    duration_ms = extract_attribute(dp_attrs, 'duration_ms') or extract_attribute(dp_attrs, 'latency_ms')
+                    ttft_ms = extract_attribute(dp_attrs, 'time_to_first_token_ms') or extract_attribute(dp_attrs, 'ttft_ms')
 
-                    UsageService.record_usage(
+                    # Extract cost if present
+                    cost_usd = extract_attribute(dp_attrs, 'cost_usd') or extract_attribute(dp_attrs, 'cost')
+
+                    # Store full telemetry event
+                    telemetry_event = TelemetryEventCreate(
                         engineer_id=engineer.id,
+                        session_id=str(session_id) if session_id else None,
+                        event_type='metrics',
+                        metric_name=metric_name,
+                        model=str(model) if model else None,
                         tokens_input=tokens_input,
                         tokens_output=tokens_output,
-                        model=model,
-                        session_id=session_id,
+                        cache_read_tokens=cache_read_tokens,
+                        cache_creation_tokens=cache_creation_tokens,
+                        cost_usd=float(cost_usd) if cost_usd else None,
+                        tool_name=str(tool_name) if tool_name else None,
+                        tool_result=str(tool_result) if tool_result else None,
+                        duration_ms=int(duration_ms) if duration_ms else None,
+                        time_to_first_token_ms=int(ttft_ms) if ttft_ms else None,
+                        raw_payload={'metric': metric, 'dataPoint': dp},
+                        resource_attributes=resource_attrs_dict,
+                        scope_attributes=scope_attrs_dict,
+                        data_point_attributes=dp_attrs_dict,
                     )
-                    metrics_recorded += 1
-                    logger.debug(f'Recorded usage: {external_id} - {tokens_input}/{tokens_output} tokens')
+                    TelemetryEvent.create(telemetry_event)
+                    events_recorded += 1
 
-    logger.info(f'Processed OTLP metrics: {metrics_recorded} usage records for team {customer.name}')
+                    # Also record to legacy usage table for backward compatibility
+                    if tokens_input > 0 or tokens_output > 0:
+                        UsageService.record_usage(
+                            engineer_id=engineer.id,
+                            tokens_input=tokens_input,
+                            tokens_output=tokens_output,
+                            model=str(model) if model else None,
+                            session_id=str(session_id) if session_id else None,
+                        )
+                        usage_recorded += 1
+
+    logger.info(f'OTLP: {events_recorded} telemetry events, {usage_recorded} usage records for {customer.name}')
 
     return OTLPResponse(partialSuccess=None)
 

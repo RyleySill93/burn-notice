@@ -30,8 +30,8 @@ class UserRead(BaseDomain):
 
 
 class UserUpdate(BaseDomain):
-    first_name: str | None = None
-    last_name: str | None = None
+    first_name: str | None
+    last_name: str | None
     hashed_password: str | None = None
 
     @model_validator(mode='after')

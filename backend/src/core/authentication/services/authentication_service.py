@@ -197,7 +197,10 @@ class AuthenticationService:
 
         # Hash and set the password
         hashed_password = self.hash_password(password)
-        self.user_service.update_user(user.id, UserUpdate(hashed_password=hashed_password))
+        self.user_service.update_user(
+            user.id,
+            UserUpdate(first_name=first_name, last_name=last_name, hashed_password=hashed_password),
+        )
 
         # Authenticate and return token
         return self.authenticate_with_password_login(

@@ -21,8 +21,9 @@ import {
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { format, subDays } from 'date-fns'
+import { format, subDays, isToday, isSameDay } from 'date-fns'
 import { useMetricToggle } from '@/hooks/useMetricToggle'
+import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
 
 type MetricType = 'total' | 'input' | 'output' | 'cost'
 import { MetricToggle } from '@/components/MetricToggle'
@@ -265,10 +266,16 @@ function HistoricalRankingsTable({
           <div className="flex items-center gap-3">
             <RankBadge rank={entry.rank} />
             <div>
-              <p className="font-medium text-sm">
+              <p className={cn(
+                'font-medium text-sm',
+                entry.rank !== null && entry.rank <= 3 && 'text-gray-900'
+              )}>
                 {formatPeriodLabel(entry.period_start, entry.period_end, periodType)}
               </p>
-              <p className="text-xs text-muted-foreground">{formatValue(getMetricValue(entry, metric), metric)}{metric !== 'cost' && ' tokens'}</p>
+              <p className={cn(
+                'text-xs',
+                entry.rank !== null && entry.rank <= 3 ? 'text-gray-600' : 'text-muted-foreground'
+              )}>{formatValue(getMetricValue(entry, metric), metric)}{metric !== 'cost' && ' tokens'}</p>
             </div>
           </div>
         </div>
@@ -277,11 +284,16 @@ function HistoricalRankingsTable({
   )
 }
 
+type RankingsPeriod = 'daily' | 'weekly' | 'monthly'
+
 export function EngineerPage() {
   const { engineerId } = useParams<{ engineerId: string }>()
   const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 29))
-  const [rankingsPeriod, setRankingsPeriod] = useState<string>('daily')
+  const [rankingsPeriod, setRankingsPeriod] = useState<RankingsPeriod>('daily')
+  const [rankingsDate, setRankingsDate] = useState<Date>(new Date())
   const { metric, setMetric } = useMetricToggle()
+
+  const rankingsIsToday = isSameDay(rankingsDate, new Date())
 
   const { data: stats, isLoading: statsLoading } = useQuery<EngineerStats>({
     queryKey: ['engineer-stats', engineerId],
@@ -290,6 +302,7 @@ export function EngineerPage() {
       return response.data
     },
     enabled: !!engineerId,
+    refetchInterval: 30_000,
   })
 
   const { data: dailyTotals, isLoading: chartLoading } = useQuery<DailyTotalsResponse>({
@@ -310,7 +323,7 @@ export function EngineerPage() {
   })
 
   const { data: rankings, isLoading: rankingsLoading } = useQuery<HistoricalRankingsResponse>({
-    queryKey: ['engineer-rankings', engineerId, rankingsPeriod],
+    queryKey: ['engineer-rankings', engineerId, rankingsPeriod, format(rankingsDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       const response = await axios.get<HistoricalRankingsResponse>(
         `/api/leaderboard/engineers/${engineerId}/historical-rankings`,
@@ -318,12 +331,14 @@ export function EngineerPage() {
           params: {
             period_type: rankingsPeriod,
             num_periods: 20,
+            as_of: format(rankingsDate, 'yyyy-MM-dd'),
           },
         }
       )
       return response.data
     },
     enabled: !!engineerId,
+    refetchInterval: rankingsIsToday ? 30_000 : false,
   })
 
   const chartData =
@@ -447,14 +462,19 @@ export function EngineerPage() {
 
         {/* Historical Rankings */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Trophy className="h-4 w-4 text-amber-500" />
               Ranking History
             </CardTitle>
+            <LeaderboardDatePicker
+              activeTab={rankingsPeriod === 'daily' ? 'today' : rankingsPeriod === 'weekly' ? 'weekly' : 'monthly'}
+              selectedDate={rankingsDate}
+              onDateChange={setRankingsDate}
+            />
           </CardHeader>
           <CardContent>
-            <Tabs value={rankingsPeriod} onValueChange={setRankingsPeriod} className="w-full">
+            <Tabs value={rankingsPeriod} onValueChange={(v) => setRankingsPeriod(v as RankingsPeriod)} className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="daily" className="text-xs">
                   Daily

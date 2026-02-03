@@ -4,7 +4,6 @@ from src.core.invitation.domains import (
     InvitationCreate,
     InvitationRead,
     InvitationUpdate,
-    ProjectPermissionGrant,
     SendInvitationPayload,
 )
 from src.core.invitation.exceptions import (
@@ -25,7 +24,6 @@ __all__ = [
     'InvitationCreate',
     'InvitationRead',
     'InvitationUpdate',
-    'ProjectPermissionGrant',
     'SendInvitationPayload',
     'AcceptInvitationPayload',
     'InvitationService',

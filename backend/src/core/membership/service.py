@@ -1,3 +1,4 @@
+import secrets
 from typing import List
 
 from src.common.nanoid import NanoIdType
@@ -6,9 +7,36 @@ from src.core.membership.models import Membership
 
 
 class MembershipService:
+    API_KEY_PREFIX = 'bn_'
+    API_KEY_LENGTH = 40  # 40 chars after prefix = 43 total
     @classmethod
     def factory(cls) -> 'MembershipService':
         return cls()
+
+    @classmethod
+    def generate_api_key(cls) -> str:
+        """Generate a unique API key with 'bn_' prefix."""
+        return f'{cls.API_KEY_PREFIX}{secrets.token_urlsafe(cls.API_KEY_LENGTH)}'
+
+    def get_membership_by_api_key(self, api_key: str) -> MembershipRead | None:
+        """Look up a membership by its API key."""
+        return Membership.get_or_none(Membership.api_key == api_key)
+
+    def get_membership_with_user_by_api_key(self, api_key: str) -> MembershipWithUser | None:
+        """Look up a membership by its API key, including user data."""
+        from src.core.user import UserService
+
+        membership = self.get_membership_by_api_key(api_key)
+        if not membership:
+            return None
+
+        user_service = UserService.factory()
+        membership_with_user = MembershipWithUser(**membership.model_dump(), user=None)
+        if membership.user_id:
+            user = user_service.get_user_for_id(membership.user_id)
+            if user:
+                membership_with_user.user = user
+        return membership_with_user
 
     def list_memberships_for_user(self, user_id: NanoIdType) -> List[MembershipRead]:
         """List all memberships for a specific user"""
@@ -51,9 +79,24 @@ class MembershipService:
         """Get a single membership by ID"""
         return Membership.get(id=membership_id)
 
-    def create_customer_membership(self, user_id: NanoIdType, customer_id: NanoIdType) -> MembershipRead:
-        """Create a new membership linking a user to a customer"""
-        membership_data = MembershipCreate(customer_id=customer_id, user_id=user_id, is_active=True)
+    def create_customer_membership(
+        self,
+        user_id: NanoIdType,
+        customer_id: NanoIdType,
+        api_key: str | None = None,
+    ) -> MembershipRead:
+        """Create a new membership linking a user to a customer.
+
+        If api_key is not provided, one will be generated automatically.
+        """
+        if api_key is None:
+            api_key = self.generate_api_key()
+        membership_data = MembershipCreate(
+            customer_id=customer_id,
+            user_id=user_id,
+            is_active=True,
+            api_key=api_key,
+        )
         return Membership.create(membership_data)
 
     def list_memberships_with_users_for_customer(self, customer_id: NanoIdType) -> List[MembershipWithUser]:

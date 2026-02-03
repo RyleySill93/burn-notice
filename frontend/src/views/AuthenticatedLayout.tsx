@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useNavigate, Link, useLocation } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
-import { Flame, LogOut, Check, Building2, Users, BarChart3 } from 'lucide-react'
+import { Flame, LogOut, Check, Building2, Users, Settings, LayoutDashboard } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -19,7 +19,7 @@ export function AuthenticatedLayout() {
 
   const handleSwitchCustomer = (customerId: string) => {
     setCurrentCustomerId(customerId)
-    navigate('/leaderboard')
+    navigate('/dashboard')
   }
 
   if (isLoading) {
@@ -44,7 +44,7 @@ export function AuthenticatedLayout() {
     : 'U'
 
   const navItems = [
-    { path: '/leaderboard', label: 'Leaderboard', icon: BarChart3 },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/team', label: 'Team', icon: Users },
   ]
 
@@ -123,6 +123,13 @@ export function AuthenticatedLayout() {
                       <DropdownMenuSeparator />
                     </>
                   )}
+                  <DropdownMenuItem asChild>
+                    <Link to="/setup">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Setup Instructions
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600">
                     <LogOut className="h-4 w-4 mr-2" />
                     Log out
@@ -130,6 +137,7 @@ export function AuthenticatedLayout() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+
           </div>
         </div>
       </header>

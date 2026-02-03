@@ -43,3 +43,4 @@ class UserUpdate(BaseDomain):
 
 class UserCreate(UserUpdate):
     email: EmailStr
+    is_active: bool = True

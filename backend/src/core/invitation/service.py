@@ -87,19 +87,12 @@ class InvitationService:
         token = self._generate_token()
         expires_at = datetime.utcnow() + timedelta(days=self.INVITATION_EXPIRY_DAYS)
 
-        # Convert project permissions to dict format for JSON storage
-        project_permissions_data = [
-            {'project_id': pp.project_id, 'permission_type': pp.permission_type.value}
-            for pp in payload.project_permissions
-        ]
-
         invitation_create = InvitationCreate(
             email=payload.email,
             customer_id=payload.customer_id,
             invited_by_user_id=invited_by_user_id,
             token=token,
             expires_at=expires_at,
-            project_permissions=project_permissions_data,
             message=payload.message,
         )
 
@@ -198,11 +191,12 @@ class InvitationService:
             hashed_password = AuthenticationService.hash_password(payload.password)
             self.user_service.update_user(user.id, UserUpdate(hashed_password=hashed_password))
 
-        # Create membership
+        # Create membership (with auto-generated API key)
         membership = self.membership_service.create_customer_membership(
             user_id=user.id,
             customer_id=invitation.customer_id,
         )
+        api_key = membership.api_key
 
         # Grant member access (READ permission on customer)
         from src.core.authorization.services.access_control_service import AccessControlService
@@ -241,6 +235,7 @@ class InvitationService:
             customer_id=invitation.customer_id,
             access_token=token.access_token,
             refresh_token=token.refresh_token,
+            api_key=api_key,
         )
 
     def list_invitations_for_customer(

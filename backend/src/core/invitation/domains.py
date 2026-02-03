@@ -5,15 +5,7 @@ from pydantic import Field
 
 from src.common.domain import BaseDomain
 from src.common.nanoid import NanoId, NanoIdType
-from src.core.authorization.constants import PermissionTypeEnum
 from src.core.invitation.constants import INVITATION_PK_ABBREV, InvitationStatusEnum
-
-
-class ProjectPermissionGrant(BaseDomain):
-    """A project permission to be granted upon invitation acceptance"""
-
-    project_id: str
-    permission_type: PermissionTypeEnum
 
 
 class InvitationCreate(BaseDomain):
@@ -52,7 +44,6 @@ class InvitationUpdate(BaseDomain):
 class SendInvitationPayload(BaseDomain):
     email: str
     customer_id: str
-    project_permissions: List[ProjectPermissionGrant] = Field(default_factory=list)
     message: Optional[str] = None
 
 
@@ -65,8 +56,9 @@ class AcceptInvitationPayload(BaseDomain):
 
 
 class AcceptInvitationResponse(BaseDomain):
-    """Response after accepting an invitation, includes auth tokens"""
+    """Response after accepting an invitation, includes auth tokens and API key"""
 
     customer_id: str
     access_token: str
     refresh_token: str
+    api_key: str

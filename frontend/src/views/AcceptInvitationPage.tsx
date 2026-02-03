@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { CheckCircle, XCircle, Clock, Users } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, Users, Copy, Check } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { SuperField } from '@/components/SuperField'
@@ -35,6 +35,8 @@ export function AcceptInvitationPage() {
   const { isAuthenticated, user, setCurrentCustomerId } = useAuth()
   const apiError = useApiError()
   const [accepted, setAccepted] = useState(false)
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const { data: invitation, isLoading, error } = useGetInvitationByToken(
     { token: token ?? '' },
@@ -57,12 +59,21 @@ export function AcceptInvitationPage() {
       // Set the current customer to the one they were invited to
       setCurrentCustomerId(response.customerId)
 
+      // Store the API key to show setup instructions
+      setApiKey(response.apiKey)
       setAccepted(true)
 
-      // Redirect after a short delay
-      setTimeout(() => navigate('/projects'), 1500)
+      // Don't auto-redirect - let user see their API key first
     } catch (err) {
       apiError.setError(err)
+    }
+  }
+
+  const handleCopyApiKey = async () => {
+    if (apiKey) {
+      await navigator.clipboard.writeText(apiKey)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     }
   }
 
@@ -173,16 +184,77 @@ export function AcceptInvitationPage() {
   }
 
   if (accepted) {
+    const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+    const setupScript = apiKey
+      ? `# Add to ~/.zshrc (or ~/.bashrc), then run: source ~/.zshrc
+
+# burn-notice - Claude Code usage tracking
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
+export OTEL_EXPORTER_OTLP_ENDPOINT="${apiUrl}"
+export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
+      : ''
+
+    const handleCopyScript = async () => {
+      await navigator.clipboard.writeText(setupScript)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-2xl">
           <CardHeader className="text-center">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
             <CardTitle>Welcome to the team!</CardTitle>
             <CardDescription>
-              You have successfully joined the team. Redirecting...
+              You have successfully joined the team. Set up Claude Code tracking below.
             </CardDescription>
           </CardHeader>
+          <CardContent className="space-y-6">
+            {apiKey && (
+              <>
+                <div>
+                  <h3 className="font-semibold mb-2">Your Personal API Key</h3>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono break-all">
+                      {apiKey}
+                    </code>
+                    <SuperButton
+                      variant="outline"
+                      size="icon"
+                      onClick={handleCopyApiKey}
+                      className="shrink-0"
+                    >
+                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    </SuperButton>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    This key identifies you on the leaderboard. Keep it private.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold mb-2">Setup Instructions</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Add this to your shell config to enable Claude Code telemetry:
+                  </p>
+                  <div className="bg-zinc-900 text-zinc-100 rounded-lg p-4 font-mono text-sm overflow-x-auto">
+                    <pre>{setupScript}</pre>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <SuperButton onClick={handleCopyScript} variant="outline">
+                      {copied ? 'Copied!' : 'Copy Script'}
+                    </SuperButton>
+                    <SuperButton onClick={() => navigate('/projects')}>
+                      Go to Dashboard
+                    </SuperButton>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
         </Card>
       </div>
     )
@@ -206,12 +278,6 @@ export function AcceptInvitationPage() {
               <p>
                 <strong>Invited email:</strong> {invitation.email}
               </p>
-              {invitation.projectPermissions.length > 0 && (
-                <p className="mt-2">
-                  <strong>Project access:</strong>{' '}
-                  {invitation.projectPermissions.length} project(s)
-                </p>
-              )}
             </div>
             <SuperButton className="w-full" onClick={handleAcceptForExistingUser}>
               Accept Invitation

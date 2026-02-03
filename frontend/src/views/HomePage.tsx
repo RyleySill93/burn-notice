@@ -18,7 +18,6 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/contexts/AuthContext'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { format, subDays } from 'date-fns'
@@ -218,7 +217,6 @@ function LeaderboardTable({
 }
 
 export function HomePage() {
-  const { customer } = useAuth()
   const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 6))
 
   const { data: stats, isLoading: statsLoading } = useQuery<UsageStats>({

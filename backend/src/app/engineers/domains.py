@@ -1,9 +1,15 @@
 from datetime import datetime
+from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from src.common.nanoid import NanoId, NanoIdType
+
+ENGINEER_PK_ABBREV = 'eng'
 
 
 class EngineerCreate(BaseModel):
+    id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=ENGINEER_PK_ABBREV))
     customer_id: str  # Team/customer ID
     external_id: str  # e.g., "alice@company.com" or "alice-macbook"
     display_name: str

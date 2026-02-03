@@ -1,9 +1,16 @@
 from datetime import date, datetime
+from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from src.common.nanoid import NanoId, NanoIdType
+
+USAGE_PK_ABBREV = 'usg'
+USAGE_DAILY_PK_ABBREV = 'usgd'
 
 
 class UsageCreate(BaseModel):
+    id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=USAGE_PK_ABBREV))
     engineer_id: str
     tokens_input: int = 0
     tokens_output: int = 0
@@ -31,6 +38,7 @@ class UsageRead(BaseModel):
 
 
 class UsageDailyCreate(BaseModel):
+    id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=USAGE_DAILY_PK_ABBREV))
     engineer_id: str
     date: date
     total_tokens: int = 0

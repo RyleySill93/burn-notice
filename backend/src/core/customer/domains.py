@@ -1,11 +1,15 @@
 from datetime import datetime
 from typing import Optional
 
+from pydantic import Field
+
 from src.common.domain import BaseDomain
-from src.common.nanoid import NanoIdType
+from src.common.nanoid import NanoId, NanoIdType
+from src.core.customer.constants import CUSTOMER_PK_ABBREV
 
 
 class CustomerCreate(BaseDomain):
+    id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=CUSTOMER_PK_ABBREV))
     name: str
 
 

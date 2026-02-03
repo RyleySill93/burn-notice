@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Request, status
+from pydantic import BaseModel
 
 from src.common.exceptions import APIException
 from src.common.nanoid import NanoIdType
@@ -24,6 +25,10 @@ from src.core.invitation.exceptions import (
 )
 from src.core.invitation.service import InvitationService
 from src.core.membership import MembershipService, MembershipWithUser
+
+
+class MyApiKeyResponse(BaseModel):
+    api_key: str
 
 router = APIRouter()
 
@@ -148,3 +153,28 @@ def remove_team_member(
         raise APIException(code=status.HTTP_400_BAD_REQUEST, message='You cannot remove yourself from the team')
 
     membership_service.delete_membership(membership_id=membership_id)
+
+
+@router.get('/memberships/my-api-key')
+def get_my_api_key(
+    customer_id: NanoIdType,
+    user: AuthenticatedUser = AuthenticatedUserGuard(),
+    membership_service: MembershipService = Depends(MembershipService.factory),
+) -> MyApiKeyResponse:
+    """Get the current user's API key for the specified customer/team"""
+    memberships = membership_service.list_memberships_for_user(user.id)
+
+    # Find membership for the specified customer
+    membership = next((m for m in memberships if m.customer_id == customer_id), None)
+    if not membership:
+        raise APIException(code=status.HTTP_404_NOT_FOUND, message='Membership not found for this team')
+
+    if not membership.api_key:
+        # Generate API key if it doesn't exist (for legacy memberships)
+        from src.core.membership.models import Membership as MembershipModel
+
+        api_key = MembershipService.generate_api_key()
+        MembershipModel.update(membership.id, api_key=api_key)
+        return MyApiKeyResponse(api_key=api_key)
+
+    return MyApiKeyResponse(api_key=membership.api_key)

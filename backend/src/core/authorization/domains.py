@@ -3,9 +3,13 @@ from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
 from pydantic import Field
 
 from src.common.domain import BaseDomain
-from src.common.nanoid import NanoIdType
+from src.common.nanoid import NanoId, NanoIdType
 from src.core.authentication import UserAuthSettings
 from src.core.authorization.constants import (
+    ACCESS_POLICY_PK_ABBREV,
+    ACCESS_ROLE_PK_ABBREV,
+    MEMBERSHIP_ASSIGNMENT_PK_ABBREV,
+    POLICY_ROLE_ASSIGNMENT_PK_ABBREV,
     AuthzScopeEnum,
     PermissionEffectEnum,
     PermissionTypeEnum,
@@ -137,6 +141,7 @@ class MyLoginConfig(BaseDomain):
 
 
 class AccessRoleCreate(BaseDomain):
+    id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=ACCESS_ROLE_PK_ABBREV))
     name: str
     is_default: bool | None = False
     description: Optional[str] = None
@@ -179,6 +184,7 @@ ResourceSelectorDict = Union[ExactSelectorDict, MultipleSelectorDict, WildcardSe
 
 # In AccessPolicy class, keep resource_selector as a dictionary
 class AccessPolicyCreate(BaseDomain):
+    id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=ACCESS_POLICY_PK_ABBREV))
     name: str
     customer_id: NanoIdType | None = None
     permission_type: PermissionTypeEnum
@@ -206,6 +212,7 @@ class AccessPolicyRead(AccessPolicyCreate):
 
 
 class PolicyRoleAssignmentCreate(BaseDomain):
+    id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=POLICY_ROLE_ASSIGNMENT_PK_ABBREV))
     role_id: NanoIdType
     policy_id: NanoIdType
 
@@ -239,6 +246,7 @@ class RoleCreateWithPolicies(BaseDomain):
 
 # Base domains for MembershipAssignment
 class MembershipAssignmentCreate(BaseDomain):
+    id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=MEMBERSHIP_ASSIGNMENT_PK_ABBREV))
     membership_id: NanoIdType
     access_role_id: NanoIdType  # Changed from role_id to access_role_id
 

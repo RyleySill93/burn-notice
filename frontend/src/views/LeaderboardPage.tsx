@@ -1,10 +1,12 @@
+import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Flame, TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/contexts/AuthContext'
+import axios from '@/lib/axios-instance'
+
 
 interface LeaderboardEntry {
   engineer_id: string
@@ -17,7 +19,8 @@ interface LeaderboardEntry {
 
 interface Leaderboard {
   date: string
-  daily: LeaderboardEntry[]
+  today: LeaderboardEntry[]
+  yesterday: LeaderboardEntry[]
   weekly: LeaderboardEntry[]
   monthly: LeaderboardEntry[]
 }
@@ -77,10 +80,11 @@ function LeaderboardTable({ entries, emptyMessage }: { entries: LeaderboardEntry
   return (
     <div className="space-y-2">
       {entries.map((entry, index) => (
-        <div
+        <Link
           key={entry.engineer_id}
+          to={`/engineers/${entry.engineer_id}`}
           className={cn(
-            'flex items-center justify-between p-4 rounded-lg border',
+            'flex items-center justify-between p-4 rounded-lg border transition-colors hover:border-orange-300',
             index === 0 && 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200',
             index === 1 && 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200',
             index === 2 && 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
@@ -100,28 +104,24 @@ function LeaderboardTable({ entries, emptyMessage }: { entries: LeaderboardEntry
               {entry.rank}
             </div>
             <div>
-              <p className="font-medium">{entry.display_name}</p>
+              <p className="font-medium hover:text-orange-600">{entry.display_name}</p>
               <p className="text-sm text-muted-foreground">{formatTokens(entry.tokens)} tokens</p>
             </div>
           </div>
           <RankChangeIndicator change={entry.rank_change} />
-        </div>
+        </Link>
       ))}
     </div>
   )
 }
 
 export function LeaderboardPage() {
-  const { customer } = useAuth()
 
   const { data: leaderboard, isLoading } = useQuery<Leaderboard>({
     queryKey: ['leaderboard'],
     queryFn: async () => {
-      const response = await fetch('/api/leaderboard', {
-        credentials: 'include',
-      })
-      if (!response.ok) throw new Error('Failed to fetch leaderboard')
-      return response.json()
+      const response = await axios.get<Leaderboard>('/api/leaderboard')
+      return response.data
     },
   })
 
@@ -141,7 +141,7 @@ export function LeaderboardPage() {
           <h1 className="text-3xl font-bold">burn-notice</h1>
         </div>
         <p className="text-muted-foreground">
-          Who's burning the most tokens on {customer?.name || 'your team'}?
+          Who's burning the most tokens on your team?
         </p>
       </div>
 
@@ -162,16 +162,23 @@ export function LeaderboardPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="daily" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="daily">Daily</TabsTrigger>
+          <Tabs defaultValue="today" className="w-full">
+            <TabsList className="grid w-full grid-cols-4 mb-6">
+              <TabsTrigger value="today">Today</TabsTrigger>
+              <TabsTrigger value="yesterday">Yesterday</TabsTrigger>
               <TabsTrigger value="weekly">Weekly</TabsTrigger>
               <TabsTrigger value="monthly">Monthly</TabsTrigger>
             </TabsList>
-            <TabsContent value="daily">
+            <TabsContent value="today">
               <LeaderboardTable
-                entries={leaderboard?.daily || []}
-                emptyMessage="No usage recorded yesterday. Start burning tokens!"
+                entries={leaderboard?.today || []}
+                emptyMessage="No usage recorded today yet. Start burning tokens!"
+              />
+            </TabsContent>
+            <TabsContent value="yesterday">
+              <LeaderboardTable
+                entries={leaderboard?.yesterday || []}
+                emptyMessage="No usage recorded yesterday."
               />
             </TabsContent>
             <TabsContent value="weekly">
@@ -187,31 +194,6 @@ export function LeaderboardPage() {
               />
             </TabsContent>
           </Tabs>
-        </CardContent>
-      </Card>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Setup Instructions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            To track your team's Claude Code usage, each engineer needs to configure their environment:
-          </p>
-          <div className="bg-muted rounded-lg p-4 font-mono text-sm overflow-x-auto">
-            <pre>
-{`# Add to ~/.zshrc or ~/.bashrc
-export CLAUDE_CODE_ENABLE_TELEMETRY=1
-export OTEL_METRICS_EXPORTER=otlp
-export OTEL_EXPORTER_OTLP_ENDPOINT="YOUR_COLLECTOR_URL"
-
-# Team API Key (for reporting)
-export BURN_NOTICE_TEAM_KEY="${customer?.id || 'YOUR_TEAM_ID'}"`}
-            </pre>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Your Team API Key: <code className="bg-muted px-2 py-1 rounded">{customer?.id || 'Loading...'}</code>
-          </p>
         </CardContent>
       </Card>
     </div>

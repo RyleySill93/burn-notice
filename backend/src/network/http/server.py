@@ -127,3 +127,7 @@ if settings.BACKEND_CORS_ORIGINS:
     )
 
 server.include_router(api_router, prefix=settings.API_PREFIX)
+
+# OTLP telemetry receiver (at root level for standard /v1/metrics path)
+from src.app.telemetry.router import router as telemetry_router
+server.include_router(telemetry_router, tags=['telemetry'])

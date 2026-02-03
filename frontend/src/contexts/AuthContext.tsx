@@ -12,6 +12,11 @@ interface User {
   memberships?: MembershipWithCustomer[]
 }
 
+interface Customer {
+  id: string
+  name: string
+}
+
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
@@ -19,6 +24,7 @@ interface AuthContextType {
   hasMembership: boolean
   isStaff: boolean
   currentCustomerId: string | null
+  customer: Customer | null
   setCurrentCustomerId: (customerId: string) => void
   login: (email: string, password: string) => Promise<void>
   loginWithMagicLink: (email: string) => Promise<void>
@@ -48,6 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const validCustomerId = user?.memberships?.some(m => m.customerId === currentCustomerId)
     ? currentCustomerId
     : user?.memberships?.[0]?.customerId ?? null
+
+  // Get the current customer object from memberships
+  const currentMembership = user?.memberships?.find(m => m.customerId === validCustomerId)
+  const customer: Customer | null = currentMembership?.customer
+    ? { id: currentMembership.customer.id, name: currentMembership.customer.name }
+    : null
 
   // React Query mutations
   const authenticatePasswordMutation = useAuthenticatePassword()
@@ -161,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasMembership,
         isStaff,
         currentCustomerId: validCustomerId,
+        customer,
         setCurrentCustomerId,
         login,
         loginWithMagicLink,

@@ -7,7 +7,6 @@ import { SuperFormProvider } from '@/components/SuperFormProvider'
 import { Input } from '@/components/ui/input'
 import { useApiError } from '@/hooks/useApiError'
 import { useCreateCustomer } from '@/generated/authorization/authorization'
-import { config } from '@/config/app'
 import { useAuth } from '@/contexts/AuthContext'
 
 const createTeamSchema = z.object({

@@ -99,12 +99,10 @@ class PermissionService:
             An instance of PermissionService
         """
         # Import here to avoid circular imports
-        from src.app.projects import ProjectPermissionHandler
         from src.core.customer.permission_handler import CustomerPermissionHandler
 
         permission_handlers = [
             CustomerPermissionHandler(),
-            ProjectPermissionHandler(),
         ]
 
         return cls(

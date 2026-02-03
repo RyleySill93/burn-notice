@@ -123,6 +123,8 @@ class SendGridAPIEmailClient(SendGridAPIClient):
 
 class ResendEmailClient(AbstractEmailClient):
     def __init__(self, *args, **kwargs):
+        if not settings.RESEND_API_KEY:
+            raise EmailFailedToSend(message='RESEND_API_KEY not configured')
         resend.api_key = settings.RESEND_API_KEY
         super().__init__(*args, **kwargs)
 
@@ -146,10 +148,10 @@ class ResendEmailClient(AbstractEmailClient):
 
         try:
             response = resend.Emails.send(params)
-            logger.info(f'Resend email sent: {response}')
+            logger.info(f'Resend email sent successfully: id={response.get("id")} to={message.to_emails}')
         except Exception as exc:
-            logger.exception(f'Resend failed to send email: {exc}')
-            raise EmailFailedToSend(message=f'{message.subject}-{message.to_emails}') from exc
+            logger.error(f'Resend failed: {exc}')
+            raise EmailFailedToSend(message=f'Resend: {exc}') from exc
 
 
 class EmailFileClient(AbstractEmailClient):
@@ -277,16 +279,21 @@ class ResilientLiveEmailClient(AbstractEmailClient):
     def send(self, message: EmailClientDomain):
         message_sent = False
         for email_client in self.CLIENT_PRIORITY_ORDER:
+            client_name = email_client.__name__
+            logger.info(f'Attempting to send email via {client_name}')
             client = email_client()
             try:
                 client.send(message)
-            except EmailFailedToSend:
-                logger.warning(f'{email_client} failed to send!')
+            except EmailFailedToSend as exc:
+                logger.warning(f'{client_name} failed to send: {exc}')
                 sentry_sdk.capture_exception()
             except Exception as exc:
-                raise EmailFailedToSend(message=f'Unexpected failure using {email_client}') from exc
+                logger.error(f'{client_name} unexpected error: {exc}')
+                sentry_sdk.capture_exception()
+                continue
             else:
                 # Success
+                logger.info(f'Email sent successfully via {client_name} to {message.to_emails}')
                 message_sent = True
                 break
 

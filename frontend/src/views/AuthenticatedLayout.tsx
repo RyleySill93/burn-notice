@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useNavigate, Link, useLocation } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
-import { Flame, LogOut, Check, Building2, Users, Settings, LayoutDashboard } from 'lucide-react'
+import { Flame, LogOut, Check, Building2, Users, Settings, LayoutDashboard, Moon, Sun, Monitor } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -9,13 +9,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { useTheme } from '@/hooks/useTheme'
 
 export function AuthenticatedLayout() {
   const { isAuthenticated, isLoading, logout, user, hasMembership, isStaff, currentCustomerId, setCurrentCustomerId, customer } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const { theme, setTheme } = useTheme()
 
   const handleSwitchCustomer = (customerId: string) => {
     setCurrentCustomerId(customerId)
@@ -25,7 +31,7 @@ export function AuthenticatedLayout() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     )
   }
@@ -49,8 +55,8 @@ export function AuthenticatedLayout() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border sticky top-0 z-50">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-8">
@@ -67,8 +73,8 @@ export function AuthenticatedLayout() {
                     className={cn(
                       'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                       location.pathname === item.path
-                        ? 'bg-gray-100 text-gray-900'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                     )}
                   >
                     <item.icon className="h-4 w-4" />
@@ -129,6 +135,37 @@ export function AuthenticatedLayout() {
                       Setup Instructions
                     </Link>
                   </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      {theme === 'dark' ? (
+                        <Moon className="h-4 w-4 mr-2" />
+                      ) : theme === 'light' ? (
+                        <Sun className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Monitor className="h-4 w-4 mr-2" />
+                      )}
+                      Theme
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setTheme('light')}>
+                          <Sun className="h-4 w-4 mr-2" />
+                          Light
+                          {theme === 'light' && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme('dark')}>
+                          <Moon className="h-4 w-4 mr-2" />
+                          Dark
+                          {theme === 'dark' && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme('system')}>
+                          <Monitor className="h-4 w-4 mr-2" />
+                          System
+                          {theme === 'system' && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600">
                     <LogOut className="h-4 w-4 mr-2" />

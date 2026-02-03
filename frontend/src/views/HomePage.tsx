@@ -228,7 +228,7 @@ function LeaderboardTable({
             index === 0 && 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200',
             index === 1 && 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200',
             index === 2 && 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
-            index > 2 && 'bg-white'
+            index > 2 && 'bg-card'
           )}
         >
           <div className="flex items-center gap-3">

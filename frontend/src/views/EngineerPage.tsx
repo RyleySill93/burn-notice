@@ -236,7 +236,7 @@ function HistoricalRankingsTable({
             entry.rank === 1 && 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200',
             entry.rank === 2 && 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200',
             entry.rank === 3 && 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
-            (entry.rank === null || entry.rank > 3) && 'bg-white'
+            (entry.rank === null || entry.rank > 3) && 'bg-card'
           )}
         >
           <div className="flex items-center gap-3">

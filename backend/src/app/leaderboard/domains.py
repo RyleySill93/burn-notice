@@ -107,3 +107,37 @@ class EngineerStatsResponse(BaseModel):
     today: PeriodStats
     this_week: PeriodStats
     this_month: PeriodStats
+
+
+class EngineerDailyTotal(BaseModel):
+    """Token totals for a single engineer on a single day."""
+
+    engineer_id: str
+    display_name: str
+    tokens: int
+    tokens_input: int
+    tokens_output: int
+    cost_usd: float = 0.0
+
+
+class DayWithEngineers(BaseModel):
+    """A single day's totals broken down by engineer."""
+
+    date: date
+    engineers: list[EngineerDailyTotal]
+
+
+class EngineerInfo(BaseModel):
+    """Basic info about an engineer for legend/colors."""
+
+    id: str
+    display_name: str
+
+
+class DailyTotalsByEngineerResponse(BaseModel):
+    """Response for the daily totals by engineer chart endpoint."""
+
+    start_date: date
+    end_date: date
+    days: list[DayWithEngineers]
+    engineers: list[EngineerInfo]

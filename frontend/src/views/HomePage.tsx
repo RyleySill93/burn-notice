@@ -19,9 +19,11 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { format, subDays } from 'date-fns'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { format, subDays, isToday, isSameDay } from 'date-fns'
 import { useMetricToggle } from '@/hooks/useMetricToggle'
+import { useAuth } from '@/contexts/AuthContext'
+import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
 
 type MetricType = 'total' | 'input' | 'output' | 'cost'
 import { MetricToggle } from '@/components/MetricToggle'
@@ -77,6 +79,32 @@ interface Leaderboard {
   yesterday: LeaderboardEntry[]
   weekly: LeaderboardEntry[]
   monthly: LeaderboardEntry[]
+}
+
+interface EngineerDailyTotal {
+  engineer_id: string
+  display_name: string
+  tokens: number
+  tokens_input: number
+  tokens_output: number
+  cost_usd: number
+}
+
+interface DayWithEngineers {
+  date: string
+  engineers: EngineerDailyTotal[]
+}
+
+interface EngineerInfo {
+  id: string
+  display_name: string
+}
+
+interface DailyTotalsByEngineerResponse {
+  start_date: string
+  end_date: string
+  days: DayWithEngineers[]
+  engineers: EngineerInfo[]
 }
 
 function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number; cost_usd?: number }, metric: MetricType): number {
@@ -226,11 +254,21 @@ function LeaderboardTable({
   entries,
   emptyMessage,
   metric,
+  isLoading,
 }: {
   entries: LeaderboardEntry[]
   emptyMessage: string
   metric: MetricType
+  isLoading?: boolean
 }) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
   if (entries.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -278,16 +316,26 @@ function LeaderboardTable({
   )
 }
 
+type LeaderboardTab = 'today' | 'yesterday' | 'weekly' | 'monthly'
+
 export function HomePage() {
   const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 6))
+  const [leaderboardDate, setLeaderboardDate] = useState<Date>(new Date())
+  const [leaderboardTab, setLeaderboardTab] = useState<LeaderboardTab>('today')
   const { metric, setMetric } = useMetricToggle()
+  const { customer } = useAuth()
 
-  const { data: stats, isLoading: statsLoading } = useQuery<UsageStats>({
+  // Poll for live updates when viewing today's data (every 30s)
+  const chartEndsToday = isToday(new Date())
+  const leaderboardIsToday = isSameDay(leaderboardDate, new Date())
+
+  const { data: stats } = useQuery<UsageStats>({
     queryKey: ['usage-stats'],
     queryFn: async () => {
       const response = await axios.get<UsageStats>('/api/leaderboard/stats')
       return response.data
     },
+    refetchInterval: 30_000, // Always poll stats since it shows today's data
   })
 
   const { data: dailyTotals, isLoading: chartLoading } = useQuery<DailyTotalsResponse>({
@@ -301,14 +349,34 @@ export function HomePage() {
       })
       return response.data
     },
+    refetchInterval: chartEndsToday ? 30_000 : false,
   })
 
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<Leaderboard>({
-    queryKey: ['leaderboard'],
+    queryKey: ['leaderboard', format(leaderboardDate, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const response = await axios.get<Leaderboard>('/api/leaderboard')
+      const response = await axios.get<Leaderboard>('/api/leaderboard', {
+        params: {
+          as_of: format(leaderboardDate, 'yyyy-MM-dd'),
+        },
+      })
       return response.data
     },
+    refetchInterval: leaderboardIsToday ? 30_000 : false,
+  })
+
+  const { data: dailyByEngineer, isLoading: cumulativeLoading } = useQuery<DailyTotalsByEngineerResponse>({
+    queryKey: ['daily-totals-by-engineer', chartStartDate.toISOString()],
+    queryFn: async () => {
+      const response = await axios.get<DailyTotalsByEngineerResponse>('/api/leaderboard/daily-totals-by-engineer', {
+        params: {
+          start_date: format(chartStartDate, 'yyyy-MM-dd'),
+          end_date: format(new Date(), 'yyyy-MM-dd'),
+        },
+      })
+      return response.data
+    },
+    refetchInterval: chartEndsToday ? 30_000 : false,
   })
 
   const chartData =
@@ -317,15 +385,44 @@ export function HomePage() {
       tokens: getMetricValue(t, metric),
     })) || []
 
-  const isLoading = statsLoading || chartLoading || leaderboardLoading
+  // Build cumulative line chart data
+  const cumulativeData = (() => {
+    if (!dailyByEngineer) return []
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
+    const engineers = dailyByEngineer.engineers
+    const cumulative: Record<string, number> = {}
+
+    return dailyByEngineer.days.map((day) => {
+      const row: Record<string, number | string> = { date: format(new Date(day.date), 'MMM d') }
+
+      // Update cumulative totals for each engineer
+      for (const eng of day.engineers) {
+        const value = getMetricValue(eng, metric)
+        cumulative[eng.engineer_id] = (cumulative[eng.engineer_id] || 0) + value
+      }
+
+      // Add all engineers to this row (even if 0 for this day)
+      for (const eng of engineers) {
+        row[eng.id] = cumulative[eng.id] || 0
+      }
+
+      return row
+    })
+  })()
+
+  // Colors for engineer lines
+  const lineColors = [
+    '#f97316', // orange
+    '#3b82f6', // blue
+    '#22c55e', // green
+    '#a855f7', // purple
+    '#ef4444', // red
+    '#14b8a6', // teal
+    '#f59e0b', // amber
+    '#ec4899', // pink
+    '#6366f1', // indigo
+    '#84cc16', // lime
+  ]
 
   const todayTokens = stats ? getMetricValue(stats.today, metric) : 0
   const todayComparison = stats ? getComparisonValue(stats.today, metric) : 0
@@ -336,9 +433,9 @@ export function HomePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header with Metric Toggle */}
+      {/* Header with Team Name and Metric Toggle */}
       <div className="flex items-center justify-between">
-        <div />
+        <h1 className="text-2xl font-bold">{customer?.name}</h1>
         <MetricToggle metric={metric} setMetric={setMetric} />
       </div>
 
@@ -373,6 +470,64 @@ export function HomePage() {
         />
       </div>
 
+      {/* Cumulative Line Chart */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">
+            {metric === 'cost' ? 'Cumulative Costs by Engineer' : 'Cumulative Token Burns by Engineer'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            {cumulativeLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : cumulativeData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No data for this period
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={cumulativeData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => formatValue(value, metric)}
+                  />
+                  <Tooltip
+                    formatter={(value: number, name: string) => {
+                      const engineer = dailyByEngineer?.engineers.find(e => e.id === name)
+                      return [formatValue(value, metric), engineer?.display_name || name]
+                    }}
+                    labelStyle={{ fontWeight: 'bold' }}
+                  />
+                  <Legend
+                    formatter={(value: string) => {
+                      const engineer = dailyByEngineer?.engineers.find(e => e.id === value)
+                      return engineer?.display_name || value
+                    }}
+                  />
+                  {dailyByEngineer?.engineers.map((eng, idx) => (
+                    <Line
+                      key={eng.id}
+                      type="monotone"
+                      dataKey={eng.id}
+                      stroke={lineColors[idx % lineColors.length]}
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Chart and Leaderboard */}
       <div className="grid gap-6 lg:grid-cols-5 items-start">
         {/* Chart */}
@@ -399,37 +554,48 @@ export function HomePage() {
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => formatValue(value, metric)}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => [formatValue(value, metric), metric === 'cost' ? 'Cost' : 'Tokens']}
-                    labelStyle={{ fontWeight: 'bold' }}
-                  />
-                  <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {chartLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => formatValue(value, metric)}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [formatValue(value, metric), metric === 'cost' ? 'Cost' : 'Tokens']}
+                      labelStyle={{ fontWeight: 'bold' }}
+                    />
+                    <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Leaderboard */}
         <Card className="lg:col-span-2">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Flame className="h-4 w-4 text-orange-500" />
               Leaderboard
             </CardTitle>
+            <LeaderboardDatePicker
+              activeTab={leaderboardTab}
+              selectedDate={leaderboardDate}
+              onDateChange={setLeaderboardDate}
+            />
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="today" className="w-full">
+            <Tabs value={leaderboardTab} onValueChange={(v) => setLeaderboardTab(v as LeaderboardTab)} className="w-full">
               <TabsList className="grid w-full grid-cols-4 mb-4">
                 <TabsTrigger value="today" className="text-xs">
                   Today
@@ -449,6 +615,7 @@ export function HomePage() {
                   entries={leaderboard?.today || []}
                   emptyMessage="No usage today yet"
                   metric={metric}
+                  isLoading={leaderboardLoading}
                 />
               </TabsContent>
               <TabsContent value="yesterday">
@@ -456,6 +623,7 @@ export function HomePage() {
                   entries={leaderboard?.yesterday || []}
                   emptyMessage="No usage yesterday"
                   metric={metric}
+                  isLoading={leaderboardLoading}
                 />
               </TabsContent>
               <TabsContent value="weekly">
@@ -463,6 +631,7 @@ export function HomePage() {
                   entries={leaderboard?.weekly || []}
                   emptyMessage="No usage this week"
                   metric={metric}
+                  isLoading={leaderboardLoading}
                 />
               </TabsContent>
               <TabsContent value="monthly">
@@ -470,6 +639,7 @@ export function HomePage() {
                   entries={leaderboard?.monthly || []}
                   emptyMessage="No usage this month"
                   metric={metric}
+                  isLoading={leaderboardLoading}
                 />
               </TabsContent>
             </Tabs>

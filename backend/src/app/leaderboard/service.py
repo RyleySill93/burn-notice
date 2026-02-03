@@ -6,6 +6,10 @@ from src.app.engineers.models import Engineer
 from src.app.leaderboard.domains import (
     DailyTotal,
     DailyTotalsResponse,
+    DailyTotalsByEngineerResponse,
+    DayWithEngineers,
+    EngineerDailyTotal,
+    EngineerInfo,
     EngineerStatsResponse,
     HistoricalRank,
     HistoricalRankingsResponse,
@@ -1338,3 +1342,132 @@ class LeaderboardService:
                 return rank, row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0
 
         return None, 0, 0, 0, 0.0
+
+    @staticmethod
+    def get_daily_totals_by_engineer(
+        customer_id: str, start_date: date, end_date: date
+    ) -> DailyTotalsByEngineerResponse:
+        """Get daily token totals broken down by engineer for charting."""
+        today = date.today()
+
+        # Get all engineers for this customer
+        all_engineers = (
+            db.session.query(Engineer.id, Engineer.display_name)
+            .filter(Engineer.customer_id == customer_id)
+            .all()
+        )
+        engineer_names = {e.id: e.display_name for e in all_engineers}
+
+        # Get rolled up data from UsageDaily for all days except today
+        daily_results = (
+            db.session.query(
+                UsageDaily.date,
+                UsageDaily.engineer_id,
+                func.sum(UsageDaily.total_tokens).label('tokens'),
+                func.sum(UsageDaily.tokens_input).label('tokens_input'),
+                func.sum(UsageDaily.tokens_output).label('tokens_output'),
+                func.sum(UsageDaily.cost_usd).label('cost_usd'),
+            )
+            .join(Engineer, UsageDaily.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                UsageDaily.date >= start_date,
+                UsageDaily.date <= end_date,
+            )
+            .group_by(UsageDaily.date, UsageDaily.engineer_id)
+            .order_by(UsageDaily.date, UsageDaily.engineer_id)
+            .all()
+        )
+
+        # Build a dict of date -> engineer_id -> (tokens, tokens_input, tokens_output, cost_usd)
+        data_by_date: dict[date, dict[str, tuple[int, int, int, float]]] = {}
+        engineers_with_data: set[str] = set()
+
+        for row in daily_results:
+            if row.date not in data_by_date:
+                data_by_date[row.date] = {}
+            data_by_date[row.date][row.engineer_id] = (
+                row.tokens,
+                row.tokens_input,
+                row.tokens_output,
+                row.cost_usd or 0.0,
+            )
+            engineers_with_data.add(row.engineer_id)
+
+        # If end_date is today, get live data from Usage/TelemetryEvent table
+        if end_date >= today:
+            live_results = (
+                db.session.query(
+                    Usage.engineer_id,
+                    func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
+                    func.sum(Usage.tokens_input).label('tokens_input'),
+                    func.sum(Usage.tokens_output).label('tokens_output'),
+                )
+                .join(Engineer, Usage.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    cast(Usage.created_at, Date) == today,
+                )
+                .group_by(Usage.engineer_id)
+                .all()
+            )
+            # Get cost from TelemetryEvent for today
+            cost_results = (
+                db.session.query(
+                    TelemetryEvent.engineer_id,
+                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+                )
+                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    cast(TelemetryEvent.created_at, Date) == today,
+                )
+                .group_by(TelemetryEvent.engineer_id)
+                .all()
+            )
+            cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
+
+            if today not in data_by_date:
+                data_by_date[today] = {}
+            for r in live_results:
+                data_by_date[today][r.engineer_id] = (
+                    r.tokens or 0,
+                    r.tokens_input or 0,
+                    r.tokens_output or 0,
+                    cost_by_engineer.get(r.engineer_id, 0.0),
+                )
+                engineers_with_data.add(r.engineer_id)
+
+        # Build response with all days in range
+        days = []
+        current = start_date
+        while current <= end_date:
+            day_data = data_by_date.get(current, {})
+            engineers_for_day = []
+            for eng_id, (tokens, tokens_input, tokens_output, cost_usd) in day_data.items():
+                engineers_for_day.append(
+                    EngineerDailyTotal(
+                        engineer_id=eng_id,
+                        display_name=engineer_names.get(eng_id, 'Unknown'),
+                        tokens=tokens,
+                        tokens_input=tokens_input,
+                        tokens_output=tokens_output,
+                        cost_usd=cost_usd,
+                    )
+                )
+            days.append(DayWithEngineers(date=current, engineers=engineers_for_day))
+            current += timedelta(days=1)
+
+        # Build engineer list (only engineers who have data in the range)
+        engineers = [
+            EngineerInfo(id=eng_id, display_name=engineer_names.get(eng_id, 'Unknown'))
+            for eng_id in sorted(engineers_with_data)
+            if eng_id in engineer_names
+        ]
+
+        return DailyTotalsByEngineerResponse(
+            start_date=start_date,
+            end_date=end_date,
+            days=days,
+            engineers=engineers,
+        )

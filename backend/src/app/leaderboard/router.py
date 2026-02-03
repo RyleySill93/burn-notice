@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from src.app.leaderboard.domains import (
+    DailyTotalsByEngineerResponse,
     DailyTotalsResponse,
     EngineerStatsResponse,
     HistoricalRankingsResponse,
@@ -51,6 +52,18 @@ def get_daily_totals(
     end = end_date or date.today()
     start = start_date or (end - timedelta(days=6))
     return LeaderboardService.get_daily_totals(membership.customer_id, start, end)
+
+
+@router.get('/daily-totals-by-engineer', response_model=DailyTotalsByEngineerResponse)
+def get_daily_totals_by_engineer(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    membership: MembershipRead = Depends(get_current_membership),
+) -> DailyTotalsByEngineerResponse:
+    """Get daily token totals broken down by engineer for charting. Defaults to last 7 days."""
+    end = end_date or date.today()
+    start = start_date or (end - timedelta(days=6))
+    return LeaderboardService.get_daily_totals_by_engineer(membership.customer_id, start, end)
 
 
 @router.get('/engineers/{engineer_id}/stats', response_model=EngineerStatsResponse)

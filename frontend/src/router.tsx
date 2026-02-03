@@ -1,7 +1,10 @@
 import { createBrowserRouter, Navigate } from "react-router"
 import { RootLayout } from "@/components/RootLayout"
 import { AuthenticatedLayout } from "@/views/AuthenticatedLayout"
+import { HomePage } from "@/views/HomePage"
+import { EngineerPage } from "@/views/EngineerPage"
 import { LeaderboardPage } from "@/views/LeaderboardPage"
+import { SetupPage } from "@/views/SetupPage"
 import { ManageTeamPage } from "@/views/team/ManageTeamPage"
 import { LoginPage } from "@/views/LoginPage"
 import { SignupPage } from "@/views/SignupPage"
@@ -52,7 +55,15 @@ export const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <Navigate to="/leaderboard" replace />,
+            element: <Navigate to="/dashboard" replace />,
+          },
+          {
+            path: "dashboard",
+            element: <HomePage />,
+          },
+          {
+            path: "engineers/:engineerId",
+            element: <EngineerPage />,
           },
           {
             path: "leaderboard",
@@ -61,6 +72,10 @@ export const router = createBrowserRouter([
           {
             path: "team",
             element: <ManageTeamPage />,
+          },
+          {
+            path: "setup",
+            element: <SetupPage />,
           },
         ],
       },

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { useParams, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import {
-  Flame,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -16,9 +15,10 @@ import {
   Zap,
   Activity,
   BarChart3,
+  ArrowLeft,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/contexts/AuthContext'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { format, subDays } from 'date-fns'
@@ -29,7 +29,9 @@ interface PeriodStats {
   change_percent: number | null
 }
 
-interface UsageStats {
+interface EngineerStats {
+  engineer_id: string
+  display_name: string
   date: string
   today: PeriodStats
   this_week: PeriodStats
@@ -47,21 +49,17 @@ interface DailyTotalsResponse {
   totals: DailyTotal[]
 }
 
-interface LeaderboardEntry {
-  engineer_id: string
-  display_name: string
+interface HistoricalRank {
+  period_start: string
+  period_end: string
+  rank: number | null
   tokens: number
-  rank: number
-  prev_rank: number | null
-  rank_change: number | null
 }
 
-interface Leaderboard {
-  date: string
-  today: LeaderboardEntry[]
-  yesterday: LeaderboardEntry[]
-  weekly: LeaderboardEntry[]
-  monthly: LeaderboardEntry[]
+interface HistoricalRankingsResponse {
+  engineer_id: string
+  period_type: string
+  rankings: HistoricalRank[]
 }
 
 function formatTokens(n: number): string {
@@ -136,118 +134,133 @@ function StatCard({
   )
 }
 
-function RankChangeIndicator({ change }: { change: number | null }) {
-  if (change === null) {
-    return null
-  }
-  if (change > 0) {
+function RankBadge({ rank }: { rank: number | null }) {
+  if (rank === null) {
     return (
-      <Badge variant="outline" className="gap-1 text-green-600 border-green-200 bg-green-50">
-        <TrendingUp className="h-3 w-3" />
-        {change}
-      </Badge>
-    )
-  }
-  if (change < 0) {
-    return (
-      <Badge variant="outline" className="gap-1 text-red-600 border-red-200 bg-red-50">
-        <TrendingDown className="h-3 w-3" />
-        {Math.abs(change)}
+      <Badge variant="outline" className="text-muted-foreground">
+        —
       </Badge>
     )
   }
   return (
-    <Badge variant="outline" className="gap-1 text-gray-500 border-gray-200">
-      <Minus className="h-3 w-3" />
+    <Badge
+      variant="outline"
+      className={cn(
+        rank === 1 && 'bg-amber-50 text-amber-700 border-amber-200',
+        rank === 2 && 'bg-gray-50 text-gray-700 border-gray-200',
+        rank === 3 && 'bg-orange-50 text-orange-700 border-orange-200',
+        rank > 3 && 'text-muted-foreground'
+      )}
+    >
+      #{rank}
     </Badge>
   )
 }
 
-function LeaderboardTable({
-  entries,
-  emptyMessage,
+function formatPeriodLabel(periodStart: string, periodEnd: string, periodType: string): string {
+  const start = new Date(periodStart)
+  const end = new Date(periodEnd)
+
+  if (periodType === 'daily') {
+    return format(start, 'MMM d')
+  }
+  if (periodType === 'weekly') {
+    return `${format(start, 'MMM d')} - ${format(end, 'MMM d')}`
+  }
+  // monthly
+  return format(start, 'MMM yyyy')
+}
+
+function HistoricalRankingsTable({
+  rankings,
+  periodType,
 }: {
-  entries: LeaderboardEntry[]
-  emptyMessage: string
+  rankings: HistoricalRank[]
+  periodType: string
 }) {
-  if (entries.length === 0) {
+  if (rankings.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        <Flame className="h-8 w-8 mx-auto mb-2 opacity-20" />
-        <p className="text-sm">{emptyMessage}</p>
+        <Trophy className="h-8 w-8 mx-auto mb-2 opacity-20" />
+        <p className="text-sm">No ranking history</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-1.5">
-      {entries.slice(0, 10).map((entry, index) => (
-        <Link
-          key={entry.engineer_id}
-          to={`/engineers/${entry.engineer_id}`}
+      {rankings.map((entry, index) => (
+        <div
+          key={index}
           className={cn(
-            'flex items-center justify-between p-2.5 rounded-lg border transition-colors hover:border-orange-300',
-            index === 0 && 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200',
-            index === 1 && 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200',
-            index === 2 && 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
-            index > 2 && 'bg-white'
+            'flex items-center justify-between p-2.5 rounded-lg border',
+            entry.rank === 1 && 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200',
+            entry.rank === 2 && 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200',
+            entry.rank === 3 && 'bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200',
+            (entry.rank === null || entry.rank > 3) && 'bg-white'
           )}
         >
           <div className="flex items-center gap-3">
-            <div
-              className={cn(
-                'w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs',
-                index === 0 && 'bg-amber-500 text-white',
-                index === 1 && 'bg-gray-400 text-white',
-                index === 2 && 'bg-orange-400 text-white',
-                index > 2 && 'bg-gray-100 text-gray-600'
-              )}
-            >
-              {entry.rank}
-            </div>
+            <RankBadge rank={entry.rank} />
             <div>
-              <p className="font-medium text-sm hover:text-orange-600">{entry.display_name}</p>
+              <p className="font-medium text-sm">
+                {formatPeriodLabel(entry.period_start, entry.period_end, periodType)}
+              </p>
               <p className="text-xs text-muted-foreground">{formatTokens(entry.tokens)} tokens</p>
             </div>
           </div>
-          <RankChangeIndicator change={entry.rank_change} />
-        </Link>
+        </div>
       ))}
     </div>
   )
 }
 
-export function HomePage() {
-  const { customer } = useAuth()
-  const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 6))
+export function EngineerPage() {
+  const { engineerId } = useParams<{ engineerId: string }>()
+  const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 29))
+  const [rankingsPeriod, setRankingsPeriod] = useState<string>('daily')
 
-  const { data: stats, isLoading: statsLoading } = useQuery<UsageStats>({
-    queryKey: ['usage-stats'],
+  const { data: stats, isLoading: statsLoading } = useQuery<EngineerStats>({
+    queryKey: ['engineer-stats', engineerId],
     queryFn: async () => {
-      const response = await axios.get<UsageStats>('/api/leaderboard/stats')
+      const response = await axios.get<EngineerStats>(`/api/leaderboard/engineers/${engineerId}/stats`)
       return response.data
     },
+    enabled: !!engineerId,
   })
 
   const { data: dailyTotals, isLoading: chartLoading } = useQuery<DailyTotalsResponse>({
-    queryKey: ['daily-totals', chartStartDate.toISOString()],
+    queryKey: ['engineer-daily-totals', engineerId, chartStartDate.toISOString()],
     queryFn: async () => {
-      const response = await axios.get<DailyTotalsResponse>('/api/leaderboard/daily-totals', {
-        params: {
-          start_date: format(chartStartDate, 'yyyy-MM-dd'),
-          end_date: format(new Date(), 'yyyy-MM-dd'),
-        },
-      })
+      const response = await axios.get<DailyTotalsResponse>(
+        `/api/leaderboard/engineers/${engineerId}/daily-totals`,
+        {
+          params: {
+            start_date: format(chartStartDate, 'yyyy-MM-dd'),
+            end_date: format(new Date(), 'yyyy-MM-dd'),
+          },
+        }
+      )
       return response.data
     },
+    enabled: !!engineerId,
   })
 
-  const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<Leaderboard>({
-    queryKey: ['leaderboard'],
+  const { data: rankings, isLoading: rankingsLoading } = useQuery<HistoricalRankingsResponse>({
+    queryKey: ['engineer-rankings', engineerId, rankingsPeriod],
     queryFn: async () => {
-      const response = await axios.get<Leaderboard>('/api/leaderboard')
+      const response = await axios.get<HistoricalRankingsResponse>(
+        `/api/leaderboard/engineers/${engineerId}/historical-rankings`,
+        {
+          params: {
+            period_type: rankingsPeriod,
+            num_periods: 20,
+          },
+        }
+      )
       return response.data
     },
+    enabled: !!engineerId,
   })
 
   const chartData =
@@ -256,7 +269,7 @@ export function HomePage() {
       tokens: t.tokens,
     })) || []
 
-  const isLoading = statsLoading || chartLoading || leaderboardLoading
+  const isLoading = statsLoading || chartLoading || rankingsLoading
 
   if (isLoading) {
     return (
@@ -268,6 +281,19 @@ export function HomePage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Link to="/dashboard">
+          <Button variant="ghost" size="icon">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold">{stats?.display_name}</h1>
+          <p className="text-muted-foreground text-sm">Individual token usage</p>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
@@ -296,7 +322,7 @@ export function HomePage() {
         />
       </div>
 
-      {/* Chart and Leaderboard */}
+      {/* Chart and Historical Rankings */}
       <div className="grid gap-6 lg:grid-cols-5 items-start">
         {/* Chart */}
         <Card className="lg:col-span-3">
@@ -343,52 +369,43 @@ export function HomePage() {
           </CardContent>
         </Card>
 
-        {/* Leaderboard */}
+        {/* Historical Rankings */}
         <Card className="lg:col-span-2">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-500" />
-              Leaderboard
+              <Trophy className="h-4 w-4 text-amber-500" />
+              Ranking History
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="today" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-4">
-                <TabsTrigger value="today" className="text-xs">
-                  Today
-                </TabsTrigger>
-                <TabsTrigger value="yesterday" className="text-xs">
-                  Yesterday
+            <Tabs value={rankingsPeriod} onValueChange={setRankingsPeriod} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="daily" className="text-xs">
+                  Daily
                 </TabsTrigger>
                 <TabsTrigger value="weekly" className="text-xs">
-                  Week
+                  Weekly
                 </TabsTrigger>
                 <TabsTrigger value="monthly" className="text-xs">
-                  Month
+                  Monthly
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="today">
-                <LeaderboardTable
-                  entries={leaderboard?.today || []}
-                  emptyMessage="No usage today yet"
-                />
-              </TabsContent>
-              <TabsContent value="yesterday">
-                <LeaderboardTable
-                  entries={leaderboard?.yesterday || []}
-                  emptyMessage="No usage yesterday"
+              <TabsContent value="daily">
+                <HistoricalRankingsTable
+                  rankings={rankings?.rankings || []}
+                  periodType="daily"
                 />
               </TabsContent>
               <TabsContent value="weekly">
-                <LeaderboardTable
-                  entries={leaderboard?.weekly || []}
-                  emptyMessage="No usage this week"
+                <HistoricalRankingsTable
+                  rankings={rankings?.rankings || []}
+                  periodType="weekly"
                 />
               </TabsContent>
               <TabsContent value="monthly">
-                <LeaderboardTable
-                  entries={leaderboard?.monthly || []}
-                  emptyMessage="No usage this month"
+                <HistoricalRankingsTable
+                  rankings={rankings?.rankings || []}
+                  periodType="monthly"
                 />
               </TabsContent>
             </Tabs>

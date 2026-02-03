@@ -191,6 +191,7 @@ class AuthenticationService:
                 email=email,
                 first_name=first_name,
                 last_name=last_name,
+                is_active=True,
             )
         )
 
@@ -455,15 +456,15 @@ class AuthenticationService:
 
     @classmethod
     def refresh_access_token(
-        self,
+        cls,
         refresh_token: str,
         ip_address: str | None,
     ) -> Token:
         """
         Exposed directly from API to refresh an access token
         """
-        token_content = self.verify_jwt_token(refresh_token)
-        return self.create_auth_token(
+        token_content = cls.verify_jwt_token(refresh_token)
+        return cls.create_auth_token(
             user_id=token_content.sub,
             ip_address=ip_address,
             impersonator_id=token_content.imp_sub,

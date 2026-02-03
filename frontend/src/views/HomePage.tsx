@@ -305,8 +305,14 @@ function LeaderboardTable({
               {entry.rank}
             </div>
             <div>
-              <p className="font-medium text-sm hover:text-orange-600">{entry.display_name}</p>
-              <p className="text-xs text-muted-foreground">{formatValue(getMetricValue(entry, metric), metric)}{metric !== 'cost' && ' tokens'}</p>
+              <p className={cn(
+                'font-medium text-sm',
+                index <= 2 ? 'text-gray-900 hover:text-orange-700' : 'hover:text-orange-600'
+              )}>{entry.display_name}</p>
+              <p className={cn(
+                'text-xs',
+                index <= 2 ? 'text-gray-600' : 'text-muted-foreground'
+              )}>{formatValue(getMetricValue(entry, metric), metric)}{metric !== 'cost' && ' tokens'}</p>
             </div>
           </div>
           <RankChangeIndicator change={entry.rank_change} />

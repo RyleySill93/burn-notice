@@ -6,7 +6,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Calculator, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
-import { MetricType } from '@/hooks/useMetricToggle'
+
+type MetricType = 'total' | 'input' | 'output'
 
 interface MetricToggleProps {
   metric: MetricType

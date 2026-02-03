@@ -21,7 +21,9 @@ import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { format, subDays } from 'date-fns'
-import { useMetricToggle, MetricType } from '@/hooks/useMetricToggle'
+import { useMetricToggle } from '@/hooks/useMetricToggle'
+
+type MetricType = 'total' | 'input' | 'output'
 import { MetricToggle } from '@/components/MetricToggle'
 
 interface PeriodStats {

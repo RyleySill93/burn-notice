@@ -6,7 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { WebSocketProvider } from '@/contexts/WebSocketContext'
 import { router } from './router'
-import './lib/axios-instance' // Initialize API configuration
+import '@/lib/axios-instance' // Initialize API configuration
 import './index.css'
 
 const queryClient = new QueryClient({

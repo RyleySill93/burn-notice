@@ -18,6 +18,53 @@ from src.core.membership import MembershipService
 
 router = APIRouter()
 
+# Claude API pricing per million tokens (as of 2024)
+# https://www.anthropic.com/pricing
+MODEL_PRICING = {
+    # Claude 3.5 Sonnet
+    'claude-3-5-sonnet-20241022': {'input': 3.00, 'output': 15.00},
+    'claude-3-5-sonnet-20240620': {'input': 3.00, 'output': 15.00},
+    'claude-3-5-sonnet': {'input': 3.00, 'output': 15.00},
+    # Claude 3.5 Haiku
+    'claude-3-5-haiku-20241022': {'input': 0.80, 'output': 4.00},
+    'claude-3-5-haiku': {'input': 0.80, 'output': 4.00},
+    # Claude 3 Opus
+    'claude-3-opus-20240229': {'input': 15.00, 'output': 75.00},
+    'claude-3-opus': {'input': 15.00, 'output': 75.00},
+    # Claude 3 Sonnet
+    'claude-3-sonnet-20240229': {'input': 3.00, 'output': 15.00},
+    'claude-3-sonnet': {'input': 3.00, 'output': 15.00},
+    # Claude 3 Haiku
+    'claude-3-haiku-20240307': {'input': 0.25, 'output': 1.25},
+    'claude-3-haiku': {'input': 0.25, 'output': 1.25},
+}
+
+# Default pricing for unknown models (use Sonnet pricing as reasonable default)
+DEFAULT_PRICING = {'input': 3.00, 'output': 15.00}
+
+
+def calculate_cost(model: str | None, tokens_input: int, tokens_output: int) -> float:
+    """Calculate cost in USD based on model and token counts."""
+    if not model:
+        pricing = DEFAULT_PRICING
+    else:
+        # Try exact match, then prefix match
+        model_lower = model.lower()
+        pricing = MODEL_PRICING.get(model_lower)
+        if not pricing:
+            # Try prefix matching for versioned models
+            for model_key, model_pricing in MODEL_PRICING.items():
+                if model_lower.startswith(model_key.split('-2')[0]):  # Match base model name
+                    pricing = model_pricing
+                    break
+        if not pricing:
+            pricing = DEFAULT_PRICING
+
+    # Price is per million tokens
+    input_cost = (tokens_input / 1_000_000) * pricing['input']
+    output_cost = (tokens_output / 1_000_000) * pricing['output']
+    return input_cost + output_cost
+
 
 class OTLPResponse(BaseModel):
     """Standard OTLP response."""
@@ -218,8 +265,10 @@ async def receive_metrics(
                     duration_ms = extract_attribute(dp_attrs, 'duration_ms') or extract_attribute(dp_attrs, 'latency_ms')
                     ttft_ms = extract_attribute(dp_attrs, 'time_to_first_token_ms') or extract_attribute(dp_attrs, 'ttft_ms')
 
-                    # Extract cost if present
+                    # Extract cost if present, otherwise calculate it
                     cost_usd = extract_attribute(dp_attrs, 'cost_usd') or extract_attribute(dp_attrs, 'cost')
+                    if cost_usd is None and (tokens_input > 0 or tokens_output > 0):
+                        cost_usd = calculate_cost(str(model) if model else None, tokens_input, tokens_output)
 
                     # Store full telemetry event
                     telemetry_event = TelemetryEventCreate(

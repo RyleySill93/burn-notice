@@ -188,8 +188,9 @@ STAFF_OIDC_USERINFO_ENDPOINT = config('STAFF_OIDC_USERINFO_ENDPOINT', default=No
 STAFF_OIDC_JWKS_URI = config('STAFF_OIDC_JWKS_URI', default=None)
 STAFF_OIDC_AUTO_CREATE_USERS = config('STAFF_OIDC_AUTO_CREATE_USERS', default=True, cast=bool)
 
-# Sendgrid
+# Email providers
 SENDGRID_API_KEY = config('SENDGRID_API_KEY', default=None)
+RESEND_API_KEY = config('RESEND_API_KEY', default=None)
 
 
 # Sentry

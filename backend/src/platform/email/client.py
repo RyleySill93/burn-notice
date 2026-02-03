@@ -7,6 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 import boto3
+import resend
 import sentry_sdk
 from botocore.exceptions import BotoCoreError, ClientError
 from loguru import logger
@@ -118,6 +119,37 @@ class SendGridAPIEmailClient(SendGridAPIClient):
             print('Request was successful.')
         else:
             raise EmailFailedToSend(message=f'status_code:{response.status_code} {message.subject}-{message.to_emails}')
+
+
+class ResendEmailClient(AbstractEmailClient):
+    def __init__(self, *args, **kwargs):
+        resend.api_key = settings.RESEND_API_KEY
+        super().__init__(*args, **kwargs)
+
+    def send(self, message: EmailClientDomain):
+        from_email = f'{message.from_email[1]} <{message.from_email[0]}>'
+
+        params: resend.Emails.SendParams = {
+            'from': from_email,
+            'to': message.to_emails,
+            'subject': message.subject,
+        }
+
+        if message.bcc_emails:
+            params['bcc'] = message.bcc_emails
+
+        if message.html_content:
+            params['html'] = message.html_content
+
+        if message.plain_text_content:
+            params['text'] = message.plain_text_content
+
+        try:
+            response = resend.Emails.send(params)
+            logger.info(f'Resend email sent: {response}')
+        except Exception as exc:
+            logger.exception(f'Resend failed to send email: {exc}')
+            raise EmailFailedToSend(message=f'{message.subject}-{message.to_emails}') from exc
 
 
 class EmailFileClient(AbstractEmailClient):
@@ -236,8 +268,9 @@ class AWSEmailClient(AbstractEmailClient):
 class ResilientLiveEmailClient(AbstractEmailClient):
     CLIENT_PRIORITY_ORDER = [
         # Primary
-        SendGridAPIEmailClient,
+        ResendEmailClient,
         # Secondaries...
+        SendGridAPIEmailClient,
         AWSEmailClient,
     ]
 

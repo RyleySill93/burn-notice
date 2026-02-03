@@ -655,7 +655,7 @@ class AuthenticationService:
         )
 
         Email(
-            subject='Log in to your account',
+            subject='Log in to Burn Notice',
             recipients=[email],
             template_name=challenge_type.value,
             context={

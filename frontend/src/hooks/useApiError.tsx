@@ -9,9 +9,16 @@ interface ApiError {
   field?: string
 }
 
+interface PydanticValidationError {
+  loc: (string | number)[]
+  msg: string
+  type: string
+  input?: unknown
+}
+
 interface BackendError {
   message?: string
-  detail?: string
+  detail?: string | PydanticValidationError[]
   code?: number
 }
 
@@ -22,16 +29,26 @@ export function useApiError() {
     // Handle Axios errors (from React Query mutations)
     if (err && typeof err === 'object' && 'isAxiosError' in err) {
       const axiosError = err as AxiosError<BackendError>
-      
+
       // Extract the message from the backend response
-      const backendMessage = axiosError.response?.data?.message || 
-                            axiosError.response?.data?.detail
-      
+      let backendMessage = axiosError.response?.data?.message
+
+      // Handle detail field - can be a string or Pydantic validation error array
+      if (!backendMessage && axiosError.response?.data?.detail) {
+        const detail = axiosError.response.data.detail
+        if (typeof detail === 'string') {
+          backendMessage = detail
+        } else if (Array.isArray(detail) && detail.length > 0) {
+          // Pydantic validation errors: [{loc: [...], msg: "...", type: "..."}]
+          backendMessage = detail.map((e: PydanticValidationError) => e.msg).join('. ')
+        }
+      }
+
       if (backendMessage) {
         // Use the backend's custom message
-        setError({ 
+        setError({
           message: backendMessage,
-          code: axiosError.response?.status 
+          code: axiosError.response?.status
         })
       } else {
         // Only show generic message if no backend message is available
@@ -51,10 +68,18 @@ export function useApiError() {
       setError({ message: err.message })
     } else if (typeof err === 'object' && err !== null) {
       // Handle API response errors (legacy, shouldn't hit this with React Query)
-      const apiError = err as any
-      if (apiError.message || apiError.detail) {
+      const apiError = err as { message?: string; detail?: string | PydanticValidationError[]; code?: number; status?: number; field?: string }
+      let message = apiError.message
+      if (!message && apiError.detail) {
+        if (typeof apiError.detail === 'string') {
+          message = apiError.detail
+        } else if (Array.isArray(apiError.detail) && apiError.detail.length > 0) {
+          message = apiError.detail.map((e: PydanticValidationError) => e.msg).join('. ')
+        }
+      }
+      if (message) {
         setError({
-          message: apiError.message || apiError.detail,
+          message,
           code: apiError.code || apiError.status,
           field: apiError.field,
         })

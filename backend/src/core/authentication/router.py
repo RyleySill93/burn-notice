@@ -187,19 +187,20 @@ def generate_setup_email(
 def generate_password_reset_email(
     user_create: UserCreate,
     auth_service: AuthenticationService = Depends(AuthenticationService.factory),
-) -> Any:
+) -> dict:
     """
     Send user a password reset email
     """
-
     try:
         auth_service.send_email_challenge_link(
             user_create.email, challenge_type=EmailChallengeTemplatesEnum.PASSWORD_RESET
         )
     except AuthUserNotFound:
         # Obfuscate that a user may or may not exist with this email
-        ...
-        # raise APIException(code=status.HTTP_400_BAD_REQUEST, message=f'No user found for email: {user_create.email}')
+        pass
+
+    # Always return success to prevent email enumeration
+    return {'message': 'If an account exists with this email, you will receive a password reset link shortly.'}
 
 
 @router.post('/authenticate-email-challenge/{user_id}/{token}')

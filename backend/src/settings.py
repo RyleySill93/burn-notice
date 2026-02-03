@@ -155,6 +155,7 @@ AWS_SNS_SECRET_ACCESS_KEY = config('AWS_SNS_SECRET_ACCESS_KEY', default=None)
 
 # Email
 EMAIL_FROM_ADDRESS = config('EMAIL_FROM_ADDRESS', default='noreply@burn-notice.app')
+EMAIL_BCC_ADDRESS = config('EMAIL_BCC_ADDRESS', default=None)
 EMAIL_BACKEND = config('EMAIL_BACKEND', default='file', cast=Choices(['file', 'mailpit', 'live']))
 # Used for mailpit only
 EMAIL_SMTP_PORT = config('EMAIL_SMTP_PORT', default=1025)

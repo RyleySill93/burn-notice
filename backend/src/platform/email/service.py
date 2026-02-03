@@ -52,7 +52,7 @@ class EmailService:
             # Something like Burn Notice <no-reply@burn_notice.com
             from_email=(settings.EMAIL_FROM_ADDRESS, settings.COMPANY_NAME),
             to_emails=recipients,
-            bcc_emails=['app-mail@burn_notice.com'],
+            bcc_emails=[settings.EMAIL_BCC_ADDRESS] if settings.EMAIL_BCC_ADDRESS else [],
             subject=self._enhance_subject(subject),
             plain_text_content=plain_message,
             html_content=html_message,

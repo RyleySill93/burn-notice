@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Settings, Copy, Check } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { SuperButton } from '@/components/SuperButton'
 import { useAuth } from '@/contexts/AuthContext'
 import axios from '@/lib/axios-instance'
 
@@ -13,6 +12,7 @@ interface MyApiKeyResponse {
 export function SetupPage() {
   const { customer } = useAuth()
   const [copied, setCopied] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
   const { data: myApiKey, isLoading } = useQuery<MyApiKeyResponse>({
@@ -28,23 +28,13 @@ export function SetupPage() {
   const apiKey = myApiKey?.api_key
 
   const setupScript = apiKey
-    ? `# Add to ~/.zshrc (or ~/.bashrc), then run: source ~/.zshrc
-
-# burn-notice - Claude Code usage tracking
+    ? `# burn-notice - Claude Code usage tracking
 export CLAUDE_CODE_ENABLE_TELEMETRY=1
 export OTEL_METRICS_EXPORTER=otlp
 export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
 export OTEL_EXPORTER_OTLP_ENDPOINT="${apiUrl}"
 export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
     : ''
-
-  const handleCopyApiKey = async () => {
-    if (apiKey) {
-      await navigator.clipboard.writeText(apiKey)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
 
   const handleCopyScript = async () => {
     await navigator.clipboard.writeText(setupScript)
@@ -72,42 +62,28 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
         </CardHeader>
         <CardContent className="space-y-6">
           {apiKey && (
-            <>
-              <div>
-                <h3 className="font-semibold mb-2">Your Personal API Key</h3>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 bg-muted px-3 py-2 rounded text-sm font-mono break-all">
-                    {apiKey}
-                  </code>
-                  <SuperButton
-                    variant="outline"
-                    size="icon"
-                    onClick={handleCopyApiKey}
-                    className="shrink-0"
-                  >
-                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                  </SuperButton>
-                </div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  This key identifies you on the leaderboard. Keep it private.
-                </p>
+            <div>
+              <h3 className="font-semibold mb-2">Shell Configuration</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Add to <code className="bg-muted px-1.5 py-0.5 rounded text-xs">~/.zshrc</code> (or <code className="bg-muted px-1.5 py-0.5 rounded text-xs">~/.bashrc</code>), then run: <code className="bg-muted px-1.5 py-0.5 rounded text-xs">source ~/.zshrc</code>
+              </p>
+              <div
+                className="relative bg-zinc-900 text-zinc-100 rounded-lg p-4 font-mono text-sm overflow-x-auto"
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+              >
+                <button
+                  onClick={handleCopyScript}
+                  className={`absolute top-2 right-2 p-1.5 rounded bg-zinc-700 hover:bg-zinc-600 transition-opacity duration-200 ${
+                    isHovered || copied ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  title="Copy to clipboard"
+                >
+                  {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-zinc-300" />}
+                </button>
+                <pre>{setupScript}</pre>
               </div>
-
-              <div>
-                <h3 className="font-semibold mb-2">Shell Configuration</h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Add this to your shell config to enable Claude Code telemetry:
-                </p>
-                <div className="bg-zinc-900 text-zinc-100 rounded-lg p-4 font-mono text-sm overflow-x-auto">
-                  <pre>{setupScript}</pre>
-                </div>
-                <div className="flex gap-2 mt-3">
-                  <SuperButton onClick={handleCopyScript} variant="outline">
-                    {copied ? 'Copied!' : 'Copy Script'}
-                  </SuperButton>
-                </div>
-              </div>
-            </>
+            </div>
           )}
           {!apiKey && (
             <p className="text-sm text-yellow-600 text-center">

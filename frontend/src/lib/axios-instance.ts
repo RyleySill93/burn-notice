@@ -93,12 +93,12 @@ axios.interceptors.response.use(
           { headers: { 'Content-Type': 'application/json' } }
         )
 
-        const { access_token, refresh_token } = response.data
+        const { accessToken, refreshToken } = response.data
 
         // Update session in localStorage
         const newSession = {
-          accessToken: access_token,
-          refreshToken: refresh_token,
+          accessToken,
+          refreshToken,
           tokenType: 'Bearer',
         }
         localStorage.setItem('SESSION', JSON.stringify(newSession))
@@ -106,13 +106,13 @@ axios.interceptors.response.use(
         // Update WebSocket cookie
         const date = new Date()
         date.setTime(date.getTime() + 24 * 60 * 60 * 1000)
-        document.cookie = `ws_auth_token=${access_token}; expires=${date.toUTCString()}; path=/`
+        document.cookie = `ws_auth_token=${accessToken}; expires=${date.toUTCString()}; path=/`
 
         // Process queued requests
-        processQueue(null, access_token)
+        processQueue(null, accessToken)
 
         // Retry original request
-        originalRequest.headers.Authorization = `Bearer ${access_token}`
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`
         return axios(originalRequest)
       } catch (refreshError) {
         // Refresh failed - clear session and redirect to login

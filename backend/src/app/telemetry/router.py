@@ -165,6 +165,9 @@ async def receive_metrics(
     resource_metrics = body.get('resourceMetrics', [])
     events_recorded = 0
     usage_recorded = 0
+    total_tokens_input = 0
+    total_tokens_output = 0
+    metric_names_seen: set[str] = set()
 
     for rm in resource_metrics:
         # Extract resource attributes (user info, etc.)
@@ -208,6 +211,9 @@ async def receive_metrics(
                 metric_description = metric.get('description', '')
                 metric_unit = metric.get('unit', '')
 
+                # Track metric names for summary
+                metric_names_seen.add(metric_name)
+
                 # Get data points from sum, gauge, or histogram
                 data_points = []
                 if 'sum' in metric:
@@ -245,9 +251,11 @@ async def receive_metrics(
                     if metric_name == 'claude_code.cost.usage':
                         # Cost metric - value is in USD
                         cost_usd = float(value)
+                        logger.debug(f'OTLP cost metric: ${cost_usd:.4f}')
                     elif metric_name == 'claude_code.token.usage':
                         # Token metric - check 'type' attribute for direction
                         token_type = extract_attribute(dp_attrs, 'type')
+                        logger.debug(f'OTLP token metric: type={token_type}, value={value}')
                         if token_type == 'input':
                             tokens_input = int(value)
                         elif token_type == 'output':
@@ -256,24 +264,34 @@ async def receive_metrics(
                             cache_read_tokens = int(value)
                         elif token_type == 'cacheCreation':
                             cache_creation_tokens = int(value)
+                        else:
+                            logger.warning(f'OTLP unknown token type: {token_type}')
                     else:
                         # Fallback for other metric formats
                         metric_lower = metric_name.lower()
                         if 'input' in metric_lower or 'prompt' in metric_lower:
                             tokens_input = int(value)
+                            logger.info(f'OTLP fallback input metric: {metric_name}={value}')
                         elif 'output' in metric_lower or 'completion' in metric_lower:
                             tokens_output = int(value)
+                            logger.info(f'OTLP fallback output metric: {metric_name}={value}')
                         elif 'cache_read' in metric_lower:
                             cache_read_tokens = int(value)
+                            logger.info(f'OTLP fallback cache_read metric: {metric_name}={value}')
                         elif 'cache_creation' in metric_lower:
                             cache_creation_tokens = int(value)
+                            logger.info(f'OTLP fallback cache_creation metric: {metric_name}={value}')
                         elif 'token' in metric_lower:
                             # Generic token metric - check attributes
                             direction = extract_attribute(dp_attrs, 'direction') or extract_attribute(dp_attrs, 'type')
                             if direction in ('input', 'prompt'):
                                 tokens_input = int(value)
+                                logger.info(f'OTLP generic token input: {metric_name}={value}')
                             elif direction in ('output', 'completion'):
                                 tokens_output = int(value)
+                                logger.info(f'OTLP generic token output: {metric_name}={value}')
+                            else:
+                                logger.warning(f'OTLP unhandled token metric: {metric_name}={value}, attrs={dp_attrs_dict}')
 
                     # Extract tool usage
                     tool_name = extract_attribute(dp_attrs, 'tool.name') or extract_attribute(dp_attrs, 'tool')
@@ -325,8 +343,15 @@ async def receive_metrics(
                             session_id=str(session_id) if session_id else None,
                         )
                         usage_recorded += 1
+                        total_tokens_input += tokens_input
+                        total_tokens_output += tokens_output
 
-    logger.info(f'OTLP: {events_recorded} telemetry events, {usage_recorded} usage records for {customer.name}')
+    # Log summary with metric names for debugging
+    logger.info(
+        f'OTLP summary for {customer.name}: {events_recorded} events, {usage_recorded} usage records, '
+        f'tokens: {total_tokens_input:,} input + {total_tokens_output:,} output = {total_tokens_input + total_tokens_output:,} total, '
+        f'metrics: {sorted(metric_names_seen)}'
+    )
 
     return OTLPResponse(partialSuccess=None)
 

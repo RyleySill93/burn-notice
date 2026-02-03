@@ -247,7 +247,7 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
                     <SuperButton onClick={handleCopyScript} variant="outline">
                       {copied ? 'Copied!' : 'Copy Script'}
                     </SuperButton>
-                    <SuperButton onClick={() => navigate('/projects')}>
+                    <SuperButton onClick={() => navigate('/dashboard')}>
                       Go to Dashboard
                     </SuperButton>
                   </div>

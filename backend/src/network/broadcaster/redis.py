@@ -1,5 +1,4 @@
 import logging
-from urllib.parse import urlparse
 
 import redis
 from broadcaster import Broadcast
@@ -42,10 +41,7 @@ class SyncRedisBroadcaster:
     """
 
     def __init__(self, url: str):
-        parsed_url = urlparse(url)
-        self._host = parsed_url.hostname or 'localhost'
-        self._port = parsed_url.port or 6379
-        self._pub_conn = redis.StrictRedis(host=self._host, port=self._port)
+        self._pub_conn = redis.from_url(url)
 
     def publish(self, message: WebSocketMessageDomain) -> None:
         json_message = message.model_dump_json()

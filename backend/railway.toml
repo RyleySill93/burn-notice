@@ -7,3 +7,4 @@ healthcheckPath = "/healthcheck/api"
 healthcheckTimeout = 100
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+startCommand = "alembic upgrade head && uvicorn src.network.http.server:server --host 0.0.0.0 --port $PORT"

@@ -1,6 +1,5 @@
 from datetime import date, datetime, timedelta
 
-from loguru import logger
 from sqlalchemy import func, cast, Date
 
 from src.app.engineers.models import Engineer
@@ -319,11 +318,6 @@ class LeaderboardService:
 
         this_week_tokens = LeaderboardService._get_tokens_for_range_full(customer_id, week_start, as_of)
         last_week_tokens = LeaderboardService._get_tokens_for_range_full(customer_id, last_week_start, last_week_same_day)
-
-        # Debug logging
-        logger.info(f"get_usage_stats: as_of={as_of}, weekday={day_of_week}")
-        logger.info(f"  This week: {week_start} to {as_of} = {this_week_tokens}")
-        logger.info(f"  Last week: {last_week_start} to {last_week_same_day} = {last_week_tokens}")
 
         # This month vs last month at this point
         # e.g., 1st-5th this month vs 1st-5th last month

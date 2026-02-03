@@ -7,6 +7,8 @@ class LeaderboardEntry(BaseModel):
     engineer_id: str
     display_name: str
     tokens: int
+    tokens_input: int
+    tokens_output: int
     rank: int
     prev_rank: int | None = None
 
@@ -31,7 +33,11 @@ class PeriodStats(BaseModel):
     """Stats for a single time period with comparison."""
 
     tokens: int
+    tokens_input: int
+    tokens_output: int
     comparison_tokens: int
+    comparison_tokens_input: int
+    comparison_tokens_output: int
 
     @computed_field
     @property
@@ -56,6 +62,8 @@ class DailyTotal(BaseModel):
 
     date: date
     tokens: int
+    tokens_input: int
+    tokens_output: int
 
 
 class DailyTotalsResponse(BaseModel):
@@ -73,6 +81,8 @@ class HistoricalRank(BaseModel):
     period_end: date
     rank: int | None  # None if user had no activity in this period
     tokens: int
+    tokens_input: int
+    tokens_output: int
 
 
 class HistoricalRankingsResponse(BaseModel):

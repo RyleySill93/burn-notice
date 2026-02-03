@@ -22,10 +22,16 @@ import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { format, subDays } from 'date-fns'
+import { useMetricToggle, MetricType } from '@/hooks/useMetricToggle'
+import { MetricToggle } from '@/components/MetricToggle'
 
 interface PeriodStats {
   tokens: number
+  tokens_input: number
+  tokens_output: number
   comparison_tokens: number
+  comparison_tokens_input: number
+  comparison_tokens_output: number
   change_percent: number | null
 }
 
@@ -41,6 +47,8 @@ interface EngineerStats {
 interface DailyTotal {
   date: string
   tokens: number
+  tokens_input: number
+  tokens_output: number
 }
 
 interface DailyTotalsResponse {
@@ -54,12 +62,41 @@ interface HistoricalRank {
   period_end: string
   rank: number | null
   tokens: number
+  tokens_input: number
+  tokens_output: number
 }
 
 interface HistoricalRankingsResponse {
   engineer_id: string
   period_type: string
   rankings: HistoricalRank[]
+}
+
+function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number }, metric: MetricType): number {
+  switch (metric) {
+    case 'input':
+      return data.tokens_input
+    case 'output':
+      return data.tokens_output
+    default:
+      return data.tokens
+  }
+}
+
+function getComparisonValue(data: PeriodStats, metric: MetricType): number {
+  switch (metric) {
+    case 'input':
+      return data.comparison_tokens_input
+    case 'output':
+      return data.comparison_tokens_output
+    default:
+      return data.comparison_tokens
+  }
+}
+
+function calculateChangePercent(current: number, comparison: number): number | null {
+  if (comparison === 0) return null
+  return ((current - comparison) / comparison) * 100
 }
 
 function formatTokens(n: number): string {
@@ -174,9 +211,11 @@ function formatPeriodLabel(periodStart: string, periodEnd: string, periodType: s
 function HistoricalRankingsTable({
   rankings,
   periodType,
+  metric,
 }: {
   rankings: HistoricalRank[]
   periodType: string
+  metric: MetricType
 }) {
   if (rankings.length === 0) {
     return (
@@ -206,7 +245,7 @@ function HistoricalRankingsTable({
               <p className="font-medium text-sm">
                 {formatPeriodLabel(entry.period_start, entry.period_end, periodType)}
               </p>
-              <p className="text-xs text-muted-foreground">{formatTokens(entry.tokens)} tokens</p>
+              <p className="text-xs text-muted-foreground">{formatTokens(getMetricValue(entry, metric))} tokens</p>
             </div>
           </div>
         </div>
@@ -219,6 +258,7 @@ export function EngineerPage() {
   const { engineerId } = useParams<{ engineerId: string }>()
   const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 29))
   const [rankingsPeriod, setRankingsPeriod] = useState<string>('daily')
+  const { metric, setMetric } = useMetricToggle()
 
   const { data: stats, isLoading: statsLoading } = useQuery<EngineerStats>({
     queryKey: ['engineer-stats', engineerId],
@@ -266,7 +306,7 @@ export function EngineerPage() {
   const chartData =
     dailyTotals?.totals.map((t) => ({
       date: format(new Date(t.date), 'MMM d'),
-      tokens: t.tokens,
+      tokens: getMetricValue(t, metric),
     })) || []
 
   const isLoading = statsLoading || chartLoading || rankingsLoading
@@ -279,44 +319,54 @@ export function EngineerPage() {
     )
   }
 
+  const todayTokens = stats ? getMetricValue(stats.today, metric) : 0
+  const todayComparison = stats ? getComparisonValue(stats.today, metric) : 0
+  const weekTokens = stats ? getMetricValue(stats.this_week, metric) : 0
+  const weekComparison = stats ? getComparisonValue(stats.this_week, metric) : 0
+  const monthTokens = stats ? getMetricValue(stats.this_month, metric) : 0
+  const monthComparison = stats ? getComparisonValue(stats.this_month, metric) : 0
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to="/dashboard">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">{stats?.display_name}</h1>
-          <p className="text-muted-foreground text-sm">Individual token usage</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link to="/dashboard">
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">{stats?.display_name}</h1>
+            <p className="text-muted-foreground text-sm">Individual token usage</p>
+          </div>
         </div>
+        <MetricToggle metric={metric} setMetric={setMetric} />
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           title="Today"
-          tokens={stats?.today.tokens || 0}
-          comparisonTokens={stats?.today.comparison_tokens || 0}
-          change={stats?.today.change_percent ?? null}
+          tokens={todayTokens}
+          comparisonTokens={todayComparison}
+          change={calculateChangePercent(todayTokens, todayComparison)}
           comparison="vs yesterday"
           icon={Zap}
         />
         <StatCard
           title="This Week"
-          tokens={stats?.this_week.tokens || 0}
-          comparisonTokens={stats?.this_week.comparison_tokens || 0}
-          change={stats?.this_week.change_percent ?? null}
+          tokens={weekTokens}
+          comparisonTokens={weekComparison}
+          change={calculateChangePercent(weekTokens, weekComparison)}
           comparison="vs last week at this point"
           icon={Activity}
         />
         <StatCard
           title="This Month"
-          tokens={stats?.this_month.tokens || 0}
-          comparisonTokens={stats?.this_month.comparison_tokens || 0}
-          change={stats?.this_month.change_percent ?? null}
+          tokens={monthTokens}
+          comparisonTokens={monthComparison}
+          change={calculateChangePercent(monthTokens, monthComparison)}
           comparison="vs last month at this point"
           icon={BarChart3}
         />
@@ -394,18 +444,21 @@ export function EngineerPage() {
                 <HistoricalRankingsTable
                   rankings={rankings?.rankings || []}
                   periodType="daily"
+                  metric={metric}
                 />
               </TabsContent>
               <TabsContent value="weekly">
                 <HistoricalRankingsTable
                   rankings={rankings?.rankings || []}
                   periodType="weekly"
+                  metric={metric}
                 />
               </TabsContent>
               <TabsContent value="monthly">
                 <HistoricalRankingsTable
                   rankings={rankings?.rankings || []}
                   periodType="monthly"
+                  metric={metric}
                 />
               </TabsContent>
             </Tabs>

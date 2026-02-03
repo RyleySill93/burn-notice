@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router'
 
-export type MetricType = 'total' | 'input' | 'output'
+export type MetricType = 'total' | 'input' | 'output' | 'cost'
 
 export function useMetricToggle() {
   const [searchParams, setSearchParams] = useSearchParams()

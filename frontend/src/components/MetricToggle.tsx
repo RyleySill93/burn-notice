@@ -5,9 +5,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Calculator, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react'
+import { Calculator, ArrowDownToLine, ArrowUpFromLine, DollarSign } from 'lucide-react'
 
-type MetricType = 'total' | 'input' | 'output'
+type MetricType = 'total' | 'input' | 'output' | 'cost'
 
 interface MetricToggleProps {
   metric: MetricType
@@ -18,6 +18,7 @@ const metricOptions: { value: MetricType; label: string; icon: React.ElementType
   { value: 'total', label: 'Total Tokens', icon: Calculator },
   { value: 'input', label: 'Input Tokens', icon: ArrowDownToLine },
   { value: 'output', label: 'Output Tokens', icon: ArrowUpFromLine },
+  { value: 'cost', label: 'Est. Cost', icon: DollarSign },
 ]
 
 export function MetricToggle({ metric, setMetric }: MetricToggleProps) {

@@ -9,6 +9,7 @@ class LeaderboardEntry(BaseModel):
     tokens: int
     tokens_input: int
     tokens_output: int
+    cost_usd: float = 0.0
     rank: int
     prev_rank: int | None = None
 
@@ -35,9 +36,11 @@ class PeriodStats(BaseModel):
     tokens: int
     tokens_input: int
     tokens_output: int
+    cost_usd: float = 0.0
     comparison_tokens: int
     comparison_tokens_input: int
     comparison_tokens_output: int
+    comparison_cost_usd: float = 0.0
 
     @computed_field
     @property
@@ -64,6 +67,7 @@ class DailyTotal(BaseModel):
     tokens: int
     tokens_input: int
     tokens_output: int
+    cost_usd: float = 0.0
 
 
 class DailyTotalsResponse(BaseModel):
@@ -83,6 +87,7 @@ class HistoricalRank(BaseModel):
     tokens: int
     tokens_input: int
     tokens_output: int
+    cost_usd: float = 0.0
 
 
 class HistoricalRankingsResponse(BaseModel):

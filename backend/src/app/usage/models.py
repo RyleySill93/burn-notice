@@ -41,6 +41,7 @@ class UsageDaily(BaseModel[UsageDailyRead, UsageDailyCreate]):
     total_tokens: Mapped[int] = mapped_column(BigInteger, default=0)
     tokens_input: Mapped[int] = mapped_column(BigInteger, default=0)
     tokens_output: Mapped[int] = mapped_column(BigInteger, default=0)
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0)
     session_count: Mapped[int] = mapped_column(Integer, default=0)
 
     engineer = relationship('Engineer')

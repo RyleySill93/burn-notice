@@ -14,7 +14,7 @@ from src.app.leaderboard.domains import (
     PeriodStats,
     UsageStats,
 )
-from src.app.usage.models import Usage, UsageDaily
+from src.app.usage.models import TelemetryEvent, Usage, UsageDaily
 from src.network.database import db
 
 
@@ -50,6 +50,7 @@ class LeaderboardService:
                 func.sum(UsageDaily.total_tokens).label('tokens'),
                 func.sum(UsageDaily.tokens_input).label('tokens_input'),
                 func.sum(UsageDaily.tokens_output).label('tokens_output'),
+                func.sum(UsageDaily.cost_usd).label('cost_usd'),
             )
             .join(Engineer, UsageDaily.engineer_id == Engineer.id)
             .filter(
@@ -94,6 +95,7 @@ class LeaderboardService:
                     tokens=row.tokens,
                     tokens_input=row.tokens_input,
                     tokens_output=row.tokens_output,
+                    cost_usd=row.cost_usd or 0.0,
                     rank=rank,
                     prev_rank=prev_rankings.get(row.engineer_id),
                 )
@@ -123,6 +125,22 @@ class LeaderboardService:
             .order_by(func.sum(Usage.tokens_input + Usage.tokens_output).desc())
             .all()
         )
+
+        # Get cost from TelemetryEvent for today
+        cost_results = (
+            db.session.query(
+                TelemetryEvent.engineer_id,
+                func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+            )
+            .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                cast(TelemetryEvent.created_at, Date) == as_of,
+            )
+            .group_by(TelemetryEvent.engineer_id)
+            .all()
+        )
+        cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
 
         # Get yesterday's rankings for comparison
         yesterday = as_of - timedelta(days=1)
@@ -155,6 +173,7 @@ class LeaderboardService:
                     tokens=row.tokens,
                     tokens_input=row.tokens_input,
                     tokens_output=row.tokens_output,
+                    cost_usd=cost_by_engineer.get(row.engineer_id, 0.0),
                     rank=rank,
                     prev_rank=prev_rankings.get(row.engineer_id),
                 )
@@ -222,8 +241,8 @@ class LeaderboardService:
         # Get daily totals from UsageDaily (excluding today)
         daily_end = min(end_date, today - timedelta(days=1)) if end_date >= today else end_date
 
-        # Store totals as dict of engineer_id -> (tokens, tokens_input, tokens_output)
-        totals_by_engineer: dict[str, tuple[int, int, int]] = {}
+        # Store totals as dict of engineer_id -> (tokens, tokens_input, tokens_output, cost_usd)
+        totals_by_engineer: dict[str, tuple[int, int, int, float]] = {}
 
         if start_date <= daily_end:
             daily_results = (
@@ -232,6 +251,7 @@ class LeaderboardService:
                     func.sum(UsageDaily.total_tokens).label('tokens'),
                     func.sum(UsageDaily.tokens_input).label('tokens_input'),
                     func.sum(UsageDaily.tokens_output).label('tokens_output'),
+                    func.sum(UsageDaily.cost_usd).label('cost_usd'),
                 )
                 .join(Engineer, UsageDaily.engineer_id == Engineer.id)
                 .filter(
@@ -243,7 +263,7 @@ class LeaderboardService:
                 .all()
             )
             for r in daily_results:
-                totals_by_engineer[r.engineer_id] = (r.tokens, r.tokens_input, r.tokens_output)
+                totals_by_engineer[r.engineer_id] = (r.tokens, r.tokens_input, r.tokens_output, r.cost_usd or 0.0)
 
         # Add live data for today if in range
         if start_date <= today <= end_date:
@@ -262,12 +282,30 @@ class LeaderboardService:
                 .group_by(Usage.engineer_id)
                 .all()
             )
+            # Get cost from TelemetryEvent for today
+            cost_results = (
+                db.session.query(
+                    TelemetryEvent.engineer_id,
+                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+                )
+                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    cast(TelemetryEvent.created_at, Date) == today,
+                )
+                .group_by(TelemetryEvent.engineer_id)
+                .all()
+            )
+            live_cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
+
             for r in live_results:
-                existing = totals_by_engineer.get(r.engineer_id, (0, 0, 0))
+                existing = totals_by_engineer.get(r.engineer_id, (0, 0, 0, 0.0))
+                live_cost = live_cost_by_engineer.get(r.engineer_id, 0.0)
                 totals_by_engineer[r.engineer_id] = (
                     existing[0] + r.tokens,
                     existing[1] + r.tokens_input,
                     existing[2] + r.tokens_output,
+                    existing[3] + live_cost,
                 )
 
         # Get engineer names
@@ -306,7 +344,7 @@ class LeaderboardService:
                 prev_rankings[row.engineer_id] = rank
 
         entries = []
-        for rank, (eng_id, (tokens, tokens_input, tokens_output)) in enumerate(sorted_results, 1):
+        for rank, (eng_id, (tokens, tokens_input, tokens_output, cost_usd)) in enumerate(sorted_results, 1):
             entries.append(
                 LeaderboardEntry(
                     engineer_id=eng_id,
@@ -314,6 +352,7 @@ class LeaderboardService:
                     tokens=tokens,
                     tokens_input=tokens_input,
                     tokens_output=tokens_output,
+                    cost_usd=cost_usd,
                     rank=rank,
                     prev_rank=prev_rankings.get(eng_id),
                 )
@@ -359,25 +398,31 @@ class LeaderboardService:
                 tokens=today_tokens[0],
                 tokens_input=today_tokens[1],
                 tokens_output=today_tokens[2],
+                cost_usd=today_tokens[3],
                 comparison_tokens=yesterday_tokens[0],
                 comparison_tokens_input=yesterday_tokens[1],
                 comparison_tokens_output=yesterday_tokens[2],
+                comparison_cost_usd=yesterday_tokens[3],
             ),
             this_week=PeriodStats(
                 tokens=this_week_tokens[0],
                 tokens_input=this_week_tokens[1],
                 tokens_output=this_week_tokens[2],
+                cost_usd=this_week_tokens[3],
                 comparison_tokens=last_week_tokens[0],
                 comparison_tokens_input=last_week_tokens[1],
                 comparison_tokens_output=last_week_tokens[2],
+                comparison_cost_usd=last_week_tokens[3],
             ),
             this_month=PeriodStats(
                 tokens=this_month_tokens[0],
                 tokens_input=this_month_tokens[1],
                 tokens_output=this_month_tokens[2],
+                cost_usd=this_month_tokens[3],
                 comparison_tokens=last_month_tokens[0],
                 comparison_tokens_input=last_month_tokens[1],
                 comparison_tokens_output=last_month_tokens[2],
+                comparison_cost_usd=last_month_tokens[3],
             ),
         )
 
@@ -396,8 +441,8 @@ class LeaderboardService:
         return result or 0
 
     @staticmethod
-    def _get_live_tokens_for_date_detailed(customer_id: str, for_date: date) -> tuple[int, int, int]:
-        """Get token breakdown (total, input, output) for a date from live Usage table."""
+    def _get_live_tokens_for_date_detailed(customer_id: str, for_date: date) -> tuple[int, int, int, float]:
+        """Get token breakdown (total, input, output, cost) for a date from live Usage/TelemetryEvent table."""
         result = (
             db.session.query(
                 func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
@@ -411,7 +456,17 @@ class LeaderboardService:
             )
             .one()
         )
-        return (result[0] or 0, result[1] or 0, result[2] or 0)
+        # Get cost from TelemetryEvent
+        cost_result = (
+            db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
+            .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                cast(TelemetryEvent.created_at, Date) == for_date,
+            )
+            .scalar()
+        )
+        return (result[0] or 0, result[1] or 0, result[2] or 0, cost_result or 0.0)
 
     @staticmethod
     def _get_daily_tokens(customer_id: str, for_date: date) -> int:
@@ -428,13 +483,14 @@ class LeaderboardService:
         return result or 0
 
     @staticmethod
-    def _get_daily_tokens_detailed(customer_id: str, for_date: date) -> tuple[int, int, int]:
-        """Get token breakdown (total, input, output) for a date from UsageDaily."""
+    def _get_daily_tokens_detailed(customer_id: str, for_date: date) -> tuple[int, int, int, float]:
+        """Get token breakdown (total, input, output, cost) for a date from UsageDaily."""
         result = (
             db.session.query(
                 func.coalesce(func.sum(UsageDaily.total_tokens), 0),
                 func.coalesce(func.sum(UsageDaily.tokens_input), 0),
                 func.coalesce(func.sum(UsageDaily.tokens_output), 0),
+                func.coalesce(func.sum(UsageDaily.cost_usd), 0.0),
             )
             .join(Engineer, UsageDaily.engineer_id == Engineer.id)
             .filter(
@@ -443,7 +499,7 @@ class LeaderboardService:
             )
             .one()
         )
-        return (result[0] or 0, result[1] or 0, result[2] or 0)
+        return (result[0] or 0, result[1] or 0, result[2] or 0, result[3] or 0.0)
 
     @staticmethod
     def _get_tokens_for_range_full(customer_id: str, start_date: date, end_date: date) -> int:
@@ -478,12 +534,12 @@ class LeaderboardService:
         return daily_result + live_result
 
     @staticmethod
-    def _get_tokens_for_range_full_detailed(customer_id: str, start_date: date, end_date: date) -> tuple[int, int, int]:
-        """Get token breakdown (total, input, output) for a date range (full days, no time cutoff)."""
+    def _get_tokens_for_range_full_detailed(customer_id: str, start_date: date, end_date: date) -> tuple[int, int, int, float]:
+        """Get token breakdown (total, input, output, cost) for a date range (full days, no time cutoff)."""
         today = date.today()
 
         # Get from UsageDaily for all days except today
-        daily_total, daily_input, daily_output = 0, 0, 0
+        daily_total, daily_input, daily_output, daily_cost = 0, 0, 0, 0.0
         if start_date <= end_date:
             daily_end = min(end_date, today - timedelta(days=1)) if end_date >= today else end_date
             if start_date <= daily_end:
@@ -492,6 +548,7 @@ class LeaderboardService:
                         func.coalesce(func.sum(UsageDaily.total_tokens), 0),
                         func.coalesce(func.sum(UsageDaily.tokens_input), 0),
                         func.coalesce(func.sum(UsageDaily.tokens_output), 0),
+                        func.coalesce(func.sum(UsageDaily.cost_usd), 0.0),
                     )
                     .join(Engineer, UsageDaily.engineer_id == Engineer.id)
                     .filter(
@@ -504,13 +561,14 @@ class LeaderboardService:
                 daily_total = result[0] or 0
                 daily_input = result[1] or 0
                 daily_output = result[2] or 0
+                daily_cost = result[3] or 0.0
 
         # Add live data for today if in range
-        live_total, live_input, live_output = 0, 0, 0
+        live_total, live_input, live_output, live_cost = 0, 0, 0, 0.0
         if start_date <= today <= end_date:
-            live_total, live_input, live_output = LeaderboardService._get_live_tokens_for_date_detailed(customer_id, today)
+            live_total, live_input, live_output, live_cost = LeaderboardService._get_live_tokens_for_date_detailed(customer_id, today)
 
-        return (daily_total + live_total, daily_input + live_input, daily_output + live_output)
+        return (daily_total + live_total, daily_input + live_input, daily_output + live_output, daily_cost + live_cost)
 
     @staticmethod
     def _get_tokens_up_to_time(customer_id: str, for_date: date, up_to_time) -> int:
@@ -575,6 +633,7 @@ class LeaderboardService:
                 func.sum(UsageDaily.total_tokens).label('tokens'),
                 func.sum(UsageDaily.tokens_input).label('tokens_input'),
                 func.sum(UsageDaily.tokens_output).label('tokens_output'),
+                func.sum(UsageDaily.cost_usd).label('cost_usd'),
             )
             .join(Engineer, UsageDaily.engineer_id == Engineer.id)
             .filter(
@@ -587,12 +646,12 @@ class LeaderboardService:
             .all()
         )
 
-        # Build a dict of date -> (tokens, tokens_input, tokens_output)
-        totals_by_date: dict[date, tuple[int, int, int]] = {
-            row.date: (row.tokens, row.tokens_input, row.tokens_output) for row in daily_results
+        # Build a dict of date -> (tokens, tokens_input, tokens_output, cost_usd)
+        totals_by_date: dict[date, tuple[int, int, int, float]] = {
+            row.date: (row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0) for row in daily_results
         }
 
-        # If end_date is today, get live data from Usage table
+        # If end_date is today, get live data from Usage/TelemetryEvent table
         today = date.today()
         if end_date >= today:
             live_result = (
@@ -608,14 +667,24 @@ class LeaderboardService:
                 )
                 .one()
             )
-            totals_by_date[today] = (live_result[0] or 0, live_result[1] or 0, live_result[2] or 0)
+            # Get cost from TelemetryEvent for today
+            cost_result = (
+                db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
+                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    cast(TelemetryEvent.created_at, Date) == today,
+                )
+                .scalar()
+            )
+            totals_by_date[today] = (live_result[0] or 0, live_result[1] or 0, live_result[2] or 0, cost_result or 0.0)
 
         # Build complete list with zeros for missing days
         totals = []
         current = start_date
         while current <= end_date:
-            data = totals_by_date.get(current, (0, 0, 0))
-            totals.append(DailyTotal(date=current, tokens=data[0], tokens_input=data[1], tokens_output=data[2]))
+            data = totals_by_date.get(current, (0, 0, 0, 0.0))
+            totals.append(DailyTotal(date=current, tokens=data[0], tokens_input=data[1], tokens_output=data[2], cost_usd=data[3]))
             current += timedelta(days=1)
 
         return DailyTotalsResponse(start_date=start_date, end_date=end_date, totals=totals)
@@ -659,25 +728,31 @@ class LeaderboardService:
                 tokens=today_tokens[0],
                 tokens_input=today_tokens[1],
                 tokens_output=today_tokens[2],
+                cost_usd=today_tokens[3],
                 comparison_tokens=yesterday_tokens[0],
                 comparison_tokens_input=yesterday_tokens[1],
                 comparison_tokens_output=yesterday_tokens[2],
+                comparison_cost_usd=yesterday_tokens[3],
             ),
             this_week=PeriodStats(
                 tokens=this_week_tokens[0],
                 tokens_input=this_week_tokens[1],
                 tokens_output=this_week_tokens[2],
+                cost_usd=this_week_tokens[3],
                 comparison_tokens=last_week_tokens[0],
                 comparison_tokens_input=last_week_tokens[1],
                 comparison_tokens_output=last_week_tokens[2],
+                comparison_cost_usd=last_week_tokens[3],
             ),
             this_month=PeriodStats(
                 tokens=this_month_tokens[0],
                 tokens_input=this_month_tokens[1],
                 tokens_output=this_month_tokens[2],
+                cost_usd=this_month_tokens[3],
                 comparison_tokens=last_month_tokens[0],
                 comparison_tokens_input=last_month_tokens[1],
                 comparison_tokens_output=last_month_tokens[2],
+                comparison_cost_usd=last_month_tokens[3],
             ),
         )
 
@@ -695,8 +770,8 @@ class LeaderboardService:
         return result or 0
 
     @staticmethod
-    def _get_engineer_live_tokens_detailed(engineer_id: str, for_date: date) -> tuple[int, int, int]:
-        """Get token breakdown (total, input, output) for an engineer from live Usage table."""
+    def _get_engineer_live_tokens_detailed(engineer_id: str, for_date: date) -> tuple[int, int, int, float]:
+        """Get token breakdown (total, input, output, cost) for an engineer from live Usage/TelemetryEvent table."""
         result = (
             db.session.query(
                 func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
@@ -709,7 +784,16 @@ class LeaderboardService:
             )
             .one()
         )
-        return (result[0] or 0, result[1] or 0, result[2] or 0)
+        # Get cost from TelemetryEvent
+        cost_result = (
+            db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
+            .filter(
+                TelemetryEvent.engineer_id == engineer_id,
+                cast(TelemetryEvent.created_at, Date) == for_date,
+            )
+            .scalar()
+        )
+        return (result[0] or 0, result[1] or 0, result[2] or 0, cost_result or 0.0)
 
     @staticmethod
     def _get_engineer_daily_tokens(engineer_id: str, for_date: date) -> int:
@@ -725,13 +809,14 @@ class LeaderboardService:
         return result or 0
 
     @staticmethod
-    def _get_engineer_daily_tokens_detailed(engineer_id: str, for_date: date) -> tuple[int, int, int]:
-        """Get token breakdown (total, input, output) for an engineer from UsageDaily."""
+    def _get_engineer_daily_tokens_detailed(engineer_id: str, for_date: date) -> tuple[int, int, int, float]:
+        """Get token breakdown (total, input, output, cost) for an engineer from UsageDaily."""
         result = (
             db.session.query(
                 func.coalesce(func.sum(UsageDaily.total_tokens), 0),
                 func.coalesce(func.sum(UsageDaily.tokens_input), 0),
                 func.coalesce(func.sum(UsageDaily.tokens_output), 0),
+                func.coalesce(func.sum(UsageDaily.cost_usd), 0.0),
             )
             .filter(
                 UsageDaily.engineer_id == engineer_id,
@@ -739,7 +824,7 @@ class LeaderboardService:
             )
             .one()
         )
-        return (result[0] or 0, result[1] or 0, result[2] or 0)
+        return (result[0] or 0, result[1] or 0, result[2] or 0, result[3] or 0.0)
 
     @staticmethod
     def _get_engineer_tokens_for_range_full(engineer_id: str, start_date: date, end_date: date) -> int:
@@ -773,12 +858,12 @@ class LeaderboardService:
         return daily_result + live_result
 
     @staticmethod
-    def _get_engineer_tokens_for_range_full_detailed(engineer_id: str, start_date: date, end_date: date) -> tuple[int, int, int]:
-        """Get token breakdown (total, input, output) for an engineer in a date range (full days)."""
+    def _get_engineer_tokens_for_range_full_detailed(engineer_id: str, start_date: date, end_date: date) -> tuple[int, int, int, float]:
+        """Get token breakdown (total, input, output, cost) for an engineer in a date range (full days)."""
         today = date.today()
 
         # Get from UsageDaily for all days except today
-        daily_total, daily_input, daily_output = 0, 0, 0
+        daily_total, daily_input, daily_output, daily_cost = 0, 0, 0, 0.0
         if start_date <= end_date:
             daily_end = min(end_date, today - timedelta(days=1)) if end_date >= today else end_date
             if start_date <= daily_end:
@@ -787,6 +872,7 @@ class LeaderboardService:
                         func.coalesce(func.sum(UsageDaily.total_tokens), 0),
                         func.coalesce(func.sum(UsageDaily.tokens_input), 0),
                         func.coalesce(func.sum(UsageDaily.tokens_output), 0),
+                        func.coalesce(func.sum(UsageDaily.cost_usd), 0.0),
                     )
                     .filter(
                         UsageDaily.engineer_id == engineer_id,
@@ -798,13 +884,14 @@ class LeaderboardService:
                 daily_total = result[0] or 0
                 daily_input = result[1] or 0
                 daily_output = result[2] or 0
+                daily_cost = result[3] or 0.0
 
         # Add live data for today if in range
-        live_total, live_input, live_output = 0, 0, 0
+        live_total, live_input, live_output, live_cost = 0, 0, 0, 0.0
         if start_date <= today <= end_date:
-            live_total, live_input, live_output = LeaderboardService._get_engineer_live_tokens_detailed(engineer_id, today)
+            live_total, live_input, live_output, live_cost = LeaderboardService._get_engineer_live_tokens_detailed(engineer_id, today)
 
-        return (daily_total + live_total, daily_input + live_input, daily_output + live_output)
+        return (daily_total + live_total, daily_input + live_input, daily_output + live_output, daily_cost + live_cost)
 
     @staticmethod
     def _get_engineer_tokens_up_to_time(engineer_id: str, for_date: date, up_to_time) -> int:
@@ -863,6 +950,7 @@ class LeaderboardService:
                 UsageDaily.total_tokens.label('tokens'),
                 UsageDaily.tokens_input,
                 UsageDaily.tokens_output,
+                UsageDaily.cost_usd,
             )
             .filter(
                 UsageDaily.engineer_id == engineer_id,
@@ -873,9 +961,9 @@ class LeaderboardService:
             .all()
         )
 
-        # Build a dict of date -> (tokens, tokens_input, tokens_output)
-        totals_by_date: dict[date, tuple[int, int, int]] = {
-            row.date: (row.tokens, row.tokens_input, row.tokens_output) for row in daily_results
+        # Build a dict of date -> (tokens, tokens_input, tokens_output, cost_usd)
+        totals_by_date: dict[date, tuple[int, int, int, float]] = {
+            row.date: (row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0) for row in daily_results
         }
 
         # Live data for today
@@ -893,13 +981,22 @@ class LeaderboardService:
                 )
                 .one()
             )
-            totals_by_date[today] = (live_result[0] or 0, live_result[1] or 0, live_result[2] or 0)
+            # Get cost from TelemetryEvent for today
+            cost_result = (
+                db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
+                .filter(
+                    TelemetryEvent.engineer_id == engineer_id,
+                    cast(TelemetryEvent.created_at, Date) == today,
+                )
+                .scalar()
+            )
+            totals_by_date[today] = (live_result[0] or 0, live_result[1] or 0, live_result[2] or 0, cost_result or 0.0)
 
         totals = []
         current = start_date
         while current <= end_date:
-            data = totals_by_date.get(current, (0, 0, 0))
-            totals.append(DailyTotal(date=current, tokens=data[0], tokens_input=data[1], tokens_output=data[2]))
+            data = totals_by_date.get(current, (0, 0, 0, 0.0))
+            totals.append(DailyTotal(date=current, tokens=data[0], tokens_input=data[1], tokens_output=data[2], cost_usd=data[3]))
             current += timedelta(days=1)
 
         return DailyTotalsResponse(start_date=start_date, end_date=end_date, totals=totals)
@@ -915,7 +1012,7 @@ class LeaderboardService:
         if period_type == 'daily':
             for i in range(num_periods):
                 period_date = today - timedelta(days=i)
-                rank, tokens, tokens_input, tokens_output = LeaderboardService._get_rank_for_day_detailed(customer_id, engineer_id, period_date)
+                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_day_detailed(customer_id, engineer_id, period_date)
                 rankings.append(HistoricalRank(
                     period_start=period_date,
                     period_end=period_date,
@@ -923,6 +1020,7 @@ class LeaderboardService:
                     tokens=tokens,
                     tokens_input=tokens_input,
                     tokens_output=tokens_output,
+                    cost_usd=cost_usd,
                 ))
 
         elif period_type == 'weekly':
@@ -933,7 +1031,7 @@ class LeaderboardService:
                 week_end = week_start + timedelta(days=6)
                 if week_end > today:
                     week_end = today
-                rank, tokens, tokens_input, tokens_output = LeaderboardService._get_rank_for_range_detailed(customer_id, engineer_id, week_start, week_end)
+                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_range_detailed(customer_id, engineer_id, week_start, week_end)
                 rankings.append(HistoricalRank(
                     period_start=week_start,
                     period_end=week_end,
@@ -941,6 +1039,7 @@ class LeaderboardService:
                     tokens=tokens,
                     tokens_input=tokens_input,
                     tokens_output=tokens_output,
+                    cost_usd=cost_usd,
                 ))
 
         elif period_type == 'monthly':
@@ -963,7 +1062,7 @@ class LeaderboardService:
                     else:
                         month_end = date(year, month + 1, 1) - timedelta(days=1)
 
-                rank, tokens, tokens_input, tokens_output = LeaderboardService._get_rank_for_range_detailed(customer_id, engineer_id, month_start, month_end)
+                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_range_detailed(customer_id, engineer_id, month_start, month_end)
                 rankings.append(HistoricalRank(
                     period_start=month_start,
                     period_end=month_end,
@@ -971,6 +1070,7 @@ class LeaderboardService:
                     tokens=tokens,
                     tokens_input=tokens_input,
                     tokens_output=tokens_output,
+                    cost_usd=cost_usd,
                 ))
 
         return HistoricalRankingsResponse(
@@ -1025,7 +1125,7 @@ class LeaderboardService:
         return None, 0
 
     @staticmethod
-    def _get_rank_for_day_detailed(customer_id: str, engineer_id: str, for_date: date) -> tuple[int | None, int, int, int]:
+    def _get_rank_for_day_detailed(customer_id: str, engineer_id: str, for_date: date) -> tuple[int | None, int, int, int, float]:
         """Get an engineer's rank and token breakdown for a specific day."""
         today = date.today()
 
@@ -1048,6 +1148,26 @@ class LeaderboardService:
                 .order_by(func.sum(Usage.tokens_input + Usage.tokens_output).desc())
                 .all()
             )
+            # Get cost from TelemetryEvent for today
+            cost_results = (
+                db.session.query(
+                    TelemetryEvent.engineer_id,
+                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+                )
+                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    cast(TelemetryEvent.created_at, Date) == for_date,
+                )
+                .group_by(TelemetryEvent.engineer_id)
+                .all()
+            )
+            cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
+
+            for rank, row in enumerate(results, 1):
+                if row.engineer_id == engineer_id:
+                    return rank, row.tokens, row.tokens_input, row.tokens_output, cost_by_engineer.get(engineer_id, 0.0)
+            return None, 0, 0, 0, 0.0
         else:
             # Use daily rollup
             results = (
@@ -1056,6 +1176,7 @@ class LeaderboardService:
                     UsageDaily.total_tokens.label('tokens'),
                     UsageDaily.tokens_input,
                     UsageDaily.tokens_output,
+                    UsageDaily.cost_usd,
                 )
                 .join(Engineer, UsageDaily.engineer_id == Engineer.id)
                 .filter(
@@ -1067,11 +1188,11 @@ class LeaderboardService:
                 .all()
             )
 
-        for rank, row in enumerate(results, 1):
-            if row.engineer_id == engineer_id:
-                return rank, row.tokens, row.tokens_input, row.tokens_output
+            for rank, row in enumerate(results, 1):
+                if row.engineer_id == engineer_id:
+                    return rank, row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0
 
-        return None, 0, 0, 0
+        return None, 0, 0, 0, 0.0
 
     @staticmethod
     def _get_rank_for_range(customer_id: str, engineer_id: str, start_date: date, end_date: date) -> tuple[int | None, int]:
@@ -1132,7 +1253,7 @@ class LeaderboardService:
         return None, 0
 
     @staticmethod
-    def _get_rank_for_range_detailed(customer_id: str, engineer_id: str, start_date: date, end_date: date) -> tuple[int | None, int, int, int]:
+    def _get_rank_for_range_detailed(customer_id: str, engineer_id: str, start_date: date, end_date: date) -> tuple[int | None, int, int, int, float]:
         """Get an engineer's rank and token breakdown for a date range."""
         today = date.today()
 
@@ -1143,6 +1264,7 @@ class LeaderboardService:
                 func.sum(UsageDaily.total_tokens).label('tokens'),
                 func.sum(UsageDaily.tokens_input).label('tokens_input'),
                 func.sum(UsageDaily.tokens_output).label('tokens_output'),
+                func.sum(UsageDaily.cost_usd).label('cost_usd'),
             )
             .join(Engineer, UsageDaily.engineer_id == Engineer.id)
             .filter(
@@ -1173,29 +1295,46 @@ class LeaderboardService:
                 .group_by(Usage.engineer_id)
                 .all()
             )
+            # Get cost from TelemetryEvent for today
+            cost_results = (
+                db.session.query(
+                    TelemetryEvent.engineer_id,
+                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+                )
+                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    cast(TelemetryEvent.created_at, Date) == today,
+                )
+                .group_by(TelemetryEvent.engineer_id)
+                .all()
+            )
+            live_cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
             live_by_engineer = {r.engineer_id: (r.tokens, r.tokens_input, r.tokens_output) for r in live_results}
 
-            # Merge live data with daily data: dict of engineer_id -> (tokens, tokens_input, tokens_output)
-            totals_by_engineer: dict[str, tuple[int, int, int]] = {
-                r.engineer_id: (r.tokens, r.tokens_input, r.tokens_output) for r in results
+            # Merge live data with daily data: dict of engineer_id -> (tokens, tokens_input, tokens_output, cost_usd)
+            totals_by_engineer: dict[str, tuple[int, int, int, float]] = {
+                r.engineer_id: (r.tokens, r.tokens_input, r.tokens_output, r.cost_usd or 0.0) for r in results
             }
             for eng_id, (tokens, tokens_input, tokens_output) in live_by_engineer.items():
-                existing = totals_by_engineer.get(eng_id, (0, 0, 0))
+                existing = totals_by_engineer.get(eng_id, (0, 0, 0, 0.0))
+                live_cost = live_cost_by_engineer.get(eng_id, 0.0)
                 totals_by_engineer[eng_id] = (
                     existing[0] + tokens,
                     existing[1] + tokens_input,
                     existing[2] + tokens_output,
+                    existing[3] + live_cost,
                 )
 
             # Re-sort by total tokens
             sorted_results = sorted(totals_by_engineer.items(), key=lambda x: x[1][0], reverse=True)
-            for rank, (eng_id, (tokens, tokens_input, tokens_output)) in enumerate(sorted_results, 1):
+            for rank, (eng_id, (tokens, tokens_input, tokens_output, cost_usd)) in enumerate(sorted_results, 1):
                 if eng_id == engineer_id:
-                    return rank, tokens, tokens_input, tokens_output
-            return None, 0, 0, 0
+                    return rank, tokens, tokens_input, tokens_output, cost_usd
+            return None, 0, 0, 0, 0.0
 
         for rank, row in enumerate(results, 1):
             if row.engineer_id == engineer_id:
-                return rank, row.tokens, row.tokens_input, row.tokens_output
+                return rank, row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0
 
-        return None, 0, 0, 0
+        return None, 0, 0, 0, 0.0

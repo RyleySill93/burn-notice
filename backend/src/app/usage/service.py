@@ -4,7 +4,7 @@ from sqlalchemy import func
 
 from src.app.engineers.models import Engineer
 from src.app.usage.domains import UsageCreate, UsageDailyCreate, UsageDailyRead, UsageRead
-from src.app.usage.models import Usage, UsageDaily
+from src.app.usage.models import TelemetryEvent, Usage, UsageDaily
 from src.network.database import db
 
 
@@ -54,7 +54,19 @@ class UsageService:
 
         results = query.group_by(Usage.engineer_id).all()
 
+        # Get cost data from TelemetryEvent for the same date
+        cost_query = (
+            db.session.query(
+                TelemetryEvent.engineer_id,
+                func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0).label('cost_usd'),
+            )
+            .filter(func.date(TelemetryEvent.created_at) == for_date)
+            .group_by(TelemetryEvent.engineer_id)
+        )
+        cost_by_engineer = {row.engineer_id: row.cost_usd for row in cost_query.all()}
+
         for row in results:
+            cost_usd = cost_by_engineer.get(row.engineer_id, 0.0)
             # Upsert daily record
             existing = UsageDaily.get_or_none(engineer_id=row.engineer_id, date=for_date)
             if existing:
@@ -64,6 +76,7 @@ class UsageService:
                     tokens_input=row.tokens_input or 0,
                     tokens_output=row.tokens_output or 0,
                     session_count=row.session_count or 0,
+                    cost_usd=cost_usd,
                 )
             else:
                 UsageDaily.create(
@@ -74,6 +87,7 @@ class UsageService:
                         tokens_input=row.tokens_input or 0,
                         tokens_output=row.tokens_output or 0,
                         session_count=row.session_count or 0,
+                        cost_usd=cost_usd,
                     )
                 )
 

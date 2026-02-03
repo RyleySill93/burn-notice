@@ -24,16 +24,18 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { format, subDays } from 'date-fns'
 import { useMetricToggle } from '@/hooks/useMetricToggle'
 
-type MetricType = 'total' | 'input' | 'output'
+type MetricType = 'total' | 'input' | 'output' | 'cost'
 import { MetricToggle } from '@/components/MetricToggle'
 
 interface PeriodStats {
   tokens: number
   tokens_input: number
   tokens_output: number
+  cost_usd: number
   comparison_tokens: number
   comparison_tokens_input: number
   comparison_tokens_output: number
+  comparison_cost_usd: number
   change_percent: number | null
 }
 
@@ -51,6 +53,7 @@ interface DailyTotal {
   tokens: number
   tokens_input: number
   tokens_output: number
+  cost_usd: number
 }
 
 interface DailyTotalsResponse {
@@ -66,6 +69,7 @@ interface HistoricalRank {
   tokens: number
   tokens_input: number
   tokens_output: number
+  cost_usd: number
 }
 
 interface HistoricalRankingsResponse {
@@ -74,12 +78,14 @@ interface HistoricalRankingsResponse {
   rankings: HistoricalRank[]
 }
 
-function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number }, metric: MetricType): number {
+function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number; cost_usd?: number }, metric: MetricType): number {
   switch (metric) {
     case 'input':
       return data.tokens_input
     case 'output':
       return data.tokens_output
+    case 'cost':
+      return data.cost_usd || 0
     default:
       return data.tokens
   }
@@ -91,6 +97,8 @@ function getComparisonValue(data: PeriodStats, metric: MetricType): number {
       return data.comparison_tokens_input
     case 'output':
       return data.comparison_tokens_output
+    case 'cost':
+      return data.comparison_cost_usd || 0
     default:
       return data.comparison_tokens
   }
@@ -111,11 +119,22 @@ function formatTokens(n: number): string {
   return n.toString()
 }
 
-function ChangeIndicator({ change, delta }: { change: number | null; delta: number }) {
+function formatCost(n: number): string {
+  return `$${n.toFixed(2)}`
+}
+
+function formatValue(n: number, metric: MetricType): string {
+  if (metric === 'cost') {
+    return formatCost(n)
+  }
+  return formatTokens(n)
+}
+
+function ChangeIndicator({ change, delta, metric }: { change: number | null; delta: number; metric: MetricType }) {
   if (change === null) {
     return <span className="text-sm text-muted-foreground">No prior data</span>
   }
-  const deltaStr = delta >= 0 ? `+${formatTokens(delta)}` : `-${formatTokens(Math.abs(delta))}`
+  const deltaStr = delta >= 0 ? `+${formatValue(delta, metric)}` : `-${formatValue(Math.abs(delta), metric)}`
   if (change > 0) {
     return (
       <span className="flex items-center gap-1 text-sm text-green-600">
@@ -142,20 +161,22 @@ function ChangeIndicator({ change, delta }: { change: number | null; delta: numb
 
 function StatCard({
   title,
-  tokens,
-  comparisonTokens,
+  value,
+  comparisonValue,
   change,
   comparison,
   icon: Icon,
+  metric,
 }: {
   title: string
-  tokens: number
-  comparisonTokens: number
+  value: number
+  comparisonValue: number
   change: number | null
   comparison: string
   icon: React.ElementType
+  metric: MetricType
 }) {
-  const delta = tokens - comparisonTokens
+  const delta = value - comparisonValue
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -163,9 +184,9 @@ function StatCard({
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{formatTokens(tokens)}</div>
+        <div className="text-2xl font-bold">{formatValue(value, metric)}</div>
         <div className="flex items-center justify-between mt-1">
-          <ChangeIndicator change={change} delta={delta} />
+          <ChangeIndicator change={change} delta={delta} metric={metric} />
           <span className="text-xs text-muted-foreground">{comparison}</span>
         </div>
       </CardContent>
@@ -247,7 +268,7 @@ function HistoricalRankingsTable({
               <p className="font-medium text-sm">
                 {formatPeriodLabel(entry.period_start, entry.period_end, periodType)}
               </p>
-              <p className="text-xs text-muted-foreground">{formatTokens(getMetricValue(entry, metric))} tokens</p>
+              <p className="text-xs text-muted-foreground">{formatValue(getMetricValue(entry, metric), metric)}{metric !== 'cost' && ' tokens'}</p>
             </div>
           </div>
         </div>
@@ -350,27 +371,30 @@ export function EngineerPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           title="Today"
-          tokens={todayTokens}
-          comparisonTokens={todayComparison}
+          value={todayTokens}
+          comparisonValue={todayComparison}
           change={calculateChangePercent(todayTokens, todayComparison)}
           comparison="vs yesterday"
           icon={Zap}
+          metric={metric}
         />
         <StatCard
           title="This Week"
-          tokens={weekTokens}
-          comparisonTokens={weekComparison}
+          value={weekTokens}
+          comparisonValue={weekComparison}
           change={calculateChangePercent(weekTokens, weekComparison)}
           comparison="vs last week at this point"
           icon={Activity}
+          metric={metric}
         />
         <StatCard
           title="This Month"
-          tokens={monthTokens}
-          comparisonTokens={monthComparison}
+          value={monthTokens}
+          comparisonValue={monthComparison}
           change={calculateChangePercent(monthTokens, monthComparison)}
           comparison="vs last month at this point"
           icon={BarChart3}
+          metric={metric}
         />
       </div>
 
@@ -379,7 +403,7 @@ export function EngineerPage() {
         {/* Chart */}
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">Daily Token Burns</CardTitle>
+            <CardTitle className="text-base">{metric === 'cost' ? 'Daily Costs' : 'Daily Token Burns'}</CardTitle>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -408,10 +432,10 @@ export function EngineerPage() {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(value) => formatTokens(value)}
+                    tickFormatter={(value) => formatValue(value, metric)}
                   />
                   <Tooltip
-                    formatter={(value: number) => [formatTokens(value), 'Tokens']}
+                    formatter={(value: number) => [formatValue(value, metric), metric === 'cost' ? 'Cost' : 'Tokens']}
                     labelStyle={{ fontWeight: 'bold' }}
                   />
                   <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />

@@ -45,6 +45,7 @@ class UsageDailyCreate(BaseModel):
     total_tokens: int = 0
     tokens_input: int = 0
     tokens_output: int = 0
+    cost_usd: float = 0.0
     session_count: int = 0
 
     def to_dict(self) -> dict:
@@ -58,6 +59,7 @@ class UsageDailyRead(BaseModel):
     total_tokens: int
     tokens_input: int
     tokens_output: int
+    cost_usd: float
     session_count: int
     created_at: datetime
 

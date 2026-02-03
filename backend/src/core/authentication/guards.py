@@ -60,7 +60,7 @@ def authenticate_user(
         )
 
     # Token.ip and user_ip will be empty on localhost!
-    if settings.ENVIRONMENT != 'local':
+    if settings.ENVIRONMENT != 'local' and not settings.SKIP_IP_CHECK:
         # Check for differences in issuing IP vs current
         authenticate_ip_address(request=request, token=token)
 

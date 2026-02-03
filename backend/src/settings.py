@@ -31,6 +31,7 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 ENVIRONMENT = config(
     'ENVIRONMENT', default='local', cast=Choices(['local', 'testing', 'demo', 'staging', 'production'])
 )
+SKIP_IP_CHECK = config('SKIP_IP_CHECK', default=False, cast=bool)
 IS_LOCAL = ENVIRONMENT == 'local'
 IS_PRODUCTION = ENVIRONMENT == 'production'
 IS_STAGING = ENVIRONMENT == 'staging'

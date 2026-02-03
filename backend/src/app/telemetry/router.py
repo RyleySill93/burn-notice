@@ -234,28 +234,46 @@ async def receive_metrics(
                         extract_attribute(dp_attrs, 'conversation.id')
                     )
 
-                    # Extract token counts based on metric name
+                    # Extract token counts and cost based on metric name
                     tokens_input = 0
                     tokens_output = 0
                     cache_read_tokens = 0
                     cache_creation_tokens = 0
+                    cost_usd = None
 
-                    metric_lower = metric_name.lower()
-                    if 'input' in metric_lower or 'prompt' in metric_lower:
-                        tokens_input = int(value)
-                    elif 'output' in metric_lower or 'completion' in metric_lower:
-                        tokens_output = int(value)
-                    elif 'cache_read' in metric_lower:
-                        cache_read_tokens = int(value)
-                    elif 'cache_creation' in metric_lower:
-                        cache_creation_tokens = int(value)
-                    elif 'token' in metric_lower:
-                        # Generic token metric - check attributes
-                        direction = extract_attribute(dp_attrs, 'direction') or extract_attribute(dp_attrs, 'type')
-                        if direction in ('input', 'prompt'):
+                    # Handle Claude Code's standard metrics
+                    if metric_name == 'claude_code.cost.usage':
+                        # Cost metric - value is in USD
+                        cost_usd = float(value)
+                    elif metric_name == 'claude_code.token.usage':
+                        # Token metric - check 'type' attribute for direction
+                        token_type = extract_attribute(dp_attrs, 'type')
+                        if token_type == 'input':
                             tokens_input = int(value)
-                        elif direction in ('output', 'completion'):
+                        elif token_type == 'output':
                             tokens_output = int(value)
+                        elif token_type == 'cacheRead':
+                            cache_read_tokens = int(value)
+                        elif token_type == 'cacheCreation':
+                            cache_creation_tokens = int(value)
+                    else:
+                        # Fallback for other metric formats
+                        metric_lower = metric_name.lower()
+                        if 'input' in metric_lower or 'prompt' in metric_lower:
+                            tokens_input = int(value)
+                        elif 'output' in metric_lower or 'completion' in metric_lower:
+                            tokens_output = int(value)
+                        elif 'cache_read' in metric_lower:
+                            cache_read_tokens = int(value)
+                        elif 'cache_creation' in metric_lower:
+                            cache_creation_tokens = int(value)
+                        elif 'token' in metric_lower:
+                            # Generic token metric - check attributes
+                            direction = extract_attribute(dp_attrs, 'direction') or extract_attribute(dp_attrs, 'type')
+                            if direction in ('input', 'prompt'):
+                                tokens_input = int(value)
+                            elif direction in ('output', 'completion'):
+                                tokens_output = int(value)
 
                     # Extract tool usage
                     tool_name = extract_attribute(dp_attrs, 'tool.name') or extract_attribute(dp_attrs, 'tool')
@@ -265,10 +283,13 @@ async def receive_metrics(
                     duration_ms = extract_attribute(dp_attrs, 'duration_ms') or extract_attribute(dp_attrs, 'latency_ms')
                     ttft_ms = extract_attribute(dp_attrs, 'time_to_first_token_ms') or extract_attribute(dp_attrs, 'ttft_ms')
 
-                    # Extract cost if present, otherwise calculate it
-                    cost_usd = extract_attribute(dp_attrs, 'cost_usd') or extract_attribute(dp_attrs, 'cost')
-                    if cost_usd is None and (tokens_input > 0 or tokens_output > 0):
-                        cost_usd = calculate_cost(str(model) if model else None, tokens_input, tokens_output)
+                    # If no cost from metric and we have tokens, calculate it
+                    if cost_usd is None:
+                        cost_from_attr = extract_attribute(dp_attrs, 'cost_usd') or extract_attribute(dp_attrs, 'cost')
+                        if cost_from_attr is not None:
+                            cost_usd = float(cost_from_attr)
+                        elif tokens_input > 0 or tokens_output > 0:
+                            cost_usd = calculate_cost(str(model) if model else None, tokens_input, tokens_output)
 
                     # Store full telemetry event
                     telemetry_event = TelemetryEventCreate(

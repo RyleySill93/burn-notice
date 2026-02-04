@@ -10,25 +10,24 @@ from src.app.telemetry.domains import OTLPResponse
 from src.app.usage.domains import TelemetryEventCreate
 from src.app.usage.models import TelemetryEvent
 from src.app.usage.service import UsageService
+from src.core.customer import CustomerRead
 from src.core.customer.models import Customer
 
 
 def calculate_cost(model: str | None, tokens_input: int, tokens_output: int) -> float:
     """Calculate cost in USD based on model and token counts."""
-    if not model:
-        pricing = DEFAULT_PRICING
-    else:
+    pricing: dict[str, float] = DEFAULT_PRICING
+    if model:
         # Try exact match, then prefix match
         model_lower = model.lower()
-        pricing = MODEL_PRICING.get(model_lower)
-        if not pricing:
+        if model_lower in MODEL_PRICING:
+            pricing = MODEL_PRICING[model_lower]
+        else:
             # Try prefix matching for versioned models
             for model_key, model_pricing in MODEL_PRICING.items():
                 if model_lower.startswith(model_key.split('-2')[0]):  # Match base model name
                     pricing = model_pricing
                     break
-        if not pricing:
-            pricing = DEFAULT_PRICING
 
     # Price is per million tokens
     input_cost = (tokens_input / 1_000_000) * pricing['input']
@@ -36,24 +35,24 @@ def calculate_cost(model: str | None, tokens_input: int, tokens_output: int) -> 
     return input_cost + output_cost
 
 
-def extract_attribute(attributes: list[dict], key: str) -> str | int | float | None:
+def extract_attribute(attributes: list[dict[str, Any]], key: str) -> str | int | float | bool | None:
     """Extract a value from OTLP attributes list."""
     for attr in attributes:
         if attr.get('key') == key:
             value = attr.get('value', {})
             # Handle different value types
             if 'stringValue' in value:
-                return value['stringValue']
+                return str(value['stringValue'])
             if 'intValue' in value:
                 return int(value['intValue'])
             if 'doubleValue' in value:
-                return value['doubleValue']
+                return float(value['doubleValue'])
             if 'boolValue' in value:
-                return value['boolValue']
+                return bool(value['boolValue'])
     return None
 
 
-def attributes_to_dict(attributes: list[dict]) -> dict[str, Any]:
+def attributes_to_dict(attributes: list[dict[str, Any]]) -> dict[str, Any]:
     """Convert OTLP attributes list to a dictionary."""
     result = {}
     for attr in attributes:
@@ -83,7 +82,7 @@ class TelemetryService:
         x_api_key: str | None,
         x_team_api_key: str | None,
         authorization: str | None,
-    ) -> tuple[Customer | None, str | None, str | None]:
+    ) -> tuple[CustomerRead | None, str | None, str | None]:
         """
         Get customer and user info from API key headers.
 
@@ -122,7 +121,7 @@ class TelemetryService:
     @staticmethod
     def process_metrics(
         body: dict[str, Any],
-        customer: Customer,
+        customer: CustomerRead,
         user_from_key: str | None,
         user_name_from_key: str | None,
         x_user_id: str | None,
@@ -234,12 +233,12 @@ class TelemetryService:
 
     @staticmethod
     def _process_data_point(
-        dp: dict,
-        metric: dict,
+        dp: dict[str, Any],
+        metric: dict[str, Any],
         metric_name: str,
         engineer: Any,
-        resource_attrs_dict: dict,
-        scope_attrs_dict: dict,
+        resource_attrs_dict: dict[str, Any],
+        scope_attrs_dict: dict[str, Any],
         events_recorded: int,
         usage_recorded: int,
         total_tokens_input: int,
@@ -351,7 +350,7 @@ class TelemetryService:
 
     @staticmethod
     def _extract_tokens_fallback(
-        metric_name: str, value: Any, dp_attrs: list, dp_attrs_dict: dict
+        metric_name: str, value: Any, dp_attrs: list[dict[str, Any]], dp_attrs_dict: dict[str, Any]
     ) -> tuple[int, int, int, int]:
         """Fallback token extraction for non-standard metric formats."""
         tokens_input = 0

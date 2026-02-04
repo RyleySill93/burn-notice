@@ -526,7 +526,7 @@ export function EngineerPage() {
           {/* Period Tabs */}
           <Tabs value={timeSeriesPeriod} onValueChange={(v) => setTimeSeriesPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="hourly" className="text-xs">12 Hours</TabsTrigger>
+              <TabsTrigger value="hourly" className="text-xs">Live</TabsTrigger>
               <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
               <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
               <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>

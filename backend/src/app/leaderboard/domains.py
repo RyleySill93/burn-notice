@@ -141,3 +141,20 @@ class DailyTotalsByEngineerResponse(BaseModel):
     end_date: date
     days: list[DayWithEngineers]
     engineers: list[EngineerInfo]
+
+
+class HourlyTotal(BaseModel):
+    """Token totals for a single hour."""
+
+    hour: str  # ISO format datetime string
+    tokens: int
+    tokens_input: int
+    tokens_output: int
+    cost_usd: float = 0.0
+
+
+class HourlyTotalsResponse(BaseModel):
+    """Response for the hourly totals chart endpoint."""
+
+    engineer_id: str
+    totals: list[HourlyTotal]

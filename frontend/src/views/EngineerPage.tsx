@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { format, subDays, isToday, isSameDay } from 'date-fns'
 import { useMetricToggle } from '@/hooks/useMetricToggle'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
@@ -77,6 +77,19 @@ interface HistoricalRankingsResponse {
   engineer_id: string
   period_type: string
   rankings: HistoricalRank[]
+}
+
+interface HourlyTotal {
+  hour: string
+  tokens: number
+  tokens_input: number
+  tokens_output: number
+  cost_usd: number
+}
+
+interface HourlyTotalsResponse {
+  engineer_id: string
+  totals: HourlyTotal[]
 }
 
 function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number; cost_usd?: number }, metric: MetricType): number {
@@ -341,6 +354,32 @@ export function EngineerPage() {
     refetchInterval: rankingsIsToday ? 30_000 : false,
   })
 
+  const { data: hourlyTotals, isLoading: hourlyLoading } = useQuery<HourlyTotalsResponse>({
+    queryKey: ['engineer-hourly-totals', engineerId],
+    queryFn: async () => {
+      const response = await axios.get<HourlyTotalsResponse>(
+        `/api/leaderboard/engineers/${engineerId}/hourly-totals`
+      )
+      return response.data
+    },
+    enabled: !!engineerId,
+    refetchInterval: 30_000, // Always poll since it's live data
+  })
+
+  // Build cumulative 24-hour data
+  const hourlyChartData = (() => {
+    if (!hourlyTotals) return []
+    let cumulative = 0
+    return hourlyTotals.totals.map((t) => {
+      const value = getMetricValue(t, metric)
+      cumulative += value
+      return {
+        hour: format(new Date(t.hour), 'ha'),
+        value: cumulative,
+      }
+    })
+  })()
+
   const chartData =
     dailyTotals?.totals.map((t) => ({
       date: format(new Date(t.date), 'MMM d'),
@@ -349,7 +388,7 @@ export function EngineerPage() {
       tokensOutput: t.tokens_output,
     })) || []
 
-  const isLoading = statsLoading || chartLoading || rankingsLoading
+  const isLoading = statsLoading || chartLoading || rankingsLoading || hourlyLoading
 
   if (isLoading) {
     return (
@@ -414,6 +453,48 @@ export function EngineerPage() {
           metric={metric}
         />
       </div>
+
+      {/* Trailing 24 Hours Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">
+            {metric === 'cost' ? 'Trailing 24 Hours (Cumulative Cost)' : 'Trailing 24 Hours (Cumulative Tokens)'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[200px]">
+            {hourlyChartData.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No data in the last 24 hours
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={hourlyChartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="hour" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => formatValue(value, metric)}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [formatValue(value, metric), metric === 'cost' ? 'Cumulative Cost' : 'Cumulative Tokens']}
+                    labelStyle={{ fontWeight: 'bold' }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#f97316"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Chart and Historical Rankings */}
       <div className="grid gap-6 lg:grid-cols-5 items-start">

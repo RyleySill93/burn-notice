@@ -38,6 +38,8 @@ from src.app.leaderboard.domains import (
     EngineerStatsResponse,
     HistoricalRank,
     HistoricalRankingsResponse,
+    HourlyTotal,
+    HourlyTotalsResponse,
     Leaderboard,
     LeaderboardEntry,
     PeriodStats,
@@ -1545,3 +1547,71 @@ class LeaderboardService:
             days=days,
             engineers=engineers,
         )
+
+    @staticmethod
+    def get_engineer_hourly_totals(engineer_id: str) -> HourlyTotalsResponse:
+        """Get hourly token totals for the last 24 hours for a specific engineer."""
+        now = datetime.now(APP_TIMEZONE)
+        # Start from 24 hours ago, rounded down to the hour
+        start_time = (now - timedelta(hours=24)).replace(minute=0, second=0, microsecond=0)
+
+        # Convert to UTC for database query
+        start_utc = start_time.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+        end_utc = now.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+
+        # Query raw usage data grouped by hour
+        results = (
+            db.session.query(
+                func.date_trunc('hour', Usage.created_at).label('hour'),
+                func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
+                func.sum(Usage.tokens_input).label('tokens_input'),
+                func.sum(Usage.tokens_output).label('tokens_output'),
+            )
+            .filter(
+                Usage.engineer_id == engineer_id,
+                Usage.created_at >= start_utc,
+                Usage.created_at <= end_utc,
+            )
+            .group_by(func.date_trunc('hour', Usage.created_at))
+            .order_by(func.date_trunc('hour', Usage.created_at))
+            .all()
+        )
+
+        # Query telemetry for cost data grouped by hour
+        cost_results = (
+            db.session.query(
+                func.date_trunc('hour', TelemetryEvent.created_at).label('hour'),
+                func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+            )
+            .filter(
+                TelemetryEvent.engineer_id == engineer_id,
+                TelemetryEvent.created_at >= start_utc,
+                TelemetryEvent.created_at <= end_utc,
+            )
+            .group_by(func.date_trunc('hour', TelemetryEvent.created_at))
+            .all()
+        )
+        cost_by_hour = {r.hour: r.cost_usd or 0.0 for r in cost_results}
+
+        # Build dict of hour -> data
+        data_by_hour = {}
+        for r in results:
+            data_by_hour[r.hour] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0)
+
+        # Build complete hourly list with zeros for missing hours
+        totals = []
+        current_hour = start_time
+        while current_hour <= now:
+            hour_utc = current_hour.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+            data = data_by_hour.get(hour_utc, (0, 0, 0))
+            cost = cost_by_hour.get(hour_utc, 0.0)
+            totals.append(HourlyTotal(
+                hour=current_hour.isoformat(),
+                tokens=data[0],
+                tokens_input=data[1],
+                tokens_output=data[2],
+                cost_usd=cost,
+            ))
+            current_hour += timedelta(hours=1)
+
+        return HourlyTotalsResponse(engineer_id=engineer_id, totals=totals)

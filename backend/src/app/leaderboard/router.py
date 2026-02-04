@@ -8,6 +8,7 @@ from src.app.leaderboard.domains import (
     DailyTotalsResponse,
     EngineerStatsResponse,
     HistoricalRankingsResponse,
+    HourlyTotalsResponse,
     Leaderboard,
     UsageStats,
 )
@@ -100,6 +101,15 @@ def get_historical_rankings(
     return LeaderboardService.get_historical_rankings(
         membership.customer_id, engineer_id, period_type, num_periods
     )
+
+
+@router.get('/engineers/{engineer_id}/hourly-totals', response_model=HourlyTotalsResponse)
+def get_engineer_hourly_totals(
+    engineer_id: str,
+    membership: MembershipRead = Depends(get_current_membership),
+) -> HourlyTotalsResponse:
+    """Get hourly token totals for the last 24 hours for a specific engineer."""
+    return LeaderboardService.get_engineer_hourly_totals(engineer_id)
 
 
 @router.post('/post', response_model=PostResponse)

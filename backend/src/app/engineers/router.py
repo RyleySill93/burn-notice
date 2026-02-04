@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends
 from src.app.engineers.domains import EngineerCreateRequest, EngineerRead
 from src.app.engineers.service import EngineerService
 from src.core.authentication.dependencies import get_current_membership
+from src.core.authentication.domains import AuthenticatedUser
+from src.core.authentication.guards import authenticate_user
 from src.core.membership.domains import MembershipRead
 
 router = APIRouter()
@@ -31,12 +33,13 @@ def list_engineers(
 
 @router.get('/me', response_model=EngineerRead | None)
 def get_my_engineer(
+    user: AuthenticatedUser = Depends(authenticate_user),
     membership: MembershipRead = Depends(get_current_membership),
 ) -> EngineerRead | None:
     """Get the engineer record for the current user (by email)."""
-    if not membership.user or not membership.user.email:
+    if not user.email:
         return None
-    return EngineerService.get_by_external_id(membership.customer_id, membership.user.email)
+    return EngineerService.get_by_external_id(membership.customer_id, user.email)
 
 
 @router.get('/{external_id}', response_model=EngineerRead | None)

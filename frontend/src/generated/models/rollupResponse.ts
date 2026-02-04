@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.0.1
  */
 
+/**
+ * Response for rollup operation.
+ */
 export interface RollupResponse {
   date: string;
-  engineers_processed: number;
+  engineersProcessed: number;
 }

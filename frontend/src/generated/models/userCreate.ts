@@ -10,8 +10,9 @@ import type { UserCreateLastName } from './userCreateLastName';
 import type { UserCreateHashedPassword } from './userCreateHashedPassword';
 
 export interface UserCreate {
-  firstName?: UserCreateFirstName;
-  lastName?: UserCreateLastName;
+  firstName: UserCreateFirstName;
+  lastName: UserCreateLastName;
   hashedPassword?: UserCreateHashedPassword;
   email: string;
+  isActive?: boolean;
 }

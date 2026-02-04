@@ -7,7 +7,7 @@
  */
 
 export interface MembershipAssignmentRead {
+  id: string;
   membershipId: string;
   accessRoleId: string;
-  id: string;
 }

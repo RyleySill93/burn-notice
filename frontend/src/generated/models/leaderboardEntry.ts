@@ -6,11 +6,22 @@
  * OpenAPI spec version: 0.0.1
  */
 import type { LeaderboardEntryPrevRank } from './leaderboardEntryPrevRank';
+import type { LeaderboardEntryGithubCommits } from './leaderboardEntryGithubCommits';
+import type { LeaderboardEntryGithubAdditions } from './leaderboardEntryGithubAdditions';
+import type { LeaderboardEntryGithubDeletions } from './leaderboardEntryGithubDeletions';
+import type { LeaderboardEntryGithubPrsMerged } from './leaderboardEntryGithubPrsMerged';
 
 export interface LeaderboardEntry {
-  engineer_id: string;
-  display_name: string;
+  engineerId: string;
+  displayName: string;
   tokens: number;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
   rank: number;
-  prev_rank?: LeaderboardEntryPrevRank;
+  prevRank?: LeaderboardEntryPrevRank;
+  githubCommits?: LeaderboardEntryGithubCommits;
+  githubAdditions?: LeaderboardEntryGithubAdditions;
+  githubDeletions?: LeaderboardEntryGithubDeletions;
+  githubPrsMerged?: LeaderboardEntryGithubPrsMerged;
 }

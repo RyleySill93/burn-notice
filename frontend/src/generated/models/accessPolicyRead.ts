@@ -12,11 +12,11 @@ import type { AccessPolicyReadResourceSelector } from './accessPolicyReadResourc
 import type { PermissionEffectEnum } from './permissionEffectEnum';
 
 export interface AccessPolicyRead {
+  id: string;
   name: string;
   customerId?: AccessPolicyReadCustomerId;
   permissionType: PermissionTypeEnum;
   resourceType: ResourceTypeEnum;
   resourceSelector?: AccessPolicyReadResourceSelector;
   effect?: PermissionEffectEnum;
-  id: string;
 }

@@ -1,17 +1,14 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
-from src.app.engineers.domains import EngineerRead
+from src.app.engineers.domains import EngineerCreateRequest, EngineerRead
 from src.app.engineers.service import EngineerService
 from src.core.authentication.dependencies import get_current_membership
+from src.core.authentication.domains import AuthenticatedUser
+from src.core.authentication.guards import authenticate_user
 from src.core.membership.domains import MembershipRead
+from src.core.user import UserService
 
 router = APIRouter()
-
-
-class EngineerCreateRequest(BaseModel):
-    external_id: str
-    display_name: str
 
 
 @router.post('', response_model=EngineerRead)
@@ -33,6 +30,19 @@ def list_engineers(
 ) -> list[EngineerRead]:
     """List all engineers for the current team."""
     return EngineerService.list_by_customer(membership.customer_id)
+
+
+@router.get('/me', response_model=EngineerRead | None)
+def get_my_engineer(
+    user: AuthenticatedUser = Depends(authenticate_user),
+    membership: MembershipRead = Depends(get_current_membership),
+    user_service: UserService = Depends(UserService.factory),
+) -> EngineerRead | None:
+    """Get the engineer record for the current user (by email)."""
+    user_record = user_service.get_user_for_id(user.id)
+    if not user_record.email:
+        return None
+    return EngineerService.get_by_external_id(membership.customer_id, user_record.email)
 
 
 @router.get('/{external_id}', response_model=EngineerRead | None)

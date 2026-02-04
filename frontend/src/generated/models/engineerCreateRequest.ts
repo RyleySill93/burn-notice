@@ -6,7 +6,10 @@
  * OpenAPI spec version: 0.0.1
  */
 
+/**
+ * Request payload for creating an engineer.
+ */
 export interface EngineerCreateRequest {
-  external_id: string;
-  display_name: string;
+  externalId: string;
+  displayName: string;
 }

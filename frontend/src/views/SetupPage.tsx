@@ -1,31 +1,99 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Settings, Copy, Check } from 'lucide-react'
+import { Settings, Copy, Check, Github, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/contexts/AuthContext'
-import axios from '@/lib/axios-instance'
-
-interface MyApiKeyResponse {
-  api_key: string
-}
+import { SuperButton } from '@/components/SuperButton'
+import { useApiError } from '@/hooks/useApiError'
+import { useGetMyApiKey } from '@/generated/invitations/invitations'
+import { useGetMyEngineer } from '@/generated/engineers/engineers'
+import {
+  useGetGithubStatus,
+  useGetGithubConnectUrl,
+  useDisconnectGithub,
+  useSyncGithub,
+} from '@/generated/github/github'
 
 export function SetupPage() {
-  const { customer } = useAuth()
+  const { customer, user } = useAuth()
   const [copied, setCopied] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-  const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+  const apiError = useApiError()
+  const apiUrl = import.meta.env.VITE_API_BASE_URL
 
-  const { data: myApiKey, isLoading } = useQuery<MyApiKeyResponse>({
-    queryKey: ['my-api-key', customer?.id],
-    queryFn: async () => {
-      if (!customer?.id) throw new Error('No customer')
-      const response = await axios.get<MyApiKeyResponse>(`/invitations/memberships/my-api-key?customer_id=${customer.id}`)
-      return response.data
-    },
-    enabled: !!customer?.id,
-  })
+  if (!apiUrl) {
+    throw new Error('VITE_API_BASE_URL environment variable is required')
+  }
+
+  // Get the current user's engineer record
+  const { data: myEngineer } = useGetMyEngineer({ query: { enabled: !!user } })
+  const engineerId = myEngineer?.id ?? ''
+
+  // API key query
+  const { data: myApiKey, isLoading } = useGetMyApiKey(
+    { customer_id: customer?.id ?? '' },
+    { query: { enabled: !!customer?.id } }
+  )
+
+  // GitHub connection status
+  const {
+    data: githubStatus,
+    isLoading: isLoadingGitHub,
+    refetch: refetchGitHubStatus,
+  } = useGetGithubStatus(engineerId, { query: { enabled: !!engineerId } })
+
+  // GitHub connect URL query (enabled on demand)
+  const { refetch: fetchConnectUrl } = useGetGithubConnectUrl(
+    { engineer_id: engineerId },
+    { query: { enabled: false } }
+  )
+
+  // GitHub disconnect mutation
+  const disconnectMutation = useDisconnectGithub()
+
+  // GitHub sync mutation
+  const syncMutation = useSyncGithub()
+  const [syncResult, setSyncResult] = useState<{ prs: number } | null>(null)
+
+  const handleConnectGitHub = async () => {
+    if (!engineerId) return
+    apiError.clearError()
+    try {
+      const result = await fetchConnectUrl()
+      if (result.data?.authorizationUrl) {
+        window.location.href = result.data.authorizationUrl
+      }
+    } catch (err) {
+      apiError.setError(err)
+    }
+  }
+
+  const handleDisconnectGitHub = async () => {
+    if (!engineerId) return
+    apiError.clearError()
+    try {
+      await disconnectMutation.mutateAsync({ engineerId })
+      refetchGitHubStatus()
+    } catch (err) {
+      apiError.setError(err)
+    }
+  }
+
+  const handleSyncGitHub = async () => {
+    if (!engineerId) return
+    apiError.clearError()
+    setSyncResult(null)
+    try {
+      const result = await syncMutation.mutateAsync({ engineerId })
+      setSyncResult(result)
+    } catch (err) {
+      apiError.setError(err)
+    }
+  }
 
   const apiKey = myApiKey?.api_key
+
+  // Display any errors from GitHub operations
+  const { ErrorAlert } = apiError
 
   const setupScript = apiKey
     ? `# burn-notice - Claude Code usage tracking
@@ -61,6 +129,7 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {ErrorAlert}
           {apiKey && (
             <div>
               <h3 className="font-semibold mb-2">Shell Configuration</h3>
@@ -68,7 +137,7 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
                 Add to <code className="bg-muted px-1.5 py-0.5 rounded text-xs">~/.zshrc</code> (or <code className="bg-muted px-1.5 py-0.5 rounded text-xs">~/.bashrc</code>), then run: <code className="bg-muted px-1.5 py-0.5 rounded text-xs">source ~/.zshrc</code>
               </p>
               <div
-                className="relative bg-zinc-900 text-zinc-100 rounded-lg p-4 font-mono text-sm overflow-x-auto"
+                className="relative bg-zinc-900 dark:bg-zinc-800 text-zinc-100 rounded-lg p-4 font-mono text-sm overflow-x-auto border dark:border-zinc-700"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
               >
@@ -90,6 +159,59 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
               Unable to load your API key. Please try refreshing the page.
             </p>
           )}
+
+          {/* GitHub Integration Section */}
+          <div className="mt-6 pt-6 border-t">
+            <h3 className="font-semibold mb-2">GitHub Integration</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Connect your GitHub account to track commits, PRs, and code reviews on the leaderboard.
+            </p>
+            {isLoadingGitHub ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              </div>
+            ) : githubStatus?.connected ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2">
+                    <Github className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <span className="text-sm">
+                      Connected as <strong>@{githubStatus.githubUsername}</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <SuperButton
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSyncGitHub}
+                      leftIcon={RefreshCw}
+                    >
+                      Sync Now
+                    </SuperButton>
+                    <SuperButton
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDisconnectGitHub}
+                    >
+                      Disconnect
+                    </SuperButton>
+                  </div>
+                </div>
+                {syncResult && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-sm">
+                    Synced <strong>{syncResult.prs}</strong> merged PRs
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <SuperButton onClick={handleConnectGitHub} leftIcon={Github} disabled>
+                  Connect GitHub
+                </SuperButton>
+                <p className="text-xs text-muted-foreground">Coming soon</p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -24,9 +24,9 @@ import type {
 } from '.././models';
 
 
-export const getRecordUsageResponseMock = (overrideResponse: Partial< UsageRead > = {}): UsageRead => ({id: faker.string.alpha({length: {min: 10, max: 20}}), engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), model: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), session_id: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), created_at: `${faker.date.past().toISOString().split('.')[0]}Z`, ...overrideResponse})
+export const getRecordUsageResponseMock = (overrideResponse: Partial< UsageRead > = {}): UsageRead => ({id: faker.string.alpha({length: {min: 10, max: 20}}), engineerId: faker.string.alpha({length: {min: 10, max: 20}}), tokensInput: faker.number.int({min: undefined, max: undefined}), tokensOutput: faker.number.int({min: undefined, max: undefined}), model: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), sessionId: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), createdAt: `${faker.date.past().toISOString().split('.')[0]}Z`, ...overrideResponse})
 
-export const getRunRollupResponseMock = (overrideResponse: Partial< RollupResponse > = {}): RollupResponse => ({date: faker.date.past().toISOString().split('T')[0], engineers_processed: faker.number.int({min: undefined, max: undefined}), ...overrideResponse})
+export const getRunRollupResponseMock = (overrideResponse: Partial< RollupResponse > = {}): RollupResponse => ({date: faker.date.past().toISOString().split('T')[0], engineersProcessed: faker.number.int({min: undefined, max: undefined}), ...overrideResponse})
 
 
 export const getRecordUsageMockHandler = (overrideResponse?: UsageRead | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<UsageRead> | UsageRead), options?: RequestHandlerOptions) => {

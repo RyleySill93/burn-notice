@@ -8,8 +8,8 @@
 import type { CustomerReadModifiedAt } from './customerReadModifiedAt';
 
 export interface CustomerRead {
-  name: string;
   id: string;
+  name: string;
   createdAt: string;
   modifiedAt?: CustomerReadModifiedAt;
 }

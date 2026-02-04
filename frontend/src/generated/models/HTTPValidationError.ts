@@ -5,7 +5,7 @@
  * API Documentation
  * OpenAPI spec version: 0.0.1
  */
-import type { ValidationError } from './ValidationError';
+import type { ValidationError } from './validationError';
 
 export interface HTTPValidationError {
   detail?: ValidationError[];

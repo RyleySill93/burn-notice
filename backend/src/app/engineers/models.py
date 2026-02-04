@@ -1,6 +1,7 @@
 from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.app.engineers.constants import ENGINEER_PK_ABBREV
 from src.app.engineers.domains import EngineerCreate, EngineerRead
 from src.common.model import BaseModel
 
@@ -14,7 +15,7 @@ class Engineer(BaseModel[EngineerRead, EngineerCreate]):
 
     customer = relationship('Customer')
 
-    __pk_abbrev__ = 'eng'
+    __pk_abbrev__ = ENGINEER_PK_ABBREV
     __read_domain__ = EngineerRead
     __create_domain__ = EngineerCreate
 

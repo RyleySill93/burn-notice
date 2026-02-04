@@ -30,6 +30,7 @@ from src.core.membership import MembershipService, MembershipWithUser
 class MyApiKeyResponse(BaseModel):
     api_key: str
 
+
 router = APIRouter()
 
 

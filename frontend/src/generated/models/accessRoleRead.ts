@@ -10,9 +10,9 @@ import type { AccessRoleReadDescription } from './accessRoleReadDescription';
 import type { AccessRoleReadCustomerId } from './accessRoleReadCustomerId';
 
 export interface AccessRoleRead {
+  id: string;
   name: string;
   isDefault?: AccessRoleReadIsDefault;
   description?: AccessRoleReadDescription;
   customerId?: AccessRoleReadCustomerId;
-  id: string;
 }

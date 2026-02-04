@@ -1,7 +1,6 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
 from src.app.leaderboard.domains import (
     DailyTotalsByEngineerResponse,
@@ -9,6 +8,7 @@ from src.app.leaderboard.domains import (
     EngineerStatsResponse,
     HistoricalRankingsResponse,
     Leaderboard,
+    PostResponse,
     TeamTimeSeriesResponse,
     TimeSeriesResponse,
     UsageStats,
@@ -16,14 +16,8 @@ from src.app.leaderboard.domains import (
 from src.app.leaderboard.service import LeaderboardService
 from src.core.authentication.dependencies import get_current_membership
 from src.core.membership.domains import MembershipRead
-from src.platform.slack.service import SlackService
 
 router = APIRouter()
-
-
-class PostResponse(BaseModel):
-    success: bool
-    date: date
 
 
 @router.get('', response_model=Leaderboard)
@@ -117,9 +111,7 @@ def get_historical_rankings(
     membership: MembershipRead = Depends(get_current_membership),
 ) -> HistoricalRankingsResponse:
     """Get historical rankings for an engineer."""
-    return LeaderboardService.get_historical_rankings(
-        membership.customer_id, engineer_id, period_type, num_periods
-    )
+    return LeaderboardService.get_historical_rankings(membership.customer_id, engineer_id, period_type, num_periods)
 
 
 @router.get('/engineers/{engineer_id}/time-series', response_model=TimeSeriesResponse)
@@ -147,7 +139,4 @@ def post_to_slack(
     membership: MembershipRead = Depends(get_current_membership),
 ) -> PostResponse:
     """Post leaderboard to Slack."""
-    leaderboard = LeaderboardService.get_leaderboard(membership.customer_id, as_of)
-    success = SlackService.post_leaderboard(leaderboard)
-
-    return PostResponse(success=success, date=leaderboard.date)
+    return LeaderboardService.post_leaderboard_to_slack(membership.customer_id, as_of)

@@ -9,9 +9,9 @@ import type { EngineerReadModifiedAt } from './engineerReadModifiedAt';
 
 export interface EngineerRead {
   id: string;
-  customer_id: string;
-  external_id: string;
-  display_name: string;
-  created_at: string;
-  modified_at?: EngineerReadModifiedAt;
+  customerId: string;
+  externalId: string;
+  displayName: string;
+  createdAt: string;
+  modifiedAt?: EngineerReadModifiedAt;
 }

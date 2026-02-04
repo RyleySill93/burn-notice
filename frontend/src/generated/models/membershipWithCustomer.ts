@@ -13,11 +13,11 @@ import type { MembershipWithCustomerCustomer } from './membershipWithCustomerCus
  * Membership with associated customer information
  */
 export interface MembershipWithCustomer {
+  id: string;
   customerId: string;
   userId: string;
   isActive?: boolean;
   apiKey?: MembershipWithCustomerApiKey;
-  id: string;
   createdAt: string;
   modifiedAt?: MembershipWithCustomerModifiedAt;
   customer?: MembershipWithCustomerCustomer;

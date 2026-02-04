@@ -33,6 +33,32 @@ def run_leaderboard_post():
     logger.info(f'Leaderboard post {"succeeded" if success else "failed"}')
 
 
+def run_github_sync():
+    """Sync GitHub data for all connected engineers."""
+    from src.app.github.service import GitHubService
+
+    logger.info('Running GitHub sync')
+    github_service = GitHubService.factory()
+    results = github_service.sync_all_engineers()
+    logger.info(
+        'GitHub sync complete',
+        engineers_synced=results['engineers_synced'],
+        engineers_failed=results['engineers_failed'],
+        total_commits=results['total_commits'],
+        total_prs=results['total_prs'],
+    )
+
+
+def run_github_rollup():
+    """Aggregate GitHub data into daily rollups."""
+    from src.app.github.service import GitHubService
+
+    logger.info('Running GitHub daily rollup')
+    github_service = GitHubService.factory()
+    count = github_service.rollup_daily()
+    logger.info(f'GitHub rollup complete: {count} engineers processed')
+
+
 if __name__ == '__main__':
     # Initialize application (DB, etc.)
     setup()
@@ -59,9 +85,31 @@ if __name__ == '__main__':
         name='Post Leaderboard to Slack',
     )
 
+    # GitHub sync every 2 hours
+    scheduler.add_job(
+        run_github_sync,
+        'cron',
+        hour='*/2',
+        minute=0,
+        id='github_sync',
+        name='GitHub Data Sync',
+    )
+
+    # GitHub daily rollup at 8:10 AM UTC (12:10 AM PST)
+    scheduler.add_job(
+        run_github_rollup,
+        'cron',
+        hour=8,
+        minute=10,
+        id='github_rollup',
+        name='GitHub Daily Rollup',
+    )
+
     logger.info('Scheduler starting with jobs:')
     logger.info('  - Daily rollup: 08:05 UTC (00:05 PST)')
     logger.info('  - Leaderboard post: 17:00 UTC (09:00 PST)')
+    logger.info('  - GitHub sync: Every 2 hours')
+    logger.info('  - GitHub rollup: 08:10 UTC (00:10 PST)')
 
     try:
         scheduler.start()

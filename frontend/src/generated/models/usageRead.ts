@@ -10,10 +10,10 @@ import type { UsageReadSessionId } from './usageReadSessionId';
 
 export interface UsageRead {
   id: string;
-  engineer_id: string;
-  tokens_input: number;
-  tokens_output: number;
+  engineerId: string;
+  tokensInput: number;
+  tokensOutput: number;
   model: UsageReadModel;
-  session_id: UsageReadSessionId;
-  created_at: string;
+  sessionId: UsageReadSessionId;
+  createdAt: string;
 }

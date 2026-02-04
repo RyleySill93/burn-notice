@@ -20,15 +20,18 @@ import type {
 
 import type {
   EngineerRead,
-  GetEngineer200
+  GetEngineer200,
+  GetMyEngineer200
 } from '.././models';
 
 
-export const getListEngineersResponseMock = (): EngineerRead[] => (Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.string.alpha({length: {min: 10, max: 20}}), customer_id: faker.string.alpha({length: {min: 10, max: 20}}), external_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), created_at: `${faker.date.past().toISOString().split('.')[0]}Z`, modified_at: faker.helpers.arrayElement([faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`,null,]), undefined])})))
+export const getListEngineersResponseMock = (): EngineerRead[] => (Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.string.alpha({length: {min: 10, max: 20}}), customerId: faker.string.alpha({length: {min: 10, max: 20}}), externalId: faker.string.alpha({length: {min: 10, max: 20}}), displayName: faker.string.alpha({length: {min: 10, max: 20}}), createdAt: `${faker.date.past().toISOString().split('.')[0]}Z`, modifiedAt: faker.helpers.arrayElement([faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`,null,]), undefined])})))
 
-export const getCreateOrUpdateEngineerResponseMock = (overrideResponse: Partial< EngineerRead > = {}): EngineerRead => ({id: faker.string.alpha({length: {min: 10, max: 20}}), customer_id: faker.string.alpha({length: {min: 10, max: 20}}), external_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), created_at: `${faker.date.past().toISOString().split('.')[0]}Z`, modified_at: faker.helpers.arrayElement([faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`,null,]), undefined]), ...overrideResponse})
+export const getCreateOrUpdateEngineerResponseMock = (overrideResponse: Partial< EngineerRead > = {}): EngineerRead => ({id: faker.string.alpha({length: {min: 10, max: 20}}), customerId: faker.string.alpha({length: {min: 10, max: 20}}), externalId: faker.string.alpha({length: {min: 10, max: 20}}), displayName: faker.string.alpha({length: {min: 10, max: 20}}), createdAt: `${faker.date.past().toISOString().split('.')[0]}Z`, modifiedAt: faker.helpers.arrayElement([faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`,null,]), undefined]), ...overrideResponse})
 
-export const getGetEngineerResponseMock = (): GetEngineer200 => (faker.helpers.arrayElement([{id: faker.string.alpha({length: {min: 10, max: 20}}), customer_id: faker.string.alpha({length: {min: 10, max: 20}}), external_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), created_at: `${faker.date.past().toISOString().split('.')[0]}Z`, modified_at: faker.helpers.arrayElement([faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`,null,]), undefined])},null,]))
+export const getGetMyEngineerResponseMock = (): GetMyEngineer200 => (faker.helpers.arrayElement([{id: faker.string.alpha({length: {min: 10, max: 20}}), customerId: faker.string.alpha({length: {min: 10, max: 20}}), externalId: faker.string.alpha({length: {min: 10, max: 20}}), displayName: faker.string.alpha({length: {min: 10, max: 20}}), createdAt: `${faker.date.past().toISOString().split('.')[0]}Z`, modifiedAt: faker.helpers.arrayElement([faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`,null,]), undefined])},null,]))
+
+export const getGetEngineerResponseMock = (): GetEngineer200 => (faker.helpers.arrayElement([{id: faker.string.alpha({length: {min: 10, max: 20}}), customerId: faker.string.alpha({length: {min: 10, max: 20}}), externalId: faker.string.alpha({length: {min: 10, max: 20}}), displayName: faker.string.alpha({length: {min: 10, max: 20}}), createdAt: `${faker.date.past().toISOString().split('.')[0]}Z`, modifiedAt: faker.helpers.arrayElement([faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`,null,]), undefined])},null,]))
 
 
 export const getListEngineersMockHandler = (overrideResponse?: EngineerRead[] | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<EngineerRead[]> | EngineerRead[]), options?: RequestHandlerOptions) => {
@@ -55,6 +58,18 @@ export const getCreateOrUpdateEngineerMockHandler = (overrideResponse?: Engineer
   }, options)
 }
 
+export const getGetMyEngineerMockHandler = (overrideResponse?: GetMyEngineer200 | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GetMyEngineer200> | GetMyEngineer200), options?: RequestHandlerOptions) => {
+  return http.get('*/api/engineers/me', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetMyEngineerResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
 export const getGetEngineerMockHandler = (overrideResponse?: GetEngineer200 | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GetEngineer200> | GetEngineer200), options?: RequestHandlerOptions) => {
   return http.get('*/api/engineers/:externalId', async (info) => {await delay(1000);
   
@@ -69,5 +84,6 @@ export const getGetEngineerMockHandler = (overrideResponse?: GetEngineer200 | ((
 export const getEngineersMock = () => [
   getListEngineersMockHandler(),
   getCreateOrUpdateEngineerMockHandler(),
+  getGetMyEngineerMockHandler(),
   getGetEngineerMockHandler()
 ]

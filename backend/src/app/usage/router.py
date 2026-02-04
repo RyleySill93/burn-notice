@@ -1,30 +1,15 @@
-from datetime import date
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
 
 from src.app.engineers.service import EngineerService
-from src.app.usage.domains import UsageRead
+from src.app.usage.domains import RollupResponse, UsageCreateRequest, UsageRead
 from src.app.usage.service import UsageService
 from src.core.authentication.dependencies import get_current_membership
 from src.core.customer.models import Customer
 from src.core.membership.domains import MembershipRead
 
 router = APIRouter()
-
-
-class UsageCreateRequest(BaseModel):
-    external_id: str  # Engineer's external ID
-    display_name: str  # Engineer's display name (for auto-registration)
-    tokens_input: int = 0
-    tokens_output: int = 0
-    model: str | None = None
-    session_id: str | None = None
-
-
-class RollupResponse(BaseModel):
-    date: date
-    engineers_processed: int
 
 
 @router.post('', response_model=UsageRead)
@@ -61,14 +46,11 @@ def record_usage(
 
 @router.post('/rollup', response_model=RollupResponse)
 def run_rollup(
-    for_date: date | None = None,
+    for_date: datetime | None = None,
     membership: MembershipRead = Depends(get_current_membership),
 ) -> RollupResponse:
     """Manually trigger daily rollup for the team."""
-    from datetime import timedelta, timezone
-    from datetime import datetime as dt
-
-    target_date = for_date or (dt.now(timezone.utc) - timedelta(days=1)).date()
+    target_date = for_date.date() if for_date else (datetime.now(timezone.utc) - timedelta(days=1)).date()
     count = UsageService.rollup_daily(target_date, customer_id=membership.customer_id)
 
     return RollupResponse(date=target_date, engineers_processed=count)

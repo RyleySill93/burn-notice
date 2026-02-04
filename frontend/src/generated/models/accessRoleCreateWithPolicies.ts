@@ -5,12 +5,14 @@
  * API Documentation
  * OpenAPI spec version: 0.0.1
  */
+import type { AccessRoleCreateWithPoliciesId } from './accessRoleCreateWithPoliciesId';
 import type { AccessRoleCreateWithPoliciesIsDefault } from './accessRoleCreateWithPoliciesIsDefault';
 import type { AccessRoleCreateWithPoliciesDescription } from './accessRoleCreateWithPoliciesDescription';
 import type { AccessRoleCreateWithPoliciesCustomerId } from './accessRoleCreateWithPoliciesCustomerId';
 import type { AccessRoleCreateWithPoliciesPolicyIds } from './accessRoleCreateWithPoliciesPolicyIds';
 
 export interface AccessRoleCreateWithPolicies {
+  id?: AccessRoleCreateWithPoliciesId;
   name: string;
   isDefault?: AccessRoleCreateWithPoliciesIsDefault;
   description?: AccessRoleCreateWithPoliciesDescription;

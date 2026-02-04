@@ -1,9 +1,14 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import BigInteger, Date, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.app.usage.constants import (
+    TELEMETRY_EVENT_PK_ABBREV,
+    USAGE_DAILY_PK_ABBREV,
+    USAGE_PK_ABBREV,
+)
 from src.app.usage.domains import (
     TelemetryEventCreate,
     TelemetryEventRead,
@@ -23,14 +28,18 @@ class Usage(BaseModel[UsageRead, UsageCreate]):
     tokens_output: Mapped[int] = mapped_column(Integer, default=0)
     model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     session_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    rolled_up_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
 
     engineer = relationship('Engineer')
 
-    __pk_abbrev__ = 'usg'
+    __pk_abbrev__ = USAGE_PK_ABBREV
     __read_domain__ = UsageRead
     __create_domain__ = UsageCreate
 
-    __table_args__ = (Index('idx_usage_engineer_created', 'engineer_id', 'created_at'),)
+    __table_args__ = (
+        Index('idx_usage_engineer_created', 'engineer_id', 'created_at'),
+        Index('idx_usage_rolled_up_at', 'rolled_up_at'),
+    )
 
 
 class UsageDaily(BaseModel[UsageDailyRead, UsageDailyCreate]):
@@ -46,7 +55,7 @@ class UsageDaily(BaseModel[UsageDailyRead, UsageDailyCreate]):
 
     engineer = relationship('Engineer')
 
-    __pk_abbrev__ = 'usgd'
+    __pk_abbrev__ = USAGE_DAILY_PK_ABBREV
     __read_domain__ = UsageDailyRead
     __create_domain__ = UsageDailyCreate
 
@@ -88,7 +97,7 @@ class TelemetryEvent(BaseModel[TelemetryEventRead, TelemetryEventCreate]):
 
     engineer = relationship('Engineer')
 
-    __pk_abbrev__ = 'tel'
+    __pk_abbrev__ = TELEMETRY_EVENT_PK_ABBREV
     __read_domain__ = TelemetryEventRead
     __create_domain__ = TelemetryEventCreate
 

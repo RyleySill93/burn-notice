@@ -9,6 +9,7 @@ import { ManageTeamPage } from "@/views/team/ManageTeamPage"
 import { LoginPage } from "@/views/LoginPage"
 import { SignupPage } from "@/views/SignupPage"
 import { AuthCallback } from "@/views/AuthCallback"
+import { GitHubCallbackPage } from "@/views/GitHubCallbackPage"
 import { ForgotPasswordPage } from "@/views/ForgotPasswordPage"
 import { ResetPasswordPage } from "@/views/ResetPasswordPage"
 import { CreateTeamPage } from "@/views/CreateTeamPage"
@@ -31,6 +32,10 @@ export const router = createBrowserRouter([
       {
         path: "auth/callback",
         element: <AuthCallback />,
+      },
+      {
+        path: "auth/github/callback",
+        element: <GitHubCallbackPage />,
       },
       {
         path: "forgot-password",

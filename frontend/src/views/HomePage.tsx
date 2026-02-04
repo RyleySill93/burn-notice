@@ -592,7 +592,7 @@ export function HomePage() {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
-                      interval={23}
+                      interval={11}
                     />
                     <YAxis
                       fontSize={12}
@@ -763,7 +763,7 @@ export function HomePage() {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    interval={23}
+                    interval={11}
                   />
                   <YAxis
                     fontSize={12}

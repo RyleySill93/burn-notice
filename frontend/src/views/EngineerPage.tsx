@@ -512,7 +512,7 @@ export function EngineerPage() {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    interval={23}
+                    interval={11}
                   />
                   <YAxis
                     fontSize={12}

@@ -137,7 +137,7 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
                 Add to <code className="bg-muted px-1.5 py-0.5 rounded text-xs">~/.zshrc</code> (or <code className="bg-muted px-1.5 py-0.5 rounded text-xs">~/.bashrc</code>), then run: <code className="bg-muted px-1.5 py-0.5 rounded text-xs">source ~/.zshrc</code>
               </p>
               <div
-                className="relative bg-zinc-900 text-zinc-100 rounded-lg p-4 font-mono text-sm overflow-x-auto"
+                className="relative bg-zinc-900 dark:bg-zinc-800 text-zinc-100 rounded-lg p-4 font-mono text-sm overflow-x-auto border dark:border-zinc-700"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
               >

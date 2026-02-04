@@ -514,12 +514,12 @@ export function HomePage() {
     '#84cc16', // lime
   ]
 
-  const todayTokens = stats ? getMetricValue(stats.today, metric) : 0
-  const todayComparison = stats ? getComparisonValue(stats.today, metric) : 0
-  const weekTokens = stats ? getMetricValue(stats.this_week, metric) : 0
-  const weekComparison = stats ? getComparisonValue(stats.this_week, metric) : 0
-  const monthTokens = stats ? getMetricValue(stats.this_month, metric) : 0
-  const monthComparison = stats ? getComparisonValue(stats.this_month, metric) : 0
+  const todayTokens = stats?.today ? getMetricValue(stats.today, metric) : 0
+  const todayComparison = stats?.today ? getComparisonValue(stats.today, metric) : 0
+  const weekTokens = stats?.this_week ? getMetricValue(stats.this_week, metric) : 0
+  const weekComparison = stats?.this_week ? getComparisonValue(stats.this_week, metric) : 0
+  const monthTokens = stats?.this_month ? getMetricValue(stats.this_month, metric) : 0
+  const monthComparison = stats?.this_month ? getComparisonValue(stats.this_month, metric) : 0
 
   return (
     <div className="space-y-6">

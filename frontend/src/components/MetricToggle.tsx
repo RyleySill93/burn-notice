@@ -39,10 +39,10 @@ const tokenMetrics: MetricOption[] = [
 ]
 
 const githubMetrics: MetricOption[] = [
-  { value: 'commits', label: 'Commits', icon: GitCommit },
+  { value: 'lines', label: 'Total Lines', icon: Code },
   { value: 'additions', label: 'Lines Added', icon: Plus },
   { value: 'deletions', label: 'Lines Removed', icon: Minus },
-  { value: 'lines', label: 'Total Lines', icon: Code },
+  { value: 'commits', label: 'Commits', icon: GitCommit },
   { value: 'prs', label: 'PRs Merged', icon: GitPullRequest },
 ]
 

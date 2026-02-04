@@ -62,7 +62,7 @@ export function AuthenticatedLayout() {
             <div className="flex items-center gap-8">
               <Link to="/" className="flex items-center gap-2 text-xl">
                 <Flame className="h-6 w-6 text-orange-500" />
-                <span style={{ fontFamily: 'Bangers, cursive' }}>burn notice</span>
+                <span style={{ fontFamily: 'Bangers, cursive', fontSize: '28px' }}>burn notice</span>
               </Link>
 
               <nav className="flex items-center gap-1">

@@ -159,3 +159,28 @@ class TimeSeriesResponse(BaseModel):
     engineer_id: str
     period: str  # 'hourly', 'daily', 'weekly', 'monthly'
     data: list[TimeSeriesDataPoint]
+
+
+class EngineerTimeSeriesData(BaseModel):
+    """Token totals for a single engineer in a time bucket."""
+
+    engineer_id: str
+    tokens: int
+    tokens_input: int
+    tokens_output: int
+    cost_usd: float = 0.0
+
+
+class TeamTimeSeriesBucket(BaseModel):
+    """A single time bucket with data for all engineers."""
+
+    timestamp: str  # ISO format datetime string
+    engineers: list[EngineerTimeSeriesData]
+
+
+class TeamTimeSeriesResponse(BaseModel):
+    """Response for the team time series chart endpoint."""
+
+    period: str  # 'hourly', 'daily', 'weekly', 'monthly'
+    engineers: list[EngineerInfo]
+    data: list[TeamTimeSeriesBucket]

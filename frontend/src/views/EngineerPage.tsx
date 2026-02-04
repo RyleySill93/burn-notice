@@ -306,7 +306,7 @@ export function EngineerPage() {
       return response.data
     },
     enabled: !!engineerId,
-    refetchInterval: 30_000,
+    refetchInterval: 10_000,
   })
 
   const { data: rankings, isLoading: rankingsLoading } = useQuery<HistoricalRankingsResponse>({
@@ -325,7 +325,7 @@ export function EngineerPage() {
       return response.data
     },
     enabled: !!engineerId,
-    refetchInterval: rankingsIsToday ? 30_000 : false,
+    refetchInterval: rankingsIsToday ? 10_000 : false,
   })
 
   const { data: timeSeries, isLoading: timeSeriesLoading } = useQuery<TimeSeriesResponse>({
@@ -344,7 +344,7 @@ export function EngineerPage() {
     },
     enabled: !!engineerId,
     // Poll for live data when viewing hourly or today's data
-    refetchInterval: (timeSeriesPeriod === 'hourly' || timeSeriesIsToday) ? 30_000 : false,
+    refetchInterval: (timeSeriesPeriod === 'hourly' || timeSeriesIsToday) ? 10_000 : false,
   })
 
   // Build time series chart data
@@ -593,27 +593,35 @@ export function EngineerPage() {
                   Monthly
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="daily">
-                <HistoricalRankingsTable
-                  rankings={rankings?.rankings || []}
-                  periodType="daily"
-                  metric={metric}
-                />
-              </TabsContent>
-              <TabsContent value="weekly">
-                <HistoricalRankingsTable
-                  rankings={rankings?.rankings || []}
-                  periodType="weekly"
-                  metric={metric}
-                />
-              </TabsContent>
-              <TabsContent value="monthly">
-                <HistoricalRankingsTable
-                  rankings={rankings?.rankings || []}
-                  periodType="monthly"
-                  metric={metric}
-                />
-              </TabsContent>
+              {rankingsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <>
+                  <TabsContent value="daily">
+                    <HistoricalRankingsTable
+                      rankings={rankings?.rankings || []}
+                      periodType="daily"
+                      metric={metric}
+                    />
+                  </TabsContent>
+                  <TabsContent value="weekly">
+                    <HistoricalRankingsTable
+                      rankings={rankings?.rankings || []}
+                      periodType="weekly"
+                      metric={metric}
+                    />
+                  </TabsContent>
+                  <TabsContent value="monthly">
+                    <HistoricalRankingsTable
+                      rankings={rankings?.rankings || []}
+                      periodType="monthly"
+                      metric={metric}
+                    />
+                  </TabsContent>
+                </>
+              )}
             </Tabs>
           </CardContent>
         </Card>

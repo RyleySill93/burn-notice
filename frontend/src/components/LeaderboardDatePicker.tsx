@@ -2,8 +2,9 @@ import { ChevronLeft, ChevronRight, CalendarIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
-import { format, subDays, addDays, startOfWeek, endOfWeek, startOfMonth, subWeeks, addWeeks, subMonths, addMonths, isAfter, isBefore, isSameDay } from 'date-fns'
+import { format, subDays, addDays, startOfWeek, endOfWeek, startOfMonth, subWeeks, addWeeks, subMonths, addMonths, isAfter, isBefore, isSameDay, isSameMonth } from 'date-fns'
 import { useState } from 'react'
+import { cn } from '@/lib/utils'
 
 type LeaderboardTab = 'today' | 'yesterday' | 'weekly' | 'monthly'
 
@@ -31,8 +32,6 @@ function formatDateForTab(date: Date, tab: LeaderboardTab): string {
 }
 
 function navigateDate(date: Date, tab: LeaderboardTab, direction: 'prev' | 'next'): Date {
-  const delta = direction === 'prev' ? -1 : 1
-
   switch (tab) {
     case 'today':
     case 'yesterday':
@@ -57,11 +56,85 @@ function snapToTabBoundary(date: Date, tab: LeaderboardTab): Date {
   }
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function MonthPicker({
+  selectedDate,
+  onSelect,
+}: {
+  selectedDate: Date
+  onSelect: (date: Date) => void
+}) {
+  const [viewYear, setViewYear] = useState(selectedDate.getFullYear())
+  const today = new Date()
+  const currentYear = today.getFullYear()
+  const currentMonth = today.getMonth()
+
+  const handleMonthSelect = (monthIndex: number) => {
+    const newDate = new Date(viewYear, monthIndex, 1)
+    onSelect(newDate)
+  }
+
+  const canGoNextYear = viewYear < currentYear
+
+  return (
+    <div className="p-3">
+      <div className="flex items-center justify-between mb-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setViewYear(viewYear - 1)}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="text-sm font-medium">{viewYear}</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setViewYear(viewYear + 1)}
+          disabled={!canGoNextYear}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {MONTHS.map((month, index) => {
+          const monthDate = new Date(viewYear, index, 1)
+          const isDisabled = isAfter(monthDate, today)
+          const isSelected = isSameMonth(monthDate, selectedDate) && viewYear === selectedDate.getFullYear()
+          const isCurrent = viewYear === currentYear && index === currentMonth
+
+          return (
+            <Button
+              key={month}
+              variant={isSelected ? 'default' : 'ghost'}
+              size="sm"
+              className={cn(
+                'h-9',
+                isCurrent && !isSelected && 'border border-primary',
+                isDisabled && 'opacity-50 cursor-not-allowed'
+              )}
+              disabled={isDisabled}
+              onClick={() => handleMonthSelect(index)}
+            >
+              {month}
+            </Button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function LeaderboardDatePicker({ activeTab, selectedDate, onDateChange }: LeaderboardDatePickerProps) {
   const [open, setOpen] = useState(false)
   const today = new Date()
 
-  const canGoNext = isBefore(selectedDate, today) && !isSameDay(selectedDate, today)
+  const canGoNext = activeTab === 'monthly'
+    ? !isSameMonth(selectedDate, today)
+    : isBefore(selectedDate, today) && !isSameDay(selectedDate, today)
 
   const handlePrev = () => {
     onDateChange(navigateDate(selectedDate, activeTab, 'prev'))
@@ -79,6 +152,11 @@ export function LeaderboardDatePicker({ activeTab, selectedDate, onDateChange }:
       onDateChange(snapped)
       setOpen(false)
     }
+  }
+
+  const handleMonthSelect = (date: Date) => {
+    onDateChange(date)
+    setOpen(false)
   }
 
   return (
@@ -100,13 +178,20 @@ export function LeaderboardDatePicker({ activeTab, selectedDate, onDateChange }:
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="center">
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={handleCalendarSelect}
-            disabled={(date) => isAfter(date, today)}
-            initialFocus
-          />
+          {activeTab === 'monthly' ? (
+            <MonthPicker
+              selectedDate={selectedDate}
+              onSelect={handleMonthSelect}
+            />
+          ) : (
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={handleCalendarSelect}
+              disabled={(date) => isAfter(date, today)}
+              initialFocus
+            />
+          )}
         </PopoverContent>
       </Popover>
 

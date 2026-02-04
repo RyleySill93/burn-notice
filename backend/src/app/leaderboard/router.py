@@ -9,6 +9,7 @@ from src.app.leaderboard.domains import (
     EngineerStatsResponse,
     HistoricalRankingsResponse,
     Leaderboard,
+    TeamTimeSeriesResponse,
     TimeSeriesResponse,
     UsageStats,
 )
@@ -65,6 +66,24 @@ def get_daily_totals_by_engineer(
     end = end_date or date.today()
     start = start_date or (end - timedelta(days=6))
     return LeaderboardService.get_daily_totals_by_engineer(membership.customer_id, start, end)
+
+
+@router.get('/time-series', response_model=TeamTimeSeriesResponse)
+def get_team_time_series(
+    period: str = 'hourly',
+    as_of: date | None = None,
+    membership: MembershipRead = Depends(get_current_membership),
+) -> TeamTimeSeriesResponse:
+    """
+    Get time series data for all engineers in the team.
+
+    Periods:
+    - hourly: last 12 hours, 5-minute buckets (ignores as_of)
+    - daily: 30 days ending on as_of, daily buckets
+    - weekly: 12 weeks ending on as_of, weekly buckets
+    - monthly: 12 months ending on as_of, monthly buckets
+    """
+    return LeaderboardService.get_team_time_series(membership.customer_id, period, as_of)
 
 
 @router.get('/engineers/{engineer_id}/stats', response_model=EngineerStatsResponse)

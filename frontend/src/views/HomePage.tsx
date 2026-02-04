@@ -3,6 +3,8 @@ import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
   Flame,
@@ -16,7 +18,7 @@ import {
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { format, subDays, isToday, isSameDay } from 'date-fns'
+import { format, isSameDay } from 'date-fns'
 import { useMetricToggle } from '@/hooks/useMetricToggle'
 import { useAuth } from '@/contexts/AuthContext'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
@@ -43,20 +45,6 @@ interface UsageStats {
   this_month: PeriodStats
 }
 
-interface DailyTotal {
-  date: string
-  tokens: number
-  tokens_input: number
-  tokens_output: number
-  cost_usd: number
-}
-
-interface DailyTotalsResponse {
-  start_date: string
-  end_date: string
-  totals: DailyTotal[]
-}
-
 interface LeaderboardEntry {
   engineer_id: string
   display_name: string
@@ -77,31 +65,31 @@ interface Leaderboard {
   monthly: LeaderboardEntry[]
 }
 
-interface EngineerDailyTotal {
-  engineer_id: string
+interface EngineerInfo {
+  id: string
   display_name: string
+}
+
+interface EngineerTimeSeriesData {
+  engineer_id: string
   tokens: number
   tokens_input: number
   tokens_output: number
   cost_usd: number
 }
 
-interface DayWithEngineers {
-  date: string
-  engineers: EngineerDailyTotal[]
+interface TeamTimeSeriesBucket {
+  timestamp: string
+  engineers: EngineerTimeSeriesData[]
 }
 
-interface EngineerInfo {
-  id: string
-  display_name: string
-}
-
-interface DailyTotalsByEngineerResponse {
-  start_date: string
-  end_date: string
-  days: DayWithEngineers[]
+interface TeamTimeSeriesResponse {
+  period: string
   engineers: EngineerInfo[]
+  data: TeamTimeSeriesBucket[]
 }
+
+type TimeSeriesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly'
 
 function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number; cost_usd?: number }, metric: MetricType): number {
   switch (metric) {
@@ -326,14 +314,16 @@ function LeaderboardTable({
 type LeaderboardTab = 'today' | 'yesterday' | 'weekly' | 'monthly'
 
 export function HomePage() {
-  const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 6))
+  const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('hourly')
+  const [timeSeriesDate, setTimeSeriesDate] = useState<Date>(new Date())
+  const [isCumulative, setIsCumulative] = useState(true)
   const [leaderboardDate, setLeaderboardDate] = useState<Date>(new Date())
   const [leaderboardTab, setLeaderboardTab] = useState<LeaderboardTab>('today')
   const { metric, setMetric } = useMetricToggle()
   const { customer } = useAuth()
 
-  // Poll for live updates when viewing today's data (every 30s)
-  const chartEndsToday = isToday(new Date())
+  // Poll for live updates when viewing today's data (every 10s)
+  const timeSeriesIsToday = isSameDay(timeSeriesDate, new Date())
   const leaderboardIsToday = isSameDay(leaderboardDate, new Date())
 
   const { data: stats } = useQuery<UsageStats>({
@@ -342,21 +332,21 @@ export function HomePage() {
       const response = await axios.get<UsageStats>('/api/leaderboard/stats')
       return response.data
     },
-    refetchInterval: 30_000, // Always poll stats since it shows today's data
+    refetchInterval: 10_000, // Always poll stats since it shows today's data
   })
 
-  const { data: dailyTotals, isLoading: chartLoading } = useQuery<DailyTotalsResponse>({
-    queryKey: ['daily-totals', chartStartDate.toISOString()],
+  const { data: teamTimeSeries, isLoading: timeSeriesLoading } = useQuery<TeamTimeSeriesResponse>({
+    queryKey: ['team-time-series', timeSeriesPeriod, format(timeSeriesDate, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const response = await axios.get<DailyTotalsResponse>('/api/leaderboard/daily-totals', {
+      const response = await axios.get<TeamTimeSeriesResponse>('/api/leaderboard/time-series', {
         params: {
-          start_date: format(chartStartDate, 'yyyy-MM-dd'),
-          end_date: format(new Date(), 'yyyy-MM-dd'),
+          period: timeSeriesPeriod,
+          as_of: format(timeSeriesDate, 'yyyy-MM-dd'),
         },
       })
       return response.data
     },
-    refetchInterval: chartEndsToday ? 30_000 : false,
+    refetchInterval: (timeSeriesPeriod === 'hourly' || timeSeriesIsToday) ? 10_000 : false,
   })
 
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<Leaderboard>({
@@ -369,54 +359,60 @@ export function HomePage() {
       })
       return response.data
     },
-    refetchInterval: leaderboardIsToday ? 30_000 : false,
+    refetchInterval: leaderboardIsToday ? 10_000 : false,
   })
 
-  const { data: dailyByEngineer, isLoading: cumulativeLoading } = useQuery<DailyTotalsByEngineerResponse>({
-    queryKey: ['daily-totals-by-engineer', chartStartDate.toISOString()],
-    queryFn: async () => {
-      const response = await axios.get<DailyTotalsByEngineerResponse>('/api/leaderboard/daily-totals-by-engineer', {
-        params: {
-          start_date: format(chartStartDate, 'yyyy-MM-dd'),
-          end_date: format(new Date(), 'yyyy-MM-dd'),
-        },
-      })
-      return response.data
-    },
-    refetchInterval: chartEndsToday ? 30_000 : false,
-  })
+  // Build time series chart data
+  const { timeSeriesChartData, sortedEngineers } = (() => {
+    if (!teamTimeSeries) return { timeSeriesChartData: [], sortedEngineers: [] }
 
-  const chartData =
-    dailyTotals?.totals.map((t) => ({
-      date: format(new Date(t.date), 'MMM d'),
-      tokens: getMetricValue(t, metric),
-      tokensInput: t.tokens_input,
-      tokensOutput: t.tokens_output,
-    })) || []
-
-  // Build cumulative line chart data
-  const cumulativeData = (() => {
-    if (!dailyByEngineer) return []
-
-    const engineers = dailyByEngineer.engineers
+    const engineers = teamTimeSeries.engineers
     const cumulative: Record<string, number> = {}
 
-    return dailyByEngineer.days.map((day) => {
-      const row: Record<string, number | string> = { date: format(new Date(day.date), 'MMM d') }
+    const data = teamTimeSeries.data.map((bucket) => {
+      // Format label based on period
+      let label: string
+      const timestamp = new Date(bucket.timestamp)
+      if (timeSeriesPeriod === 'hourly') {
+        label = format(timestamp, 'h:mm a')
+      } else if (timeSeriesPeriod === 'daily') {
+        label = format(timestamp, 'MMM d')
+      } else if (timeSeriesPeriod === 'weekly') {
+        label = format(timestamp, 'MMM d')
+      } else {
+        // monthly
+        label = format(timestamp, 'MMM yyyy')
+      }
 
-      // Update cumulative totals for each engineer
-      for (const eng of day.engineers) {
+      const row: Record<string, number | string> = { label }
+
+      // Update cumulative totals and add values to row
+      for (const eng of bucket.engineers) {
         const value = getMetricValue(eng, metric)
         cumulative[eng.engineer_id] = (cumulative[eng.engineer_id] || 0) + value
       }
 
-      // Add all engineers to this row (even if 0 for this day)
+      // Add all engineers to this row
       for (const eng of engineers) {
-        row[eng.id] = cumulative[eng.id] || 0
+        if (isCumulative) {
+          row[eng.id] = cumulative[eng.id] || 0
+        } else {
+          const engData = bucket.engineers.find(e => e.engineer_id === eng.id)
+          row[eng.id] = engData ? getMetricValue(engData, metric) : 0
+        }
       }
 
       return row
     })
+
+    // Sort engineers by their final cumulative value (descending)
+    const sorted = [...engineers].sort((a, b) => {
+      const aTotal = cumulative[a.id] || 0
+      const bTotal = cumulative[b.id] || 0
+      return bTotal - aTotal
+    })
+
+    return { timeSeriesChartData: data, sortedEngineers: sorted }
   })()
 
   // Colors for engineer lines
@@ -479,28 +475,63 @@ export function HomePage() {
         />
       </div>
 
-      {/* Cumulative Line Chart */}
+      {/* Team Time Series Chart */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">
-            {metric === 'cost' ? 'Cumulative Costs by Engineer' : 'Cumulative Token Burns by Engineer'}
+            {metric === 'cost' ? 'Team Costs Over Time' : 'Team Token Usage Over Time'}
+            {isCumulative && ' (Cumulative)'}
           </CardTitle>
+          <div className="flex items-center gap-4">
+            {/* Cumulative Toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="cumulative"
+                checked={isCumulative}
+                onCheckedChange={setIsCumulative}
+              />
+              <Label htmlFor="cumulative" className="text-xs">Cumulative</Label>
+            </div>
+            {/* Date Picker (only for non-hourly periods) */}
+            {timeSeriesPeriod !== 'hourly' && (
+              <LeaderboardDatePicker
+                activeTab={timeSeriesPeriod === 'daily' ? 'today' : timeSeriesPeriod}
+                selectedDate={timeSeriesDate}
+                onDateChange={setTimeSeriesDate}
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent>
+          {/* Period Tabs */}
+          <Tabs value={timeSeriesPeriod} onValueChange={(v) => setTimeSeriesPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="hourly" className="text-xs">Live</TabsTrigger>
+              <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
+              <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
+              <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="h-[300px]">
-            {cumulativeLoading ? (
+            {timeSeriesLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
-            ) : cumulativeData.length === 0 ? (
+            ) : timeSeriesChartData.length === 0 ? (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 No data for this period
               </div>
-            ) : (
+            ) : timeSeriesPeriod === 'hourly' ? (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={cumulativeData}>
+                <LineChart data={timeSeriesChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                  <XAxis
+                    dataKey="label"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={11}
+                  />
                   <YAxis
                     fontSize={12}
                     tickLine={false}
@@ -509,18 +540,31 @@ export function HomePage() {
                   />
                   <Tooltip
                     formatter={(value: number, name: string) => {
-                      const engineer = dailyByEngineer?.engineers.find(e => e.id === name)
+                      const engineer = sortedEngineers.find(e => e.id === name)
                       return [formatValue(value, metric), engineer?.display_name || name]
                     }}
                     labelStyle={{ fontWeight: 'bold' }}
                   />
                   <Legend
-                    formatter={(value: string) => {
-                      const engineer = dailyByEngineer?.engineers.find(e => e.id === value)
-                      return engineer?.display_name || value
-                    }}
+                    content={() => (
+                      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
+                        {sortedEngineers.map((eng, idx) => (
+                          <Link
+                            key={eng.id}
+                            to={`/engineers/${eng.id}`}
+                            className="flex items-center gap-1.5 text-sm hover:underline"
+                          >
+                            <span
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: lineColors[idx % lineColors.length] }}
+                            />
+                            {eng.display_name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
                   />
-                  {dailyByEngineer?.engineers.map((eng, idx) => (
+                  {sortedEngineers.map((eng, idx) => (
                     <Line
                       key={eng.id}
                       type="monotone"
@@ -532,65 +576,67 @@ export function HomePage() {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={timeSeriesChartData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={timeSeriesPeriod === 'monthly' ? 0 : 'preserveStartEnd'}
+                  />
+                  <YAxis
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) => formatValue(value, metric)}
+                  />
+                  <Tooltip
+                    formatter={(value: number, name: string) => {
+                      const engineer = sortedEngineers.find(e => e.id === name)
+                      return [formatValue(value, metric), engineer?.display_name || name]
+                    }}
+                    labelStyle={{ fontWeight: 'bold' }}
+                  />
+                  <Legend
+                    content={() => (
+                      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
+                        {sortedEngineers.map((eng, idx) => (
+                          <Link
+                            key={eng.id}
+                            to={`/engineers/${eng.id}`}
+                            className="flex items-center gap-1.5 text-sm hover:underline"
+                          >
+                            <span
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: lineColors[idx % lineColors.length] }}
+                            />
+                            {eng.display_name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  />
+                  {sortedEngineers.map((eng, idx) => (
+                    <Bar
+                      key={eng.id}
+                      dataKey={eng.id}
+                      fill={lineColors[idx % lineColors.length]}
+                      stackId="engineers"
+                      radius={idx === sortedEngineers.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Chart and Leaderboard */}
-      <div className="grid gap-6 lg:grid-cols-5 items-start">
-        {/* Chart */}
-        <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">{metric === 'cost' ? 'Daily Costs' : 'Daily Token Burns'}</CardTitle>
-            <LeaderboardDatePicker
-              activeTab="today"
-              selectedDate={chartStartDate}
-              onDateChange={setChartStartDate}
-            />
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              {chartLoading ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => formatValue(value, metric === 'cost' ? 'cost' : 'total')}
-                    />
-                    <Tooltip
-                      formatter={(value: number, name: string) => {
-                        const label = name === 'tokensInput' ? 'Input' : name === 'tokensOutput' ? 'Output' : metric === 'cost' ? 'Cost' : 'Tokens'
-                        return [formatValue(value, metric === 'cost' ? 'cost' : 'total'), label]
-                      }}
-                      labelStyle={{ fontWeight: 'bold' }}
-                    />
-                    {metric === 'cost' ? (
-                      <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />
-                    ) : (
-                      <>
-                        <Legend />
-                        <Bar dataKey="tokensInput" stackId="tokens" fill="#3b82f6" name="Input" />
-                        <Bar dataKey="tokensOutput" stackId="tokens" fill="#f97316" name="Output" radius={[4, 4, 0, 0]} />
-                      </>
-                    )}
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Leaderboard */}
-        <Card className="lg:col-span-2">
+      {/* Leaderboard */}
+      <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Flame className="h-4 w-4 text-orange-500" />
@@ -653,7 +699,6 @@ export function HomePage() {
             </Tabs>
           </CardContent>
         </Card>
-      </div>
     </div>
   )
 }

@@ -36,11 +36,14 @@ from src.app.leaderboard.domains import (
     EngineerDailyTotal,
     EngineerInfo,
     EngineerStatsResponse,
+    EngineerTimeSeriesData,
     HistoricalRank,
     HistoricalRankingsResponse,
     Leaderboard,
     LeaderboardEntry,
     PeriodStats,
+    TeamTimeSeriesBucket,
+    TeamTimeSeriesResponse,
     TimeSeriesDataPoint,
     TimeSeriesResponse,
     UsageStats,
@@ -1765,3 +1768,273 @@ class LeaderboardService:
                     current += timedelta(minutes=bucket_minutes)
 
         return TimeSeriesResponse(engineer_id=engineer_id, period=period, data=data_points)
+
+    @staticmethod
+    def get_team_time_series(
+        customer_id: str,
+        period: str = 'hourly',
+        as_of: date | None = None,
+    ) -> TeamTimeSeriesResponse:
+        """
+        Get time series data for all engineers in a team.
+
+        Periods and their granularity:
+        - hourly: last 12 hours, 5-minute buckets (live data)
+        - daily: last 30 days, daily buckets
+        - weekly: last 12 weeks, weekly buckets
+        - monthly: last 12 months, monthly buckets
+        """
+        now = datetime.now(APP_TIMEZONE)
+        as_of_date = as_of or get_today()
+
+        # Get all engineers for this customer
+        all_engineers = (
+            db.session.query(Engineer.id, Engineer.display_name)
+            .filter(Engineer.customer_id == customer_id)
+            .all()
+        )
+        engineer_names = {e.id: e.display_name for e in all_engineers}
+
+        if period == 'hourly':
+            # Last 12 hours with 5-minute granularity
+            start_time = (now - timedelta(hours=12)).replace(second=0, microsecond=0)
+            # Round down to nearest 5 minutes
+            start_time = start_time.replace(minute=(start_time.minute // 5) * 5)
+            end_time = now
+        elif period == 'daily':
+            # Last 30 days with daily granularity
+            end_date = as_of_date
+            start_date = end_date - timedelta(days=29)
+            start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
+            end_time = datetime(end_date.year, end_date.month, end_date.day, tzinfo=APP_TIMEZONE) + timedelta(days=1)
+            if end_time > now:
+                end_time = now
+        elif period == 'weekly':
+            # Last 12 weeks with weekly granularity
+            days_since_monday = as_of_date.weekday()
+            current_week_start = as_of_date - timedelta(days=days_since_monday)
+            start_date = current_week_start - timedelta(weeks=11)
+            start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
+            end_time = datetime(current_week_start.year, current_week_start.month, current_week_start.day, tzinfo=APP_TIMEZONE) + timedelta(days=7)
+            if end_time > now:
+                end_time = now
+        else:  # monthly
+            # Last 12 months with monthly granularity
+            current_month_start = as_of_date.replace(day=1)
+            year = current_month_start.year
+            month = current_month_start.month - 11
+            while month <= 0:
+                month += 12
+                year -= 1
+            start_date = date(year, month, 1)
+            start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
+            if current_month_start.month == 12:
+                next_month = date(current_month_start.year + 1, 1, 1)
+            else:
+                next_month = date(current_month_start.year, current_month_start.month + 1, 1)
+            end_time = datetime(next_month.year, next_month.month, next_month.day, tzinfo=APP_TIMEZONE)
+            if end_time > now:
+                end_time = now
+
+        # Convert to UTC for database query
+        start_utc = start_time.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+        end_utc = end_time.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+
+        # Data structure: bucket_time -> engineer_id -> (tokens, tokens_input, tokens_output, cost_usd)
+        data_by_bucket: dict[datetime, dict[str, tuple[int, int, int, float]]] = {}
+        engineers_with_data: set[str] = set()
+
+        if period == 'hourly':
+            # Query raw data and bucket in Python for 5-minute intervals
+            results = (
+                db.session.query(
+                    Usage.engineer_id,
+                    Usage.created_at,
+                    Usage.tokens_input,
+                    Usage.tokens_output,
+                )
+                .join(Engineer, Usage.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at <= end_utc,
+                )
+                .all()
+            )
+            cost_results = (
+                db.session.query(
+                    TelemetryEvent.engineer_id,
+                    TelemetryEvent.created_at,
+                    TelemetryEvent.cost_usd,
+                )
+                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    TelemetryEvent.created_at >= start_utc,
+                    TelemetryEvent.created_at <= end_utc,
+                )
+                .all()
+            )
+
+            for r in results:
+                local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                bucket_time = local_time.replace(
+                    minute=(local_time.minute // 5) * 5,
+                    second=0,
+                    microsecond=0
+                )
+                if bucket_time not in data_by_bucket:
+                    data_by_bucket[bucket_time] = {}
+                existing = data_by_bucket[bucket_time].get(r.engineer_id, (0, 0, 0, 0.0))
+                data_by_bucket[bucket_time][r.engineer_id] = (
+                    existing[0] + r.tokens_input + r.tokens_output,
+                    existing[1] + r.tokens_input,
+                    existing[2] + r.tokens_output,
+                    existing[3],
+                )
+                engineers_with_data.add(r.engineer_id)
+
+            for r in cost_results:
+                local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                bucket_time = local_time.replace(
+                    minute=(local_time.minute // 5) * 5,
+                    second=0,
+                    microsecond=0
+                )
+                if bucket_time not in data_by_bucket:
+                    data_by_bucket[bucket_time] = {}
+                existing = data_by_bucket[bucket_time].get(r.engineer_id, (0, 0, 0, 0.0))
+                data_by_bucket[bucket_time][r.engineer_id] = (
+                    existing[0],
+                    existing[1],
+                    existing[2],
+                    existing[3] + (r.cost_usd or 0.0),
+                )
+
+            # Build complete list with zeros for missing buckets
+            data_points = []
+            current = start_time
+            while current <= end_time:
+                bucket_data = data_by_bucket.get(current, {})
+                engineers_list = [
+                    EngineerTimeSeriesData(
+                        engineer_id=eng_id,
+                        tokens=data[0],
+                        tokens_input=data[1],
+                        tokens_output=data[2],
+                        cost_usd=data[3],
+                    )
+                    for eng_id, data in bucket_data.items()
+                ]
+                data_points.append(TeamTimeSeriesBucket(
+                    timestamp=current.isoformat(),
+                    engineers=engineers_list,
+                ))
+                current += timedelta(minutes=5)
+
+        else:
+            # Use database truncation for daily/weekly/monthly
+            trunc_interval = 'day' if period == 'daily' else 'week' if period == 'weekly' else 'month'
+
+            results = (
+                db.session.query(
+                    Usage.engineer_id,
+                    func.date_trunc(trunc_interval, Usage.created_at).label('bucket'),
+                    func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
+                    func.sum(Usage.tokens_input).label('tokens_input'),
+                    func.sum(Usage.tokens_output).label('tokens_output'),
+                )
+                .join(Engineer, Usage.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at <= end_utc,
+                )
+                .group_by(Usage.engineer_id, func.date_trunc(trunc_interval, Usage.created_at))
+                .all()
+            )
+
+            cost_results = (
+                db.session.query(
+                    TelemetryEvent.engineer_id,
+                    func.date_trunc(trunc_interval, TelemetryEvent.created_at).label('bucket'),
+                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+                )
+                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    TelemetryEvent.created_at >= start_utc,
+                    TelemetryEvent.created_at <= end_utc,
+                )
+                .group_by(TelemetryEvent.engineer_id, func.date_trunc(trunc_interval, TelemetryEvent.created_at))
+                .all()
+            )
+
+            # Build data structure keyed by UTC bucket time
+            for r in results:
+                if r.bucket not in data_by_bucket:
+                    data_by_bucket[r.bucket] = {}
+                data_by_bucket[r.bucket][r.engineer_id] = (
+                    r.tokens or 0,
+                    r.tokens_input or 0,
+                    r.tokens_output or 0,
+                    0.0,
+                )
+                engineers_with_data.add(r.engineer_id)
+
+            for r in cost_results:
+                if r.bucket not in data_by_bucket:
+                    data_by_bucket[r.bucket] = {}
+                existing = data_by_bucket[r.bucket].get(r.engineer_id, (0, 0, 0, 0.0))
+                data_by_bucket[r.bucket][r.engineer_id] = (
+                    existing[0],
+                    existing[1],
+                    existing[2],
+                    r.cost_usd or 0.0,
+                )
+
+            # Build complete list
+            data_points = []
+            current = start_time
+
+            while current < end_time:
+                current_utc = current.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+                bucket_data = data_by_bucket.get(current_utc, {})
+                engineers_list = [
+                    EngineerTimeSeriesData(
+                        engineer_id=eng_id,
+                        tokens=data[0],
+                        tokens_input=data[1],
+                        tokens_output=data[2],
+                        cost_usd=data[3],
+                    )
+                    for eng_id, data in bucket_data.items()
+                ]
+                data_points.append(TeamTimeSeriesBucket(
+                    timestamp=current.isoformat(),
+                    engineers=engineers_list,
+                ))
+
+                # Advance to next bucket
+                if period == 'daily':
+                    current += timedelta(days=1)
+                elif period == 'weekly':
+                    current += timedelta(weeks=1)
+                elif period == 'monthly':
+                    if current.month == 12:
+                        current = current.replace(year=current.year + 1, month=1)
+                    else:
+                        current = current.replace(month=current.month + 1)
+
+        # Build engineer list (only engineers who have data)
+        engineers = [
+            EngineerInfo(id=eng_id, display_name=engineer_names.get(eng_id, 'Unknown'))
+            for eng_id in sorted(engineers_with_data)
+            if eng_id in engineer_names
+        ]
+
+        return TeamTimeSeriesResponse(
+            period=period,
+            engineers=engineers,
+            data=data_points,
+        )

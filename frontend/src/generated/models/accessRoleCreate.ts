@@ -5,11 +5,13 @@
  * API Documentation
  * OpenAPI spec version: 0.0.1
  */
+import type { AccessRoleCreateId } from './accessRoleCreateId';
 import type { AccessRoleCreateIsDefault } from './accessRoleCreateIsDefault';
 import type { AccessRoleCreateDescription } from './accessRoleCreateDescription';
 import type { AccessRoleCreateCustomerId } from './accessRoleCreateCustomerId';
 
 export interface AccessRoleCreate {
+  id?: AccessRoleCreateId;
   name: string;
   isDefault?: AccessRoleCreateIsDefault;
   description?: AccessRoleCreateDescription;

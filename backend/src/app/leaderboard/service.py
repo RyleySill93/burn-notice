@@ -42,6 +42,7 @@ from src.app.leaderboard.domains import (
     Leaderboard,
     LeaderboardEntry,
     PeriodStats,
+    PostResponse,
     TeamTimeSeriesBucket,
     TeamTimeSeriesResponse,
     TimeSeriesDataPoint,
@@ -50,6 +51,7 @@ from src.app.leaderboard.domains import (
 )
 from src.app.usage.models import TelemetryEvent, Usage, UsageDaily
 from src.network.database import db
+from src.platform.slack.service import SlackService
 
 
 class LeaderboardService:
@@ -2038,3 +2040,19 @@ class LeaderboardService:
             engineers=engineers,
             data=data_points,
         )
+
+    @staticmethod
+    def post_leaderboard_to_slack(customer_id: str, as_of: date | None = None) -> PostResponse:
+        """
+        Get leaderboard and post it to Slack.
+
+        Args:
+            customer_id: The customer/team ID
+            as_of: Optional date to get leaderboard for
+
+        Returns:
+            PostResponse with success status and date
+        """
+        leaderboard = LeaderboardService.get_leaderboard(customer_id, as_of)
+        success = SlackService.post_leaderboard(leaderboard)
+        return PostResponse(success=success, date=leaderboard.date)

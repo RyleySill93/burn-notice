@@ -5,6 +5,7 @@
  * API Documentation
  * OpenAPI spec version: 0.0.1
  */
+import type { AccessPolicyWithRolePayloadId } from './accessPolicyWithRolePayloadId';
 import type { AccessPolicyWithRolePayloadCustomerId } from './accessPolicyWithRolePayloadCustomerId';
 import type { PermissionTypeEnum } from './permissionTypeEnum';
 import type { ResourceTypeEnum } from './resourceTypeEnum';
@@ -13,6 +14,7 @@ import type { PermissionEffectEnum } from './permissionEffectEnum';
 import type { AccessPolicyWithRolePayloadRoleIds } from './accessPolicyWithRolePayloadRoleIds';
 
 export interface AccessPolicyWithRolePayload {
+  id?: AccessPolicyWithRolePayloadId;
   name: string;
   customerId?: AccessPolicyWithRolePayloadCustomerId;
   permissionType: PermissionTypeEnum;

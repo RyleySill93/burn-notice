@@ -26,6 +26,7 @@ import type {
   AuthenticationUrl,
   DisableSmsMfa201,
   DisableTotp201,
+  GeneratePasswordResetEmail201,
   GetCustomerAuthSettings200,
   GetCustomerAuthSettingsDirect200,
   GetCustomerOidcProvider200,
@@ -49,6 +50,8 @@ import type {
 
 
 export const getSignupResponseMock = (overrideResponse: Partial< Token > = {}): Token => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), tokenType: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), ...overrideResponse})
+
+export const getGeneratePasswordResetEmailResponseMock = (): GeneratePasswordResetEmail201 => ({})
 
 export const getAuthenticateEmailChallengeResponseMock = (): AuthenticateEmailChallenge200 => (faker.helpers.arrayElement([{accessToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), tokenType: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined])},{token: faker.string.alpha({length: {min: 10, max: 20}}), configuredMfaMethods: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => (faker.string.alpha({length: {min: 10, max: 20}}))), undefined])},]))
 
@@ -151,12 +154,14 @@ export const getGenerateSetupEmailMockHandler = (overrideResponse?: unknown | ((
   }, options)
 }
 
-export const getGeneratePasswordResetEmailMockHandler = (overrideResponse?: unknown | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<unknown> | unknown), options?: RequestHandlerOptions) => {
+export const getGeneratePasswordResetEmailMockHandler = (overrideResponse?: GeneratePasswordResetEmail201 | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<GeneratePasswordResetEmail201> | GeneratePasswordResetEmail201), options?: RequestHandlerOptions) => {
   return http.post('*/auth/generate-password-reset-email', async (info) => {await delay(1000);
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
-    return new HttpResponse(null,
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGeneratePasswordResetEmailResponseMock()),
       { status: 201,
-        
+        headers: { 'Content-Type': 'application/json' }
       })
   }, options)
 }

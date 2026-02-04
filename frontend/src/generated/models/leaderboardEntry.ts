@@ -11,6 +11,9 @@ export interface LeaderboardEntry {
   engineer_id: string;
   display_name: string;
   tokens: number;
+  tokens_input: number;
+  tokens_output: number;
+  cost_usd?: number;
   rank: number;
   prev_rank?: LeaderboardEntryPrevRank;
 }

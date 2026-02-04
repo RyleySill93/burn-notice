@@ -37,6 +37,7 @@ import type {
   CheckMfaCodePayload,
   DisableSmsMfa201,
   DisableTotp201,
+  GeneratePasswordResetEmail201,
   GetCustomerAuthSettings200,
   GetCustomerAuthSettingsDirect200,
   GetCustomerOidcProvider200,
@@ -292,7 +293,7 @@ export const generatePasswordResetEmail = (
 ) => {
       
       
-      return customInstance<unknown>(
+      return customInstance<GeneratePasswordResetEmail201>(
       {url: `/auth/generate-password-reset-email`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: userCreate, signal

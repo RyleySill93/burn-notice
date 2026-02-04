@@ -19,12 +19,35 @@ import type {
 } from 'msw';
 
 import type {
+  DailyTotalsByEngineerResponse,
+  DailyTotalsResponse,
+  EngineerStatsResponse,
+  HistoricalRankingsResponse,
   Leaderboard,
-  PostResponse
+  PostResponse,
+  TeamTimeSeriesResponse,
+  TimeSeriesResponse,
+  UsageStats
 } from '.././models';
 
 
-export const getGetLeaderboardResponseMock = (overrideResponse: Partial< Leaderboard > = {}): Leaderboard => ({date: faker.date.past().toISOString().split('T')[0], today: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), rank: faker.number.int({min: undefined, max: undefined}), prev_rank: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), undefined])})), yesterday: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), rank: faker.number.int({min: undefined, max: undefined}), prev_rank: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), undefined])})), weekly: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), rank: faker.number.int({min: undefined, max: undefined}), prev_rank: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), undefined])})), monthly: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), rank: faker.number.int({min: undefined, max: undefined}), prev_rank: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), undefined])})), ...overrideResponse})
+export const getGetLeaderboardResponseMock = (overrideResponse: Partial< Leaderboard > = {}): Leaderboard => ({date: faker.date.past().toISOString().split('T')[0], today: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), rank: faker.number.int({min: undefined, max: undefined}), prev_rank: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), undefined])})), yesterday: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), rank: faker.number.int({min: undefined, max: undefined}), prev_rank: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), undefined])})), weekly: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), rank: faker.number.int({min: undefined, max: undefined}), prev_rank: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), undefined])})), monthly: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), rank: faker.number.int({min: undefined, max: undefined}), prev_rank: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), undefined])})), ...overrideResponse})
+
+export const getGetUsageStatsResponseMock = (overrideResponse: Partial< UsageStats > = {}): UsageStats => ({date: faker.date.past().toISOString().split('T')[0], today: {tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), comparison_tokens: faker.number.int({min: undefined, max: undefined}), comparison_tokens_input: faker.number.int({min: undefined, max: undefined}), comparison_tokens_output: faker.number.int({min: undefined, max: undefined}), comparison_cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])}, this_week: {tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), comparison_tokens: faker.number.int({min: undefined, max: undefined}), comparison_tokens_input: faker.number.int({min: undefined, max: undefined}), comparison_tokens_output: faker.number.int({min: undefined, max: undefined}), comparison_cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])}, this_month: {tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), comparison_tokens: faker.number.int({min: undefined, max: undefined}), comparison_tokens_input: faker.number.int({min: undefined, max: undefined}), comparison_tokens_output: faker.number.int({min: undefined, max: undefined}), comparison_cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])}, ...overrideResponse})
+
+export const getGetDailyTotalsResponseMock = (overrideResponse: Partial< DailyTotalsResponse > = {}): DailyTotalsResponse => ({start_date: faker.date.past().toISOString().split('T')[0], end_date: faker.date.past().toISOString().split('T')[0], totals: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({date: faker.date.past().toISOString().split('T')[0], tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])})), ...overrideResponse})
+
+export const getGetDailyTotalsByEngineerResponseMock = (overrideResponse: Partial< DailyTotalsByEngineerResponse > = {}): DailyTotalsByEngineerResponse => ({start_date: faker.date.past().toISOString().split('T')[0], end_date: faker.date.past().toISOString().split('T')[0], days: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({date: faker.date.past().toISOString().split('T')[0], engineers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])}))})), engineers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}})})), ...overrideResponse})
+
+export const getGetTeamTimeSeriesResponseMock = (overrideResponse: Partial< TeamTimeSeriesResponse > = {}): TeamTimeSeriesResponse => ({period: faker.string.alpha({length: {min: 10, max: 20}}), engineers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}})})), data: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({timestamp: faker.string.alpha({length: {min: 10, max: 20}}), engineers: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])}))})), ...overrideResponse})
+
+export const getGetEngineerStatsResponseMock = (overrideResponse: Partial< EngineerStatsResponse > = {}): EngineerStatsResponse => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), display_name: faker.string.alpha({length: {min: 10, max: 20}}), date: faker.date.past().toISOString().split('T')[0], today: {tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), comparison_tokens: faker.number.int({min: undefined, max: undefined}), comparison_tokens_input: faker.number.int({min: undefined, max: undefined}), comparison_tokens_output: faker.number.int({min: undefined, max: undefined}), comparison_cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])}, this_week: {tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), comparison_tokens: faker.number.int({min: undefined, max: undefined}), comparison_tokens_input: faker.number.int({min: undefined, max: undefined}), comparison_tokens_output: faker.number.int({min: undefined, max: undefined}), comparison_cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])}, this_month: {tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), comparison_tokens: faker.number.int({min: undefined, max: undefined}), comparison_tokens_input: faker.number.int({min: undefined, max: undefined}), comparison_tokens_output: faker.number.int({min: undefined, max: undefined}), comparison_cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])}, ...overrideResponse})
+
+export const getGetEngineerDailyTotalsResponseMock = (overrideResponse: Partial< DailyTotalsResponse > = {}): DailyTotalsResponse => ({start_date: faker.date.past().toISOString().split('T')[0], end_date: faker.date.past().toISOString().split('T')[0], totals: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({date: faker.date.past().toISOString().split('T')[0], tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])})), ...overrideResponse})
+
+export const getGetHistoricalRankingsResponseMock = (overrideResponse: Partial< HistoricalRankingsResponse > = {}): HistoricalRankingsResponse => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), period_type: faker.string.alpha({length: {min: 10, max: 20}}), rankings: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({period_start: faker.date.past().toISOString().split('T')[0], period_end: faker.date.past().toISOString().split('T')[0], rank: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}),null,]), tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])})), ...overrideResponse})
+
+export const getGetEngineerTimeSeriesResponseMock = (overrideResponse: Partial< TimeSeriesResponse > = {}): TimeSeriesResponse => ({engineer_id: faker.string.alpha({length: {min: 10, max: 20}}), period: faker.string.alpha({length: {min: 10, max: 20}}), data: Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({timestamp: faker.string.alpha({length: {min: 10, max: 20}}), tokens: faker.number.int({min: undefined, max: undefined}), tokens_input: faker.number.int({min: undefined, max: undefined}), tokens_output: faker.number.int({min: undefined, max: undefined}), cost_usd: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined])})), ...overrideResponse})
 
 export const getPostToSlackResponseMock = (overrideResponse: Partial< PostResponse > = {}): PostResponse => ({success: faker.datatype.boolean(), date: faker.date.past().toISOString().split('T')[0], ...overrideResponse})
 
@@ -35,6 +58,102 @@ export const getGetLeaderboardMockHandler = (overrideResponse?: Leaderboard | ((
     return new HttpResponse(JSON.stringify(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getGetLeaderboardResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getGetUsageStatsMockHandler = (overrideResponse?: UsageStats | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<UsageStats> | UsageStats), options?: RequestHandlerOptions) => {
+  return http.get('*/api/leaderboard/stats', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetUsageStatsResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getGetDailyTotalsMockHandler = (overrideResponse?: DailyTotalsResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<DailyTotalsResponse> | DailyTotalsResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/leaderboard/daily-totals', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetDailyTotalsResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getGetDailyTotalsByEngineerMockHandler = (overrideResponse?: DailyTotalsByEngineerResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<DailyTotalsByEngineerResponse> | DailyTotalsByEngineerResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/leaderboard/daily-totals-by-engineer', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetDailyTotalsByEngineerResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getGetTeamTimeSeriesMockHandler = (overrideResponse?: TeamTimeSeriesResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<TeamTimeSeriesResponse> | TeamTimeSeriesResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/leaderboard/time-series', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetTeamTimeSeriesResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getGetEngineerStatsMockHandler = (overrideResponse?: EngineerStatsResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<EngineerStatsResponse> | EngineerStatsResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/leaderboard/engineers/:engineerId/stats', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetEngineerStatsResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getGetEngineerDailyTotalsMockHandler = (overrideResponse?: DailyTotalsResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<DailyTotalsResponse> | DailyTotalsResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/leaderboard/engineers/:engineerId/daily-totals', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetEngineerDailyTotalsResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getGetHistoricalRankingsMockHandler = (overrideResponse?: HistoricalRankingsResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<HistoricalRankingsResponse> | HistoricalRankingsResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/leaderboard/engineers/:engineerId/historical-rankings', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetHistoricalRankingsResponseMock()),
+      { status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      })
+  }, options)
+}
+
+export const getGetEngineerTimeSeriesMockHandler = (overrideResponse?: TimeSeriesResponse | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<TimeSeriesResponse> | TimeSeriesResponse), options?: RequestHandlerOptions) => {
+  return http.get('*/api/leaderboard/engineers/:engineerId/time-series', async (info) => {await delay(1000);
+  
+    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetEngineerTimeSeriesResponseMock()),
       { status: 200,
         headers: { 'Content-Type': 'application/json' }
       })
@@ -54,5 +173,13 @@ export const getPostToSlackMockHandler = (overrideResponse?: PostResponse | ((in
 }
 export const getLeaderboardMock = () => [
   getGetLeaderboardMockHandler(),
+  getGetUsageStatsMockHandler(),
+  getGetDailyTotalsMockHandler(),
+  getGetDailyTotalsByEngineerMockHandler(),
+  getGetTeamTimeSeriesMockHandler(),
+  getGetEngineerStatsMockHandler(),
+  getGetEngineerDailyTotalsMockHandler(),
+  getGetHistoricalRankingsMockHandler(),
+  getGetEngineerTimeSeriesMockHandler(),
   getPostToSlackMockHandler()
 ]

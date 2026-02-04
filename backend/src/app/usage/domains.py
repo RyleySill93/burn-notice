@@ -1,16 +1,38 @@
 from datetime import date, datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
+from src.app.usage.constants import (
+    TELEMETRY_EVENT_PK_ABBREV,
+    USAGE_DAILY_PK_ABBREV,
+    USAGE_PK_ABBREV,
+)
+from src.common.domain import BaseDomain
 from src.common.nanoid import NanoId, NanoIdType
 
-USAGE_PK_ABBREV = 'usg'
-USAGE_DAILY_PK_ABBREV = 'usgd'
-TELEMETRY_EVENT_PK_ABBREV = 'tel'
+
+# Request/Response domains
+class UsageCreateRequest(BaseDomain):
+    """Request payload for recording usage."""
+
+    external_id: str  # Engineer's external ID
+    display_name: str  # Engineer's display name (for auto-registration)
+    tokens_input: int = 0
+    tokens_output: int = 0
+    model: str | None = None
+    session_id: str | None = None
 
 
-class UsageCreate(BaseModel):
+class RollupResponse(BaseDomain):
+    """Response for rollup operation."""
+
+    date: date
+    engineers_processed: int
+
+
+# Usage domains
+class UsageCreate(BaseDomain):
     id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=USAGE_PK_ABBREV))
     engineer_id: str
     tokens_input: int = 0
@@ -18,11 +40,8 @@ class UsageCreate(BaseModel):
     model: str | None = None
     session_id: str | None = None
 
-    def to_dict(self) -> dict:
-        return self.model_dump()
 
-
-class UsageRead(BaseModel):
+class UsageRead(BaseDomain):
     id: str
     engineer_id: str
     tokens_input: int
@@ -31,14 +50,13 @@ class UsageRead(BaseModel):
     session_id: str | None
     created_at: datetime
 
-    model_config = {'from_attributes': True}
-
     @property
     def total_tokens(self) -> int:
         return self.tokens_input + self.tokens_output
 
 
-class UsageDailyCreate(BaseModel):
+# UsageDaily domains
+class UsageDailyCreate(BaseDomain):
     id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=USAGE_DAILY_PK_ABBREV))
     engineer_id: str
     date: date
@@ -48,11 +66,8 @@ class UsageDailyCreate(BaseModel):
     cost_usd: float = 0.0
     session_count: int = 0
 
-    def to_dict(self) -> dict:
-        return self.model_dump()
 
-
-class UsageDailyRead(BaseModel):
+class UsageDailyRead(BaseDomain):
     id: str
     engineer_id: str
     date: date
@@ -63,10 +78,9 @@ class UsageDailyRead(BaseModel):
     session_count: int
     created_at: datetime
 
-    model_config = {'from_attributes': True}
 
-
-class TelemetryEventCreate(BaseModel):
+# TelemetryEvent domains
+class TelemetryEventCreate(BaseDomain):
     """Raw telemetry event with full OTEL payload."""
 
     id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=TELEMETRY_EVENT_PK_ABBREV))
@@ -97,11 +111,8 @@ class TelemetryEventCreate(BaseModel):
     scope_attributes: dict[str, Any] | None = None
     data_point_attributes: dict[str, Any] | None = None
 
-    def to_dict(self) -> dict:
-        return self.model_dump()
 
-
-class TelemetryEventRead(BaseModel):
+class TelemetryEventRead(BaseDomain):
     id: str
     engineer_id: str
     session_id: str | None
@@ -122,5 +133,3 @@ class TelemetryEventRead(BaseModel):
     scope_attributes: dict[str, Any] | None
     data_point_attributes: dict[str, Any] | None
     created_at: datetime
-
-    model_config = {'from_attributes': True}

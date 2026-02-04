@@ -4,6 +4,11 @@ from sqlalchemy import BigInteger, Date, Float, ForeignKey, Index, Integer, Stri
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from src.app.usage.constants import (
+    TELEMETRY_EVENT_PK_ABBREV,
+    USAGE_DAILY_PK_ABBREV,
+    USAGE_PK_ABBREV,
+)
 from src.app.usage.domains import (
     TelemetryEventCreate,
     TelemetryEventRead,
@@ -26,7 +31,7 @@ class Usage(BaseModel[UsageRead, UsageCreate]):
 
     engineer = relationship('Engineer')
 
-    __pk_abbrev__ = 'usg'
+    __pk_abbrev__ = USAGE_PK_ABBREV
     __read_domain__ = UsageRead
     __create_domain__ = UsageCreate
 
@@ -46,7 +51,7 @@ class UsageDaily(BaseModel[UsageDailyRead, UsageDailyCreate]):
 
     engineer = relationship('Engineer')
 
-    __pk_abbrev__ = 'usgd'
+    __pk_abbrev__ = USAGE_DAILY_PK_ABBREV
     __read_domain__ = UsageDailyRead
     __create_domain__ = UsageDailyCreate
 
@@ -88,7 +93,7 @@ class TelemetryEvent(BaseModel[TelemetryEventRead, TelemetryEventCreate]):
 
     engineer = relationship('Engineer')
 
-    __pk_abbrev__ = 'tel'
+    __pk_abbrev__ = TELEMETRY_EVENT_PK_ABBREV
     __read_domain__ = TelemetryEventRead
     __create_domain__ = TelemetryEventCreate
 

@@ -49,6 +49,10 @@ reset-db:
 	make migrate
 	echo "database has been reset"
 
+sync-from-prod:
+	@echo "Syncing local database from production..."
+	cd backend && python management/sync_from_prod.py
+
 reset-test-db:
 	@echo "Resetting test database..."
 	dropdb burn_notice-test || true
@@ -163,6 +167,7 @@ help:
 	@echo "    make shell           - Start interactive Python shell with models loaded"
 	@echo "    make setup-db        - Create PostgreSQL database and run migrations"
 	@echo "    make reset-db        - Reset the database (drops and recreates schema)"
+	@echo "    make sync-from-prod  - Sync local DB from production (requires PROD_DATABASE_URL)"
 	@echo "    make reset-test-db   - Reset the test database"
 	@echo "    make migrations m='message' - Create new Alembic migration"
 	@echo "    make upgrade-db      - Apply pending migrations"

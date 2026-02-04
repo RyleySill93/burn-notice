@@ -14,11 +14,11 @@ import type { AccessRoleSummaryMembershipCount } from './accessRoleSummaryMember
 import type { AccessRoleSummaryPolicyCount } from './accessRoleSummaryPolicyCount';
 
 export interface AccessRoleSummary {
+  id: string;
   name: string;
   isDefault?: AccessRoleSummaryIsDefault;
   description?: AccessRoleSummaryDescription;
   customerId?: AccessRoleSummaryCustomerId;
-  id: string;
   policies?: AccessRoleSummaryPolicies;
   users?: AccessRoleSummaryUsers;
   membershipCount?: AccessRoleSummaryMembershipCount;

@@ -25,11 +25,26 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  DailyTotalsByEngineerResponse,
+  DailyTotalsResponse,
+  EngineerStatsResponse,
+  GetDailyTotalsByEngineerParams,
+  GetDailyTotalsParams,
+  GetEngineerDailyTotalsParams,
+  GetEngineerStatsParams,
+  GetEngineerTimeSeriesParams,
+  GetHistoricalRankingsParams,
   GetLeaderboardParams,
+  GetTeamTimeSeriesParams,
+  GetUsageStatsParams,
   HTTPValidationError,
+  HistoricalRankingsResponse,
   Leaderboard,
   PostResponse,
-  PostToSlackParams
+  PostToSlackParams,
+  TeamTimeSeriesResponse,
+  TimeSeriesResponse,
+  UsageStats
 } from '.././models';
 
 import { customInstance } from '../../lib/axios-instance';
@@ -120,6 +135,790 @@ export function useGetLeaderboard<TData = Awaited<ReturnType<typeof getLeaderboa
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetLeaderboardQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * Get usage stats comparing current vs previous periods at the same point in time.
+ * @summary Get Usage Stats
+ */
+export const getUsageStats = (
+    params?: GetUsageStatsParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<UsageStats>(
+      {url: `/api/leaderboard/stats`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetUsageStatsQueryKey = (params?: GetUsageStatsParams,) => {
+    return [
+    `/api/leaderboard/stats`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getGetUsageStatsQueryOptions = <TData = Awaited<ReturnType<typeof getUsageStats>>, TError = HTTPValidationError>(params?: GetUsageStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsageStats>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUsageStatsQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsageStats>>> = ({ signal }) => getUsageStats(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsageStats>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetUsageStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getUsageStats>>>
+export type GetUsageStatsQueryError = HTTPValidationError
+
+
+export function useGetUsageStats<TData = Awaited<ReturnType<typeof getUsageStats>>, TError = HTTPValidationError>(
+ params: undefined |  GetUsageStatsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsageStats>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsageStats>>,
+          TError,
+          Awaited<ReturnType<typeof getUsageStats>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetUsageStats<TData = Awaited<ReturnType<typeof getUsageStats>>, TError = HTTPValidationError>(
+ params?: GetUsageStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsageStats>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsageStats>>,
+          TError,
+          Awaited<ReturnType<typeof getUsageStats>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetUsageStats<TData = Awaited<ReturnType<typeof getUsageStats>>, TError = HTTPValidationError>(
+ params?: GetUsageStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsageStats>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Usage Stats
+ */
+
+export function useGetUsageStats<TData = Awaited<ReturnType<typeof getUsageStats>>, TError = HTTPValidationError>(
+ params?: GetUsageStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsageStats>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetUsageStatsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * Get daily token totals for charting. Defaults to last 7 days.
+ * @summary Get Daily Totals
+ */
+export const getDailyTotals = (
+    params?: GetDailyTotalsParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<DailyTotalsResponse>(
+      {url: `/api/leaderboard/daily-totals`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetDailyTotalsQueryKey = (params?: GetDailyTotalsParams,) => {
+    return [
+    `/api/leaderboard/daily-totals`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getGetDailyTotalsQueryOptions = <TData = Awaited<ReturnType<typeof getDailyTotals>>, TError = HTTPValidationError>(params?: GetDailyTotalsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotals>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDailyTotalsQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyTotals>>> = ({ signal }) => getDailyTotals(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyTotals>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetDailyTotalsQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyTotals>>>
+export type GetDailyTotalsQueryError = HTTPValidationError
+
+
+export function useGetDailyTotals<TData = Awaited<ReturnType<typeof getDailyTotals>>, TError = HTTPValidationError>(
+ params: undefined |  GetDailyTotalsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotals>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDailyTotals>>,
+          TError,
+          Awaited<ReturnType<typeof getDailyTotals>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDailyTotals<TData = Awaited<ReturnType<typeof getDailyTotals>>, TError = HTTPValidationError>(
+ params?: GetDailyTotalsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotals>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDailyTotals>>,
+          TError,
+          Awaited<ReturnType<typeof getDailyTotals>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDailyTotals<TData = Awaited<ReturnType<typeof getDailyTotals>>, TError = HTTPValidationError>(
+ params?: GetDailyTotalsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotals>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Daily Totals
+ */
+
+export function useGetDailyTotals<TData = Awaited<ReturnType<typeof getDailyTotals>>, TError = HTTPValidationError>(
+ params?: GetDailyTotalsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotals>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetDailyTotalsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * Get daily token totals broken down by engineer for charting. Defaults to last 7 days.
+ * @summary Get Daily Totals By Engineer
+ */
+export const getDailyTotalsByEngineer = (
+    params?: GetDailyTotalsByEngineerParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<DailyTotalsByEngineerResponse>(
+      {url: `/api/leaderboard/daily-totals-by-engineer`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetDailyTotalsByEngineerQueryKey = (params?: GetDailyTotalsByEngineerParams,) => {
+    return [
+    `/api/leaderboard/daily-totals-by-engineer`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getGetDailyTotalsByEngineerQueryOptions = <TData = Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError = HTTPValidationError>(params?: GetDailyTotalsByEngineerParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDailyTotalsByEngineerQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDailyTotalsByEngineer>>> = ({ signal }) => getDailyTotalsByEngineer(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetDailyTotalsByEngineerQueryResult = NonNullable<Awaited<ReturnType<typeof getDailyTotalsByEngineer>>>
+export type GetDailyTotalsByEngineerQueryError = HTTPValidationError
+
+
+export function useGetDailyTotalsByEngineer<TData = Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError = HTTPValidationError>(
+ params: undefined |  GetDailyTotalsByEngineerParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDailyTotalsByEngineer>>,
+          TError,
+          Awaited<ReturnType<typeof getDailyTotalsByEngineer>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDailyTotalsByEngineer<TData = Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError = HTTPValidationError>(
+ params?: GetDailyTotalsByEngineerParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getDailyTotalsByEngineer>>,
+          TError,
+          Awaited<ReturnType<typeof getDailyTotalsByEngineer>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetDailyTotalsByEngineer<TData = Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError = HTTPValidationError>(
+ params?: GetDailyTotalsByEngineerParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Daily Totals By Engineer
+ */
+
+export function useGetDailyTotalsByEngineer<TData = Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError = HTTPValidationError>(
+ params?: GetDailyTotalsByEngineerParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getDailyTotalsByEngineer>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetDailyTotalsByEngineerQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * Get time series data for all engineers in the team.
+
+Periods:
+- hourly: last 12 hours, 5-minute buckets (ignores as_of)
+- daily: 30 days ending on as_of, daily buckets
+- weekly: 12 weeks ending on as_of, weekly buckets
+- monthly: 12 months ending on as_of, monthly buckets
+ * @summary Get Team Time Series
+ */
+export const getTeamTimeSeries = (
+    params?: GetTeamTimeSeriesParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<TeamTimeSeriesResponse>(
+      {url: `/api/leaderboard/time-series`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetTeamTimeSeriesQueryKey = (params?: GetTeamTimeSeriesParams,) => {
+    return [
+    `/api/leaderboard/time-series`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getGetTeamTimeSeriesQueryOptions = <TData = Awaited<ReturnType<typeof getTeamTimeSeries>>, TError = HTTPValidationError>(params?: GetTeamTimeSeriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamTimeSeries>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTeamTimeSeriesQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeamTimeSeries>>> = ({ signal }) => getTeamTimeSeries(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTeamTimeSeries>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTeamTimeSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof getTeamTimeSeries>>>
+export type GetTeamTimeSeriesQueryError = HTTPValidationError
+
+
+export function useGetTeamTimeSeries<TData = Awaited<ReturnType<typeof getTeamTimeSeries>>, TError = HTTPValidationError>(
+ params: undefined |  GetTeamTimeSeriesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamTimeSeries>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeamTimeSeries>>,
+          TError,
+          Awaited<ReturnType<typeof getTeamTimeSeries>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeamTimeSeries<TData = Awaited<ReturnType<typeof getTeamTimeSeries>>, TError = HTTPValidationError>(
+ params?: GetTeamTimeSeriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamTimeSeries>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeamTimeSeries>>,
+          TError,
+          Awaited<ReturnType<typeof getTeamTimeSeries>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeamTimeSeries<TData = Awaited<ReturnType<typeof getTeamTimeSeries>>, TError = HTTPValidationError>(
+ params?: GetTeamTimeSeriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamTimeSeries>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Team Time Series
+ */
+
+export function useGetTeamTimeSeries<TData = Awaited<ReturnType<typeof getTeamTimeSeries>>, TError = HTTPValidationError>(
+ params?: GetTeamTimeSeriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeamTimeSeries>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTeamTimeSeriesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * Get usage stats for a specific engineer.
+ * @summary Get Engineer Stats
+ */
+export const getEngineerStats = (
+    engineerId: string,
+    params?: GetEngineerStatsParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<EngineerStatsResponse>(
+      {url: `/api/leaderboard/engineers/${engineerId}/stats`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetEngineerStatsQueryKey = (engineerId?: string,
+    params?: GetEngineerStatsParams,) => {
+    return [
+    `/api/leaderboard/engineers/${engineerId}/stats`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getGetEngineerStatsQueryOptions = <TData = Awaited<ReturnType<typeof getEngineerStats>>, TError = HTTPValidationError>(engineerId: string,
+    params?: GetEngineerStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerStats>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngineerStatsQueryKey(engineerId,params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngineerStats>>> = ({ signal }) => getEngineerStats(engineerId,params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(engineerId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngineerStats>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetEngineerStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getEngineerStats>>>
+export type GetEngineerStatsQueryError = HTTPValidationError
+
+
+export function useGetEngineerStats<TData = Awaited<ReturnType<typeof getEngineerStats>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params: undefined |  GetEngineerStatsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerStats>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getEngineerStats>>,
+          TError,
+          Awaited<ReturnType<typeof getEngineerStats>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetEngineerStats<TData = Awaited<ReturnType<typeof getEngineerStats>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerStats>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getEngineerStats>>,
+          TError,
+          Awaited<ReturnType<typeof getEngineerStats>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetEngineerStats<TData = Awaited<ReturnType<typeof getEngineerStats>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerStats>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Engineer Stats
+ */
+
+export function useGetEngineerStats<TData = Awaited<ReturnType<typeof getEngineerStats>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerStatsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerStats>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetEngineerStatsQueryOptions(engineerId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * Get daily token totals for a specific engineer.
+ * @summary Get Engineer Daily Totals
+ */
+export const getEngineerDailyTotals = (
+    engineerId: string,
+    params?: GetEngineerDailyTotalsParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<DailyTotalsResponse>(
+      {url: `/api/leaderboard/engineers/${engineerId}/daily-totals`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetEngineerDailyTotalsQueryKey = (engineerId?: string,
+    params?: GetEngineerDailyTotalsParams,) => {
+    return [
+    `/api/leaderboard/engineers/${engineerId}/daily-totals`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getGetEngineerDailyTotalsQueryOptions = <TData = Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError = HTTPValidationError>(engineerId: string,
+    params?: GetEngineerDailyTotalsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngineerDailyTotalsQueryKey(engineerId,params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngineerDailyTotals>>> = ({ signal }) => getEngineerDailyTotals(engineerId,params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(engineerId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetEngineerDailyTotalsQueryResult = NonNullable<Awaited<ReturnType<typeof getEngineerDailyTotals>>>
+export type GetEngineerDailyTotalsQueryError = HTTPValidationError
+
+
+export function useGetEngineerDailyTotals<TData = Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params: undefined |  GetEngineerDailyTotalsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getEngineerDailyTotals>>,
+          TError,
+          Awaited<ReturnType<typeof getEngineerDailyTotals>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetEngineerDailyTotals<TData = Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerDailyTotalsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getEngineerDailyTotals>>,
+          TError,
+          Awaited<ReturnType<typeof getEngineerDailyTotals>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetEngineerDailyTotals<TData = Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerDailyTotalsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Engineer Daily Totals
+ */
+
+export function useGetEngineerDailyTotals<TData = Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerDailyTotalsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerDailyTotals>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetEngineerDailyTotalsQueryOptions(engineerId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * Get historical rankings for an engineer.
+ * @summary Get Historical Rankings
+ */
+export const getHistoricalRankings = (
+    engineerId: string,
+    params?: GetHistoricalRankingsParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<HistoricalRankingsResponse>(
+      {url: `/api/leaderboard/engineers/${engineerId}/historical-rankings`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetHistoricalRankingsQueryKey = (engineerId?: string,
+    params?: GetHistoricalRankingsParams,) => {
+    return [
+    `/api/leaderboard/engineers/${engineerId}/historical-rankings`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getGetHistoricalRankingsQueryOptions = <TData = Awaited<ReturnType<typeof getHistoricalRankings>>, TError = HTTPValidationError>(engineerId: string,
+    params?: GetHistoricalRankingsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHistoricalRankings>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHistoricalRankingsQueryKey(engineerId,params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHistoricalRankings>>> = ({ signal }) => getHistoricalRankings(engineerId,params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(engineerId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHistoricalRankings>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetHistoricalRankingsQueryResult = NonNullable<Awaited<ReturnType<typeof getHistoricalRankings>>>
+export type GetHistoricalRankingsQueryError = HTTPValidationError
+
+
+export function useGetHistoricalRankings<TData = Awaited<ReturnType<typeof getHistoricalRankings>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params: undefined |  GetHistoricalRankingsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHistoricalRankings>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHistoricalRankings>>,
+          TError,
+          Awaited<ReturnType<typeof getHistoricalRankings>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetHistoricalRankings<TData = Awaited<ReturnType<typeof getHistoricalRankings>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetHistoricalRankingsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHistoricalRankings>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHistoricalRankings>>,
+          TError,
+          Awaited<ReturnType<typeof getHistoricalRankings>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetHistoricalRankings<TData = Awaited<ReturnType<typeof getHistoricalRankings>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetHistoricalRankingsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHistoricalRankings>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Historical Rankings
+ */
+
+export function useGetHistoricalRankings<TData = Awaited<ReturnType<typeof getHistoricalRankings>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetHistoricalRankingsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHistoricalRankings>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetHistoricalRankingsQueryOptions(engineerId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
+ * Get time series data for an engineer.
+
+Periods:
+- hourly: last 12 hours, 5-minute buckets (ignores as_of)
+- daily: single day, hourly buckets
+- weekly: 7 days ending on as_of, daily buckets
+- monthly: 30 days ending on as_of, daily buckets
+ * @summary Get Engineer Time Series
+ */
+export const getEngineerTimeSeries = (
+    engineerId: string,
+    params?: GetEngineerTimeSeriesParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<TimeSeriesResponse>(
+      {url: `/api/leaderboard/engineers/${engineerId}/time-series`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetEngineerTimeSeriesQueryKey = (engineerId?: string,
+    params?: GetEngineerTimeSeriesParams,) => {
+    return [
+    `/api/leaderboard/engineers/${engineerId}/time-series`, ...(params ? [params]: [])
+    ] as const;
+    }
+
+    
+export const getGetEngineerTimeSeriesQueryOptions = <TData = Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError = HTTPValidationError>(engineerId: string,
+    params?: GetEngineerTimeSeriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngineerTimeSeriesQueryKey(engineerId,params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngineerTimeSeries>>> = ({ signal }) => getEngineerTimeSeries(engineerId,params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, enabled: !!(engineerId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetEngineerTimeSeriesQueryResult = NonNullable<Awaited<ReturnType<typeof getEngineerTimeSeries>>>
+export type GetEngineerTimeSeriesQueryError = HTTPValidationError
+
+
+export function useGetEngineerTimeSeries<TData = Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params: undefined |  GetEngineerTimeSeriesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getEngineerTimeSeries>>,
+          TError,
+          Awaited<ReturnType<typeof getEngineerTimeSeries>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetEngineerTimeSeries<TData = Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerTimeSeriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getEngineerTimeSeries>>,
+          TError,
+          Awaited<ReturnType<typeof getEngineerTimeSeries>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetEngineerTimeSeries<TData = Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerTimeSeriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get Engineer Time Series
+ */
+
+export function useGetEngineerTimeSeries<TData = Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError = HTTPValidationError>(
+ engineerId: string,
+    params?: GetEngineerTimeSeriesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getEngineerTimeSeries>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetEngineerTimeSeriesQueryOptions(engineerId,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

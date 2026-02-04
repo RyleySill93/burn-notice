@@ -1,17 +1,11 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
-from src.app.engineers.domains import EngineerRead
+from src.app.engineers.domains import EngineerCreateRequest, EngineerRead
 from src.app.engineers.service import EngineerService
 from src.core.authentication.dependencies import get_current_membership
 from src.core.membership.domains import MembershipRead
 
 router = APIRouter()
-
-
-class EngineerCreateRequest(BaseModel):
-    external_id: str
-    display_name: str
 
 
 @router.post('', response_model=EngineerRead)

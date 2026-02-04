@@ -26,12 +26,9 @@ import { customInstance } from '../../lib/axios-instance';
 
 
 /**
- * Receive OTLP metrics from Claude Code.
+ * Receive OTLP metrics from Claude Code with full granularity capture.
 
-Expects one of:
-- X-API-Key header with personal API key (preferred, identifies both user and team)
-- X-Team-API-Key header with customer ID (legacy, requires X-User-Id/X-User-Name)
-- Authorization: Bearer <customer_id> header (legacy)
+Stores every metric with full payload for complete telemetry.
  * @summary Receive Metrics
  */
 export const receiveMetrics = (

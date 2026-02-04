@@ -126,6 +126,7 @@ BOUNDARIES = [
     'app.engineers',
     'app.usage',
     'app.leaderboard',
+    'app.github',
 ]
 
 # Support REDIS_URL (Railway) or individual vars (local)
@@ -208,6 +209,11 @@ SLACK_LEADERBOARD_WEBHOOK_URL = config('SLACK_LEADERBOARD_WEBHOOK_URL', default=
 OPENAI_API_KEY = config('OPENAI_API_KEY', default=None)
 ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default=None)
 AI_AUDIT_ENABLED = config('AI_AUDIT_ENABLED', default=True)
+
+# GitHub OAuth
+GITHUB_CLIENT_ID = config('GITHUB_CLIENT_ID', default=None)
+GITHUB_CLIENT_SECRET = config('GITHUB_CLIENT_SECRET', default=None)
+GITHUB_OAUTH_REDIRECT_URI = f'{FRONTEND_ORIGIN}/auth/github/callback'
 
 # Telemetry
 TELEMETRY_ENABLED = config('TELEMETRY_ENABLED', default=False, cast=bool)

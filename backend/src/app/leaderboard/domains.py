@@ -1,9 +1,11 @@
 from datetime import date
 
-from pydantic import BaseModel, computed_field
+from pydantic import computed_field
+
+from src.common.domain import BaseDomain
 
 
-class LeaderboardEntry(BaseModel):
+class LeaderboardEntry(BaseDomain):
     engineer_id: str
     display_name: str
     tokens: int
@@ -22,7 +24,7 @@ class LeaderboardEntry(BaseModel):
         return self.prev_rank - self.rank
 
 
-class Leaderboard(BaseModel):
+class Leaderboard(BaseDomain):
     date: date
     today: list[LeaderboardEntry]
     yesterday: list[LeaderboardEntry]
@@ -30,7 +32,7 @@ class Leaderboard(BaseModel):
     monthly: list[LeaderboardEntry]
 
 
-class PeriodStats(BaseModel):
+class PeriodStats(BaseDomain):
     """Stats for a single time period with comparison."""
 
     tokens: int
@@ -51,7 +53,7 @@ class PeriodStats(BaseModel):
         return ((self.tokens - self.comparison_tokens) / self.comparison_tokens) * 100
 
 
-class UsageStats(BaseModel):
+class UsageStats(BaseDomain):
     """Summary stats for the homepage cards."""
 
     date: date
@@ -60,7 +62,7 @@ class UsageStats(BaseModel):
     this_month: PeriodStats
 
 
-class DailyTotal(BaseModel):
+class DailyTotal(BaseDomain):
     """Token totals for a single day."""
 
     date: date
@@ -70,7 +72,7 @@ class DailyTotal(BaseModel):
     cost_usd: float = 0.0
 
 
-class DailyTotalsResponse(BaseModel):
+class DailyTotalsResponse(BaseDomain):
     """Response for the daily totals chart endpoint."""
 
     start_date: date
@@ -78,7 +80,7 @@ class DailyTotalsResponse(BaseModel):
     totals: list[DailyTotal]
 
 
-class HistoricalRank(BaseModel):
+class HistoricalRank(BaseDomain):
     """A single historical ranking entry."""
 
     period_start: date
@@ -90,7 +92,7 @@ class HistoricalRank(BaseModel):
     cost_usd: float = 0.0
 
 
-class HistoricalRankingsResponse(BaseModel):
+class HistoricalRankingsResponse(BaseDomain):
     """Response for historical rankings endpoint."""
 
     engineer_id: str
@@ -98,7 +100,7 @@ class HistoricalRankingsResponse(BaseModel):
     rankings: list[HistoricalRank]
 
 
-class EngineerStatsResponse(BaseModel):
+class EngineerStatsResponse(BaseDomain):
     """Stats for a specific engineer."""
 
     engineer_id: str
@@ -109,7 +111,7 @@ class EngineerStatsResponse(BaseModel):
     this_month: PeriodStats
 
 
-class EngineerDailyTotal(BaseModel):
+class EngineerDailyTotal(BaseDomain):
     """Token totals for a single engineer on a single day."""
 
     engineer_id: str
@@ -120,21 +122,21 @@ class EngineerDailyTotal(BaseModel):
     cost_usd: float = 0.0
 
 
-class DayWithEngineers(BaseModel):
+class DayWithEngineers(BaseDomain):
     """A single day's totals broken down by engineer."""
 
     date: date
     engineers: list[EngineerDailyTotal]
 
 
-class EngineerInfo(BaseModel):
+class EngineerInfo(BaseDomain):
     """Basic info about an engineer for legend/colors."""
 
     id: str
     display_name: str
 
 
-class DailyTotalsByEngineerResponse(BaseModel):
+class DailyTotalsByEngineerResponse(BaseDomain):
     """Response for the daily totals by engineer chart endpoint."""
 
     start_date: date
@@ -143,7 +145,7 @@ class DailyTotalsByEngineerResponse(BaseModel):
     engineers: list[EngineerInfo]
 
 
-class TimeSeriesDataPoint(BaseModel):
+class TimeSeriesDataPoint(BaseDomain):
     """Token totals for a single time bucket."""
 
     timestamp: str  # ISO format datetime string
@@ -153,7 +155,7 @@ class TimeSeriesDataPoint(BaseModel):
     cost_usd: float = 0.0
 
 
-class TimeSeriesResponse(BaseModel):
+class TimeSeriesResponse(BaseDomain):
     """Response for the time series chart endpoint."""
 
     engineer_id: str
@@ -161,7 +163,7 @@ class TimeSeriesResponse(BaseModel):
     data: list[TimeSeriesDataPoint]
 
 
-class EngineerTimeSeriesData(BaseModel):
+class EngineerTimeSeriesData(BaseDomain):
     """Token totals for a single engineer in a time bucket."""
 
     engineer_id: str
@@ -171,16 +173,23 @@ class EngineerTimeSeriesData(BaseModel):
     cost_usd: float = 0.0
 
 
-class TeamTimeSeriesBucket(BaseModel):
+class TeamTimeSeriesBucket(BaseDomain):
     """A single time bucket with data for all engineers."""
 
     timestamp: str  # ISO format datetime string
     engineers: list[EngineerTimeSeriesData]
 
 
-class TeamTimeSeriesResponse(BaseModel):
+class TeamTimeSeriesResponse(BaseDomain):
     """Response for the team time series chart endpoint."""
 
     period: str  # 'hourly', 'daily', 'weekly', 'monthly'
     engineers: list[EngineerInfo]
     data: list[TeamTimeSeriesBucket]
+
+
+class PostResponse(BaseDomain):
+    """Response for Slack post operation."""
+
+    success: bool
+    date: date

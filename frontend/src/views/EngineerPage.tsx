@@ -366,7 +366,7 @@ export function EngineerPage() {
     if (!timeSeries) return []
     let cumulative = 0
 
-    return timeSeries.data.map((t) => {
+    const allData = timeSeries.data.map((t) => {
       const value = getMetricValue(t, metric)
       cumulative += value
 
@@ -392,6 +392,15 @@ export function EngineerPage() {
         tokensOutput: t.tokens_output,
       }
     })
+
+    // Filter out leading zeros (only for hourly view)
+    if (timeSeriesPeriod === 'hourly') {
+      const firstNonZeroIndex = allData.findIndex(d => d.value > 0)
+      if (firstNonZeroIndex > 0) {
+        return allData.slice(firstNonZeroIndex)
+      }
+    }
+    return allData
   })()
 
   // Only block page render on initial stats load

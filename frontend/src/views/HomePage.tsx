@@ -392,7 +392,7 @@ export function HomePage() {
 
     let cumulative = 0
 
-    return aggTimeSeries.data.map((bucket) => {
+    const allData = aggTimeSeries.data.map((bucket) => {
       // Format label based on period
       let label: string
       const timestamp = new Date(bucket.timestamp)
@@ -425,6 +425,15 @@ export function HomePage() {
         tokensOutput: bucketOutput,
       }
     })
+
+    // Filter out leading zeros (only for hourly view)
+    if (aggPeriod === 'hourly') {
+      const firstNonZeroIndex = allData.findIndex(d => d.value > 0)
+      if (firstNonZeroIndex > 0) {
+        return allData.slice(firstNonZeroIndex)
+      }
+    }
+    return allData
   })()
 
   // Build time series chart data (by engineer)
@@ -477,7 +486,18 @@ export function HomePage() {
       return bTotal - aTotal
     })
 
-    return { timeSeriesChartData: data, sortedEngineers: sorted }
+    // Filter out leading zeros (only for hourly view)
+    let filteredData = data
+    if (timeSeriesPeriod === 'hourly') {
+      const firstNonZeroIndex = data.findIndex(row => {
+        return engineers.some(eng => (row[eng.id] as number) > 0)
+      })
+      if (firstNonZeroIndex > 0) {
+        filteredData = data.slice(firstNonZeroIndex)
+      }
+    }
+
+    return { timeSeriesChartData: filteredData, sortedEngineers: sorted }
   })()
 
   // Colors for engineer lines

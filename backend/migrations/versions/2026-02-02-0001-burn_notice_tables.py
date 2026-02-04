@@ -5,8 +5,8 @@ Revises: None
 Create Date: 2026-02-02
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = 'burn001'

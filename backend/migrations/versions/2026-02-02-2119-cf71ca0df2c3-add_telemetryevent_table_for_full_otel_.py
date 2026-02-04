@@ -5,8 +5,9 @@ Revises: add_invitation
 Create Date: 2026-02-02 21:19:05.772563
 
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
@@ -17,7 +18,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_table('telemetryevent',
+    op.create_table(
+        'telemetryevent',
         sa.Column('engineer_id', sa.String(length=50), nullable=False),
         sa.Column('session_id', sa.String(length=100), nullable=True),
         sa.Column('event_type', sa.String(length=50), nullable=False),
@@ -39,8 +41,11 @@ def upgrade() -> None:
         sa.Column('id', sa.String(length=50), server_default=sa.text("gen_nanoid('tel')"), nullable=False),
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.Column('modified_at', sa.DateTime(), nullable=True),
-        sa.ForeignKeyConstraint(['engineer_id'], ['engineer.id'], ),
-        sa.PrimaryKeyConstraint('id')
+        sa.ForeignKeyConstraint(
+            ['engineer_id'],
+            ['engineer.id'],
+        ),
+        sa.PrimaryKeyConstraint('id'),
     )
     op.create_index('idx_telemetry_engineer_created', 'telemetryevent', ['engineer_id', 'created_at'], unique=False)
     op.create_index('idx_telemetry_metric_name', 'telemetryevent', ['metric_name'], unique=False)

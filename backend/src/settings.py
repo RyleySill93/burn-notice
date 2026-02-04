@@ -92,6 +92,7 @@ DATABASE_URL = config('DATABASE_URL', default=None)
 if DATABASE_URL:
     # Parse DATABASE_URL: postgresql://user:password@host:port/dbname
     from urllib.parse import urlparse
+
     parsed = urlparse(DATABASE_URL)
     DB_NAME = parsed.path[1:]  # Remove leading /
     DB_USER = parsed.username
@@ -133,6 +134,7 @@ BOUNDARIES = [
 REDIS_URL = config('REDIS_URL', default=None)
 if REDIS_URL:
     from urllib.parse import urlparse
+
     parsed_redis = urlparse(REDIS_URL)
     REDIS_DOMAIN = parsed_redis.hostname
     REDIS_PORT = parsed_redis.port or 6379

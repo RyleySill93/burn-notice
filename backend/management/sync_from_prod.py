@@ -66,22 +66,27 @@ def reset_local_db() -> None:
     os.environ['PGPASSWORD'] = settings.DB_PASSWORD
 
     drop_create_sql = (
-        f"SELECT pg_terminate_backend(pg_stat_activity.pid) "
+        f'SELECT pg_terminate_backend(pg_stat_activity.pid) '
         f"FROM pg_stat_activity WHERE pg_stat_activity.datname = '{settings.DB_NAME}' "
-        f"AND pid <> pg_backend_pid(); "
-        f"DROP SCHEMA IF EXISTS public CASCADE; "
-        f"CREATE SCHEMA public; "
-        f"GRANT ALL ON SCHEMA public TO {settings.DB_USER}; "
-        f"GRANT ALL ON SCHEMA public TO public;"
+        f'AND pid <> pg_backend_pid(); '
+        f'DROP SCHEMA IF EXISTS public CASCADE; '
+        f'CREATE SCHEMA public; '
+        f'GRANT ALL ON SCHEMA public TO {settings.DB_USER}; '
+        f'GRANT ALL ON SCHEMA public TO public;'
     )
 
     cmd = [
         'psql',
-        '-U', settings.DB_USER,
-        '-d', settings.DB_NAME,
-        '-h', settings.DB_HOST,
-        '-p', str(settings.DB_PORT),
-        '-c', drop_create_sql,
+        '-U',
+        settings.DB_USER,
+        '-d',
+        settings.DB_NAME,
+        '-h',
+        settings.DB_HOST,
+        '-p',
+        str(settings.DB_PORT),
+        '-c',
+        drop_create_sql,
     ]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -102,10 +107,14 @@ def restore_dump(dump_file: str) -> None:
         'pg_restore',
         '--no-owner',
         '--no-acl',
-        '-U', settings.DB_USER,
-        '-h', settings.DB_HOST,
-        '-p', str(settings.DB_PORT),
-        '-d', settings.DB_NAME,
+        '-U',
+        settings.DB_USER,
+        '-h',
+        settings.DB_HOST,
+        '-p',
+        str(settings.DB_PORT),
+        '-d',
+        settings.DB_NAME,
         dump_file,
     ]
 

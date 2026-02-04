@@ -14,8 +14,10 @@ def get_current_membership(
     # In a multi-tenant app, you might get this from a header or session
     membership = Membership.get_or_none(user_id=user.id, is_active=True)
     if not membership:
-        from src.common.exceptions import APIException
         from fastapi import status
+
+        from src.common.exceptions import APIException
+
         raise APIException(
             code=status.HTTP_403_FORBIDDEN,
             message='No active membership found. Please join or create a team.',

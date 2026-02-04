@@ -5,8 +5,9 @@ Revises: cost001
 Create Date: 2026-02-03 23:04:35.055448
 
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
@@ -18,7 +19,8 @@ depends_on = None
 
 def upgrade() -> None:
     # GitHub Commit table
-    op.create_table('githubcommit',
+    op.create_table(
+        'githubcommit',
         sa.Column('engineer_id', sa.String(length=50), nullable=False),
         sa.Column('github_commit_sha', sa.String(length=40), nullable=False),
         sa.Column('repo_full_name', sa.String(length=200), nullable=False),
@@ -31,14 +33,15 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.Column('modified_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['engineer_id'], ['engineer.id']),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
     )
     op.create_index('idx_github_commit_committed_at', 'githubcommit', ['committed_at'], unique=False)
     op.create_index('idx_github_commit_engineer_sha', 'githubcommit', ['engineer_id', 'github_commit_sha'], unique=True)
     op.create_index(op.f('ix_githubcommit_engineer_id'), 'githubcommit', ['engineer_id'], unique=False)
 
     # GitHub Credential table
-    op.create_table('githubcredential',
+    op.create_table(
+        'githubcredential',
         sa.Column('engineer_id', sa.String(length=50), nullable=False),
         sa.Column('github_user_id', sa.String(length=50), nullable=False),
         sa.Column('github_username', sa.String(length=100), nullable=False),
@@ -49,12 +52,13 @@ def upgrade() -> None:
         sa.Column('modified_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['engineer_id'], ['engineer.id']),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('engineer_id')
+        sa.UniqueConstraint('engineer_id'),
     )
     op.create_index('idx_github_credential_engineer', 'githubcredential', ['engineer_id'], unique=True)
 
     # GitHub Daily table
-    op.create_table('githubdaily',
+    op.create_table(
+        'githubdaily',
         sa.Column('engineer_id', sa.String(length=50), nullable=False),
         sa.Column('date', sa.Date(), nullable=False),
         sa.Column('commits_count', sa.Integer(), nullable=False, server_default='0'),
@@ -67,13 +71,14 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.Column('modified_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['engineer_id'], ['engineer.id']),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
     )
     op.create_index('idx_github_daily_date', 'githubdaily', ['date'], unique=False)
     op.create_index('idx_github_daily_engineer_date', 'githubdaily', ['engineer_id', 'date'], unique=True)
 
     # GitHub Pull Request table
-    op.create_table('githubpullrequest',
+    op.create_table(
+        'githubpullrequest',
         sa.Column('engineer_id', sa.String(length=50), nullable=False),
         sa.Column('github_pr_id', sa.BigInteger(), nullable=False),
         sa.Column('github_pr_number', sa.Integer(), nullable=False),
@@ -92,9 +97,14 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
         sa.Column('modified_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['engineer_id'], ['engineer.id']),
-        sa.PrimaryKeyConstraint('id')
+        sa.PrimaryKeyConstraint('id'),
     )
-    op.create_index('idx_github_pr_engineer_pr', 'githubpullrequest', ['engineer_id', 'github_pr_id', 'is_author', 'is_reviewer'], unique=True)
+    op.create_index(
+        'idx_github_pr_engineer_pr',
+        'githubpullrequest',
+        ['engineer_id', 'github_pr_id', 'is_author', 'is_reviewer'],
+        unique=True,
+    )
     op.create_index('idx_github_pr_merged_at', 'githubpullrequest', ['merged_at'], unique=False)
     op.create_index(op.f('ix_githubpullrequest_engineer_id'), 'githubpullrequest', ['engineer_id'], unique=False)
 

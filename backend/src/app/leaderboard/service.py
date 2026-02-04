@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, cast, Date
+from sqlalchemy import func
 
 from src.app.engineers.models import Engineer
 
@@ -28,10 +28,12 @@ def get_day_bounds_utc(for_date: date) -> tuple[datetime, datetime]:
     end_utc = end_local.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
 
     return start_utc, end_utc
+
+
 from src.app.leaderboard.domains import (
     DailyTotal,
-    DailyTotalsResponse,
     DailyTotalsByEngineerResponse,
+    DailyTotalsResponse,
     DayWithEngineers,
     EngineerDailyTotal,
     EngineerInfo,
@@ -355,8 +357,7 @@ class LeaderboardService:
 
         # Get engineer names
         engineer_names = {
-            e.id: e.display_name
-            for e in db.session.query(Engineer).filter(Engineer.customer_id == customer_id).all()
+            e.id: e.display_name for e in db.session.query(Engineer).filter(Engineer.customer_id == customer_id).all()
         }
 
         # Sort and rank by total tokens
@@ -422,7 +423,9 @@ class LeaderboardService:
         last_week_same_day = last_week_start + timedelta(days=day_of_week)
 
         this_week_tokens = LeaderboardService._get_tokens_for_range_full_detailed(customer_id, week_start, as_of)
-        last_week_tokens = LeaderboardService._get_tokens_for_range_full_detailed(customer_id, last_week_start, last_week_same_day)
+        last_week_tokens = LeaderboardService._get_tokens_for_range_full_detailed(
+            customer_id, last_week_start, last_week_same_day
+        )
 
         # This month vs last month at this point
         # e.g., 1st-5th this month vs 1st-5th last month
@@ -435,7 +438,9 @@ class LeaderboardService:
         last_month_comparison_end = last_month_start.replace(day=last_month_same_day)
 
         this_month_tokens = LeaderboardService._get_tokens_for_range_full_detailed(customer_id, month_start, as_of)
-        last_month_tokens = LeaderboardService._get_tokens_for_range_full_detailed(customer_id, last_month_start, last_month_comparison_end)
+        last_month_tokens = LeaderboardService._get_tokens_for_range_full_detailed(
+            customer_id, last_month_start, last_month_comparison_end
+        )
 
         return UsageStats(
             date=as_of,
@@ -584,7 +589,9 @@ class LeaderboardService:
         return daily_result + live_result
 
     @staticmethod
-    def _get_tokens_for_range_full_detailed(customer_id: str, start_date: date, end_date: date) -> tuple[int, int, int, float]:
+    def _get_tokens_for_range_full_detailed(
+        customer_id: str, start_date: date, end_date: date
+    ) -> tuple[int, int, int, float]:
         """Get token breakdown (total, input, output, cost) for a date range (full days, no time cutoff)."""
         today = get_today()
 
@@ -616,7 +623,9 @@ class LeaderboardService:
         # Add live data for today if in range
         live_total, live_input, live_output, live_cost = 0, 0, 0, 0.0
         if start_date <= today <= end_date:
-            live_total, live_input, live_output, live_cost = LeaderboardService._get_live_tokens_for_date_detailed(customer_id, today)
+            live_total, live_input, live_output, live_cost = LeaderboardService._get_live_tokens_for_date_detailed(
+                customer_id, today
+            )
 
         return (daily_total + live_total, daily_input + live_input, daily_output + live_output, daily_cost + live_cost)
 
@@ -742,7 +751,9 @@ class LeaderboardService:
         current = start_date
         while current <= end_date:
             data = totals_by_date.get(current, (0, 0, 0, 0.0))
-            totals.append(DailyTotal(date=current, tokens=data[0], tokens_input=data[1], tokens_output=data[2], cost_usd=data[3]))
+            totals.append(
+                DailyTotal(date=current, tokens=data[0], tokens_input=data[1], tokens_output=data[2], cost_usd=data[3])
+            )
             current += timedelta(days=1)
 
         return DailyTotalsResponse(start_date=start_date, end_date=end_date, totals=totals)
@@ -756,7 +767,9 @@ class LeaderboardService:
 
         # Today (live) vs yesterday at this point
         today_tokens = LeaderboardService._get_engineer_live_tokens_detailed(engineer_id, as_of)
-        yesterday_tokens = LeaderboardService._get_engineer_daily_tokens_detailed(engineer_id, as_of - timedelta(days=1))
+        yesterday_tokens = LeaderboardService._get_engineer_daily_tokens_detailed(
+            engineer_id, as_of - timedelta(days=1)
+        )
 
         # This week vs last week at this point
         week_start = as_of - timedelta(days=as_of.weekday())
@@ -764,8 +777,12 @@ class LeaderboardService:
         last_week_start = week_start - timedelta(days=7)
         last_week_same_day = last_week_start + timedelta(days=day_of_week)
 
-        this_week_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(engineer_id, week_start, as_of)
-        last_week_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(engineer_id, last_week_start, last_week_same_day)
+        this_week_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(
+            engineer_id, week_start, as_of
+        )
+        last_week_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(
+            engineer_id, last_week_start, last_week_same_day
+        )
 
         # This month vs last month at this point
         month_start = as_of.replace(day=1)
@@ -775,8 +792,12 @@ class LeaderboardService:
         last_month_same_day = min(day_of_month, last_month_end.day)
         last_month_comparison_end = last_month_start.replace(day=last_month_same_day)
 
-        this_month_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(engineer_id, month_start, as_of)
-        last_month_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(engineer_id, last_month_start, last_month_comparison_end)
+        this_month_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(
+            engineer_id, month_start, as_of
+        )
+        last_month_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(
+            engineer_id, last_month_start, last_month_comparison_end
+        )
 
         return EngineerStatsResponse(
             engineer_id=engineer_id,
@@ -921,7 +942,9 @@ class LeaderboardService:
         return daily_result + live_result
 
     @staticmethod
-    def _get_engineer_tokens_for_range_full_detailed(engineer_id: str, start_date: date, end_date: date) -> tuple[int, int, int, float]:
+    def _get_engineer_tokens_for_range_full_detailed(
+        engineer_id: str, start_date: date, end_date: date
+    ) -> tuple[int, int, int, float]:
         """Get token breakdown (total, input, output, cost) for an engineer in a date range (full days)."""
         today = get_today()
 
@@ -952,7 +975,9 @@ class LeaderboardService:
         # Add live data for today if in range
         live_total, live_input, live_output, live_cost = 0, 0, 0, 0.0
         if start_date <= today <= end_date:
-            live_total, live_input, live_output, live_cost = LeaderboardService._get_engineer_live_tokens_detailed(engineer_id, today)
+            live_total, live_input, live_output, live_cost = LeaderboardService._get_engineer_live_tokens_detailed(
+                engineer_id, today
+            )
 
         return (daily_total + live_total, daily_input + live_input, daily_output + live_output, daily_cost + live_cost)
 
@@ -1008,7 +1033,9 @@ class LeaderboardService:
         return daily_result + end_date_result
 
     @staticmethod
-    def get_engineer_daily_totals(engineer_id: str, start_date: date, end_date: date | None = None) -> DailyTotalsResponse:
+    def get_engineer_daily_totals(
+        engineer_id: str, start_date: date, end_date: date | None = None
+    ) -> DailyTotalsResponse:
         """Get daily token totals for a specific engineer."""
         end_date = end_date or get_today()
 
@@ -1067,7 +1094,9 @@ class LeaderboardService:
         current = start_date
         while current <= end_date:
             data = totals_by_date.get(current, (0, 0, 0, 0.0))
-            totals.append(DailyTotal(date=current, tokens=data[0], tokens_input=data[1], tokens_output=data[2], cost_usd=data[3]))
+            totals.append(
+                DailyTotal(date=current, tokens=data[0], tokens_input=data[1], tokens_output=data[2], cost_usd=data[3])
+            )
             current += timedelta(days=1)
 
         return DailyTotalsResponse(start_date=start_date, end_date=end_date, totals=totals)
@@ -1083,16 +1112,20 @@ class LeaderboardService:
         if period_type == 'daily':
             for i in range(num_periods):
                 period_date = today - timedelta(days=i)
-                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_day_detailed(customer_id, engineer_id, period_date)
-                rankings.append(HistoricalRank(
-                    period_start=period_date,
-                    period_end=period_date,
-                    rank=rank,
-                    tokens=tokens,
-                    tokens_input=tokens_input,
-                    tokens_output=tokens_output,
-                    cost_usd=cost_usd,
-                ))
+                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_day_detailed(
+                    customer_id, engineer_id, period_date
+                )
+                rankings.append(
+                    HistoricalRank(
+                        period_start=period_date,
+                        period_end=period_date,
+                        rank=rank,
+                        tokens=tokens,
+                        tokens_input=tokens_input,
+                        tokens_output=tokens_output,
+                        cost_usd=cost_usd,
+                    )
+                )
 
         elif period_type == 'weekly':
             # Start from current week
@@ -1102,16 +1135,20 @@ class LeaderboardService:
                 week_end = week_start + timedelta(days=6)
                 if week_end > today:
                     week_end = today
-                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_range_detailed(customer_id, engineer_id, week_start, week_end)
-                rankings.append(HistoricalRank(
-                    period_start=week_start,
-                    period_end=week_end,
-                    rank=rank,
-                    tokens=tokens,
-                    tokens_input=tokens_input,
-                    tokens_output=tokens_output,
-                    cost_usd=cost_usd,
-                ))
+                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_range_detailed(
+                    customer_id, engineer_id, week_start, week_end
+                )
+                rankings.append(
+                    HistoricalRank(
+                        period_start=week_start,
+                        period_end=week_end,
+                        rank=rank,
+                        tokens=tokens,
+                        tokens_input=tokens_input,
+                        tokens_output=tokens_output,
+                        cost_usd=cost_usd,
+                    )
+                )
 
         elif period_type == 'monthly':
             current_month_start = today.replace(day=1)
@@ -1133,16 +1170,20 @@ class LeaderboardService:
                     else:
                         month_end = date(year, month + 1, 1) - timedelta(days=1)
 
-                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_range_detailed(customer_id, engineer_id, month_start, month_end)
-                rankings.append(HistoricalRank(
-                    period_start=month_start,
-                    period_end=month_end,
-                    rank=rank,
-                    tokens=tokens,
-                    tokens_input=tokens_input,
-                    tokens_output=tokens_output,
-                    cost_usd=cost_usd,
-                ))
+                rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_range_detailed(
+                    customer_id, engineer_id, month_start, month_end
+                )
+                rankings.append(
+                    HistoricalRank(
+                        period_start=month_start,
+                        period_end=month_end,
+                        rank=rank,
+                        tokens=tokens,
+                        tokens_input=tokens_input,
+                        tokens_output=tokens_output,
+                        cost_usd=cost_usd,
+                    )
+                )
 
         return HistoricalRankingsResponse(
             engineer_id=engineer_id,
@@ -1198,7 +1239,9 @@ class LeaderboardService:
         return None, 0
 
     @staticmethod
-    def _get_rank_for_day_detailed(customer_id: str, engineer_id: str, for_date: date) -> tuple[int | None, int, int, int, float]:
+    def _get_rank_for_day_detailed(
+        customer_id: str, engineer_id: str, for_date: date
+    ) -> tuple[int | None, int, int, int, float]:
         """Get an engineer's rank and token breakdown for a specific day."""
         today = get_today()
 
@@ -1271,7 +1314,9 @@ class LeaderboardService:
         return None, 0, 0, 0, 0.0
 
     @staticmethod
-    def _get_rank_for_range(customer_id: str, engineer_id: str, start_date: date, end_date: date) -> tuple[int | None, int]:
+    def _get_rank_for_range(
+        customer_id: str, engineer_id: str, start_date: date, end_date: date
+    ) -> tuple[int | None, int]:
         """Get an engineer's rank for a date range."""
         today = get_today()
 
@@ -1331,7 +1376,9 @@ class LeaderboardService:
         return None, 0
 
     @staticmethod
-    def _get_rank_for_range_detailed(customer_id: str, engineer_id: str, start_date: date, end_date: date) -> tuple[int | None, int, int, int, float]:
+    def _get_rank_for_range_detailed(
+        customer_id: str, engineer_id: str, start_date: date, end_date: date
+    ) -> tuple[int | None, int, int, int, float]:
         """Get an engineer's rank and token breakdown for a date range."""
         today = get_today()
 
@@ -1429,9 +1476,7 @@ class LeaderboardService:
 
         # Get all engineers for this customer
         all_engineers = (
-            db.session.query(Engineer.id, Engineer.display_name)
-            .filter(Engineer.customer_id == customer_id)
-            .all()
+            db.session.query(Engineer.id, Engineer.display_name).filter(Engineer.customer_id == customer_id).all()
         )
         engineer_names = {e.id: e.display_name for e in all_engineers}
 
@@ -1595,7 +1640,9 @@ class LeaderboardService:
             current_week_start = as_of_date - timedelta(days=days_since_monday)
             start_date = current_week_start - timedelta(weeks=11)
             start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
-            end_time = datetime(current_week_start.year, current_week_start.month, current_week_start.day, tzinfo=APP_TIMEZONE) + timedelta(days=7)
+            end_time = datetime(
+                current_week_start.year, current_week_start.month, current_week_start.day, tzinfo=APP_TIMEZONE
+            ) + timedelta(days=7)
             if end_time > now:
                 end_time = now
             trunc_interval = 'week'
@@ -1661,11 +1708,7 @@ class LeaderboardService:
             for r in results:
                 # Convert to local time for bucketing
                 local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
-                bucket_time = local_time.replace(
-                    minute=(local_time.minute // 10) * 10,
-                    second=0,
-                    microsecond=0
-                )
+                bucket_time = local_time.replace(minute=(local_time.minute // 10) * 10, second=0, microsecond=0)
                 existing = data_by_bucket.get(bucket_time, (0, 0, 0))
                 data_by_bucket[bucket_time] = (
                     existing[0] + r.tokens_input + r.tokens_output,
@@ -1676,11 +1719,7 @@ class LeaderboardService:
             cost_by_bucket: dict[datetime, float] = {}
             for r in cost_results:
                 local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
-                bucket_time = local_time.replace(
-                    minute=(local_time.minute // 10) * 10,
-                    second=0,
-                    microsecond=0
-                )
+                bucket_time = local_time.replace(minute=(local_time.minute // 10) * 10, second=0, microsecond=0)
                 cost_by_bucket[bucket_time] = cost_by_bucket.get(bucket_time, 0.0) + (r.cost_usd or 0.0)
 
             # Build complete list with zeros for missing buckets
@@ -1689,13 +1728,15 @@ class LeaderboardService:
             while current <= end_time:
                 data = data_by_bucket.get(current, (0, 0, 0))
                 cost = cost_by_bucket.get(current, 0.0)
-                data_points.append(TimeSeriesDataPoint(
-                    timestamp=current.isoformat(),
-                    tokens=data[0],
-                    tokens_input=data[1],
-                    tokens_output=data[2],
-                    cost_usd=cost,
-                ))
+                data_points.append(
+                    TimeSeriesDataPoint(
+                        timestamp=current.isoformat(),
+                        tokens=data[0],
+                        tokens_input=data[1],
+                        tokens_output=data[2],
+                        cost_usd=cost,
+                    )
+                )
                 current += timedelta(minutes=10)
 
         else:
@@ -1746,13 +1787,15 @@ class LeaderboardService:
                 current_utc = current.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
                 data = data_by_bucket.get(current_utc, (0, 0, 0))
                 cost = cost_by_bucket.get(current_utc, 0.0)
-                data_points.append(TimeSeriesDataPoint(
-                    timestamp=current.isoformat(),
-                    tokens=data[0],
-                    tokens_input=data[1],
-                    tokens_output=data[2],
-                    cost_usd=cost,
-                ))
+                data_points.append(
+                    TimeSeriesDataPoint(
+                        timestamp=current.isoformat(),
+                        tokens=data[0],
+                        tokens_input=data[1],
+                        tokens_output=data[2],
+                        cost_usd=cost,
+                    )
+                )
 
                 # Advance to next bucket based on period
                 if period == 'daily':
@@ -1790,9 +1833,7 @@ class LeaderboardService:
 
         # Get all engineers for this customer
         all_engineers = (
-            db.session.query(Engineer.id, Engineer.display_name)
-            .filter(Engineer.customer_id == customer_id)
-            .all()
+            db.session.query(Engineer.id, Engineer.display_name).filter(Engineer.customer_id == customer_id).all()
         )
         engineer_names = {e.id: e.display_name for e in all_engineers}
 
@@ -1816,7 +1857,9 @@ class LeaderboardService:
             current_week_start = as_of_date - timedelta(days=days_since_monday)
             start_date = current_week_start - timedelta(weeks=11)
             start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
-            end_time = datetime(current_week_start.year, current_week_start.month, current_week_start.day, tzinfo=APP_TIMEZONE) + timedelta(days=7)
+            end_time = datetime(
+                current_week_start.year, current_week_start.month, current_week_start.day, tzinfo=APP_TIMEZONE
+            ) + timedelta(days=7)
             if end_time > now:
                 end_time = now
         else:  # monthly
@@ -1879,11 +1922,7 @@ class LeaderboardService:
 
             for r in results:
                 local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
-                bucket_time = local_time.replace(
-                    minute=(local_time.minute // 10) * 10,
-                    second=0,
-                    microsecond=0
-                )
+                bucket_time = local_time.replace(minute=(local_time.minute // 10) * 10, second=0, microsecond=0)
                 if bucket_time not in data_by_bucket:
                     data_by_bucket[bucket_time] = {}
                 existing = data_by_bucket[bucket_time].get(r.engineer_id, (0, 0, 0, 0.0))
@@ -1897,11 +1936,7 @@ class LeaderboardService:
 
             for r in cost_results:
                 local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
-                bucket_time = local_time.replace(
-                    minute=(local_time.minute // 10) * 10,
-                    second=0,
-                    microsecond=0
-                )
+                bucket_time = local_time.replace(minute=(local_time.minute // 10) * 10, second=0, microsecond=0)
                 if bucket_time not in data_by_bucket:
                     data_by_bucket[bucket_time] = {}
                 existing = data_by_bucket[bucket_time].get(r.engineer_id, (0, 0, 0, 0.0))
@@ -1927,10 +1962,12 @@ class LeaderboardService:
                     )
                     for eng_id, data in bucket_data.items()
                 ]
-                data_points.append(TeamTimeSeriesBucket(
-                    timestamp=current.isoformat(),
-                    engineers=engineers_list,
-                ))
+                data_points.append(
+                    TeamTimeSeriesBucket(
+                        timestamp=current.isoformat(),
+                        engineers=engineers_list,
+                    )
+                )
                 current += timedelta(minutes=10)
 
         else:
@@ -2011,10 +2048,12 @@ class LeaderboardService:
                     )
                     for eng_id, data in bucket_data.items()
                 ]
-                data_points.append(TeamTimeSeriesBucket(
-                    timestamp=current.isoformat(),
-                    engineers=engineers_list,
-                ))
+                data_points.append(
+                    TeamTimeSeriesBucket(
+                        timestamp=current.isoformat(),
+                        engineers=engineers_list,
+                    )
+                )
 
                 # Advance to next bucket
                 if period == 'daily':

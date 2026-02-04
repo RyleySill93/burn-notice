@@ -125,7 +125,9 @@ class GitHubOAuthService:
         token_data = response.json()
 
         if 'error' in token_data:
-            logger.error('GitHub OAuth error', error=token_data.get('error'), description=token_data.get('error_description'))
+            logger.error(
+                'GitHub OAuth error', error=token_data.get('error'), description=token_data.get('error_description')
+            )
             raise GitHubOAuthError(token_data.get('error_description', token_data.get('error')))
 
         access_token = token_data.get('access_token')

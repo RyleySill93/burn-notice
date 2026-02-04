@@ -9,6 +9,7 @@ from src.core.membership.models import Membership
 class MembershipService:
     API_KEY_PREFIX = 'bn_'
     API_KEY_LENGTH = 40  # 40 chars after prefix = 43 total
+
     @classmethod
     def factory(cls) -> 'MembershipService':
         return cls()

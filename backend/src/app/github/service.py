@@ -69,9 +69,9 @@ class GitHubService:
 
         # Access the raw model to get the decrypted access_token
         # Since credential is a Read domain object, we need to get the model
-        credential_model = db.session.query(GitHubCredential).filter(
-            GitHubCredential.engineer_id == engineer_id
-        ).first()
+        credential_model = (
+            db.session.query(GitHubCredential).filter(GitHubCredential.engineer_id == engineer_id).first()
+        )
 
         if not credential_model:
             raise GitHubCredentialNotFound(f'No GitHub credential for engineer {engineer_id}')
@@ -204,9 +204,9 @@ class GitHubService:
             raise GitHubCredentialNotFound(f'No GitHub credential for engineer {engineer_id}')
 
         # Get the model to access decrypted token
-        credential_model = db.session.query(GitHubCredential).filter(
-            GitHubCredential.engineer_id == engineer_id
-        ).first()
+        credential_model = (
+            db.session.query(GitHubCredential).filter(GitHubCredential.engineer_id == engineer_id).first()
+        )
 
         if not credential_model:
             raise GitHubCredentialNotFound(f'No GitHub credential for engineer {engineer_id}')
@@ -381,15 +381,11 @@ class GitHubService:
                     review_comments_count = detail_data.get('review_comments', 0)
 
                     if detail_data.get('merged_at'):
-                        merged_at = datetime.fromisoformat(
-                            detail_data['merged_at'].replace('Z', '+00:00')
-                        )
+                        merged_at = datetime.fromisoformat(detail_data['merged_at'].replace('Z', '+00:00'))
                         state = 'merged'
 
                     if detail_data.get('closed_at'):
-                        closed_at = datetime.fromisoformat(
-                            detail_data['closed_at'].replace('Z', '+00:00')
-                        )
+                        closed_at = datetime.fromisoformat(detail_data['closed_at'].replace('Z', '+00:00'))
             except Exception as e:
                 logger.warning('Failed to fetch PR details', pr_id=pr_id, error=str(e))
 
@@ -550,11 +546,15 @@ class GitHubService:
         }
 
         # Get all engineers with activity
-        all_engineer_ids = set(commit_by_engineer.keys()) | set(prs_merged_by_engineer.keys()) | set(review_by_engineer.keys())
+        all_engineer_ids = (
+            set(commit_by_engineer.keys()) | set(prs_merged_by_engineer.keys()) | set(review_by_engineer.keys())
+        )
 
         # Upsert daily records
         for engineer_id in all_engineer_ids:
-            commit_data = commit_by_engineer.get(engineer_id, {'commits_count': 0, 'lines_added': 0, 'lines_removed': 0})
+            commit_data = commit_by_engineer.get(
+                engineer_id, {'commits_count': 0, 'lines_added': 0, 'lines_removed': 0}
+            )
             prs_merged = prs_merged_by_engineer.get(engineer_id, 0)
             review_data = review_by_engineer.get(engineer_id, {'prs_reviewed': 0, 'review_comments': 0})
 

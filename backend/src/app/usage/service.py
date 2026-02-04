@@ -35,22 +35,17 @@ class UsageService:
             for_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
         # Build query for aggregated data
-        query = (
-            db.session.query(
-                Usage.engineer_id,
-                func.sum(Usage.tokens_input + Usage.tokens_output).label('total_tokens'),
-                func.sum(Usage.tokens_input).label('tokens_input'),
-                func.sum(Usage.tokens_output).label('tokens_output'),
-                func.count(func.distinct(Usage.session_id)).label('session_count'),
-            )
-            .filter(func.date(Usage.created_at) == for_date)
-        )
+        query = db.session.query(
+            Usage.engineer_id,
+            func.sum(Usage.tokens_input + Usage.tokens_output).label('total_tokens'),
+            func.sum(Usage.tokens_input).label('tokens_input'),
+            func.sum(Usage.tokens_output).label('tokens_output'),
+            func.count(func.distinct(Usage.session_id)).label('session_count'),
+        ).filter(func.date(Usage.created_at) == for_date)
 
         # Filter by customer if specified
         if customer_id:
-            query = query.join(Engineer, Usage.engineer_id == Engineer.id).filter(
-                Engineer.customer_id == customer_id
-            )
+            query = query.join(Engineer, Usage.engineer_id == Engineer.id).filter(Engineer.customer_id == customer_id)
 
         results = query.group_by(Usage.engineer_id).all()
 
@@ -108,13 +103,10 @@ class UsageService:
     @staticmethod
     def get_range_totals(start_date: date, end_date: date, customer_id: str | None = None) -> dict[str, int]:
         """Get total tokens per engineer for a date range."""
-        query = (
-            db.session.query(
-                UsageDaily.engineer_id,
-                func.sum(UsageDaily.total_tokens).label('total'),
-            )
-            .filter(UsageDaily.date >= start_date, UsageDaily.date <= end_date)
-        )
+        query = db.session.query(
+            UsageDaily.engineer_id,
+            func.sum(UsageDaily.total_tokens).label('total'),
+        ).filter(UsageDaily.date >= start_date, UsageDaily.date <= end_date)
 
         if customer_id:
             query = query.join(Engineer).filter(Engineer.customer_id == customer_id)

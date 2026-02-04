@@ -5,8 +5,8 @@ Revises: memkey001
 Create Date: 2026-02-02
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB
 
 # revision identifiers, used by Alembic.
@@ -37,7 +37,9 @@ def upgrade() -> None:
     )
     op.create_index('ix_invitation_email', 'invitation', ['email'], unique=False)
     op.create_index('ix_invitation_token', 'invitation', ['token'], unique=True)
-    op.create_index('ix_invitation_email_customer_status', 'invitation', ['email', 'customer_id', 'status'], unique=False)
+    op.create_index(
+        'ix_invitation_email_customer_status', 'invitation', ['email', 'customer_id', 'status'], unique=False
+    )
 
 
 def downgrade() -> None:

@@ -5,8 +5,8 @@ Revises: add_auth_tables
 Create Date: 2026-02-02
 """
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects.postgresql import ARRAY, INET, UUID
 
 # revision identifiers, used by Alembic.

@@ -374,7 +374,7 @@ export function EngineerPage() {
       let label: string
       const timestamp = new Date(t.timestamp)
       if (timeSeriesPeriod === 'hourly') {
-        label = format(timestamp, 'h a')
+        label = format(timestamp, 'h:mm a')
       } else if (timeSeriesPeriod === 'daily') {
         label = format(timestamp, 'MMM d')
       } else if (timeSeriesPeriod === 'weekly') {
@@ -512,7 +512,7 @@ export function EngineerPage() {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    interval={3}
+                    interval={23}
                   />
                   <YAxis
                     fontSize={12}

@@ -397,7 +397,7 @@ export function HomePage() {
       let label: string
       const timestamp = new Date(bucket.timestamp)
       if (aggPeriod === 'hourly') {
-        label = format(timestamp, 'h a')
+        label = format(timestamp, 'h:mm a')
       } else if (aggPeriod === 'daily') {
         label = format(timestamp, 'MMM d')
       } else if (aggPeriod === 'weekly') {
@@ -439,7 +439,7 @@ export function HomePage() {
       let label: string
       const timestamp = new Date(bucket.timestamp)
       if (timeSeriesPeriod === 'hourly') {
-        label = format(timestamp, 'h a')
+        label = format(timestamp, 'h:mm a')
       } else if (timeSeriesPeriod === 'daily') {
         label = format(timestamp, 'MMM d')
       } else if (timeSeriesPeriod === 'weekly') {
@@ -592,7 +592,7 @@ export function HomePage() {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
-                      interval={3}
+                      interval={23}
                     />
                     <YAxis
                       fontSize={12}
@@ -763,7 +763,7 @@ export function HomePage() {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    interval={3}
+                    interval={23}
                   />
                   <YAxis
                     fontSize={12}

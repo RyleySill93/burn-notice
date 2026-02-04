@@ -505,7 +505,7 @@ export function HomePage() {
     <div className="space-y-6">
       {/* Header with Team Name and Metric Toggle */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{customer?.name}</h1>
+        <h1 className="text-2xl font-bold">{customer?.name} Team</h1>
         <MetricToggle metric={metric} setMetric={setMetric} />
       </div>
 

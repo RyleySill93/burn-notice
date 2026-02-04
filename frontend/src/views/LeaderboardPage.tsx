@@ -138,7 +138,7 @@ export function LeaderboardPage() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <Flame className="h-8 w-8 text-orange-500" />
-          <h1 className="text-3xl font-bold">burn-notice</h1>
+          <h1 className="text-3xl" style={{ fontFamily: 'Bangers, cursive' }}>burn notice</h1>
         </div>
         <p className="text-muted-foreground">
           Who's burning the most tokens on your team?

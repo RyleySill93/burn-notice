@@ -28,6 +28,7 @@ import type {
   EngineerCreateRequest,
   EngineerRead,
   GetEngineer200,
+  GetMyEngineer200,
   HTTPValidationError
 } from '.././models';
 
@@ -194,6 +195,98 @@ export const useCreateOrUpdateEngineer = <TError = HTTPValidationError,
       return useMutation(mutationOptions, queryClient);
     }
     /**
+ * Get the engineer record for the current user (by email).
+ * @summary Get My Engineer
+ */
+export const getMyEngineer = (
+    
+ signal?: AbortSignal
+) => {
+      
+      
+      return customInstance<GetMyEngineer200>(
+      {url: `/api/engineers/me`, method: 'GET', signal
+    },
+      );
+    }
+  
+
+
+
+export const getGetMyEngineerQueryKey = () => {
+    return [
+    `/api/engineers/me`
+    ] as const;
+    }
+
+    
+export const getGetMyEngineerQueryOptions = <TData = Awaited<ReturnType<typeof getMyEngineer>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyEngineer>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyEngineerQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyEngineer>>> = ({ signal }) => getMyEngineer(signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyEngineer>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMyEngineerQueryResult = NonNullable<Awaited<ReturnType<typeof getMyEngineer>>>
+export type GetMyEngineerQueryError = unknown
+
+
+export function useGetMyEngineer<TData = Awaited<ReturnType<typeof getMyEngineer>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyEngineer>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyEngineer>>,
+          TError,
+          Awaited<ReturnType<typeof getMyEngineer>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyEngineer<TData = Awaited<ReturnType<typeof getMyEngineer>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyEngineer>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyEngineer>>,
+          TError,
+          Awaited<ReturnType<typeof getMyEngineer>>
+        > , 'initialData'
+      >, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyEngineer<TData = Awaited<ReturnType<typeof getMyEngineer>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyEngineer>>, TError, TData>>, }
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get My Engineer
+ */
+
+export function useGetMyEngineer<TData = Awaited<ReturnType<typeof getMyEngineer>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyEngineer>>, TError, TData>>, }
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMyEngineerQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
  * Get an engineer by external ID.
  * @summary Get Engineer
  */

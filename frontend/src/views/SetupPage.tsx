@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { SuperButton } from '@/components/SuperButton'
 import { useApiError } from '@/hooks/useApiError'
 import { useGetMyApiKey } from '@/generated/invitations/invitations'
+import { useGetMyEngineer } from '@/generated/engineers/engineers'
 import {
   useGetGithubStatus,
   useGetGithubConnectUrl,
@@ -22,9 +23,9 @@ export function SetupPage() {
     throw new Error('VITE_API_BASE_URL environment variable is required')
   }
 
-  // For now, we'll use the user's ID as the engineer ID
-  // In production, this should be mapped to the actual engineer record
-  const engineerId = user?.id ?? ''
+  // Get the current user's engineer record
+  const { data: myEngineer } = useGetMyEngineer({ query: { enabled: !!user } })
+  const engineerId = myEngineer?.id ?? ''
 
   // API key query
   const { data: myApiKey, isLoading } = useGetMyApiKey(

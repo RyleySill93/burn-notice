@@ -29,6 +29,16 @@ def list_engineers(
     return EngineerService.list_by_customer(membership.customer_id)
 
 
+@router.get('/me', response_model=EngineerRead | None)
+def get_my_engineer(
+    membership: MembershipRead = Depends(get_current_membership),
+) -> EngineerRead | None:
+    """Get the engineer record for the current user (by email)."""
+    if not membership.user or not membership.user.email:
+        return None
+    return EngineerService.get_by_external_id(membership.customer_id, membership.user.email)
+
+
 @router.get('/{external_id}', response_model=EngineerRead | None)
 def get_engineer(
     external_id: str,

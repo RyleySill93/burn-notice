@@ -135,6 +135,7 @@ export * from './getHistoricalRankingsParams';
 export * from './getInvitationByTokenParams';
 export * from './getLeaderboardParams';
 export * from './getMyApiKeyParams';
+export * from './getMyEngineer200';
 export * from './getMyLoginConfigParams';
 export * from './getSmsStatus200';
 export * from './getStaffOidcProvider200';

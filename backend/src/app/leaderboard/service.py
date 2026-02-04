@@ -38,11 +38,11 @@ from src.app.leaderboard.domains import (
     EngineerStatsResponse,
     HistoricalRank,
     HistoricalRankingsResponse,
-    HourlyTotal,
-    HourlyTotalsResponse,
     Leaderboard,
     LeaderboardEntry,
     PeriodStats,
+    TimeSeriesDataPoint,
+    TimeSeriesResponse,
     UsageStats,
 )
 from src.app.usage.models import TelemetryEvent, Usage, UsageDaily
@@ -1549,69 +1549,191 @@ class LeaderboardService:
         )
 
     @staticmethod
-    def get_engineer_hourly_totals(engineer_id: str) -> HourlyTotalsResponse:
-        """Get hourly token totals for the last 24 hours for a specific engineer."""
+    def get_engineer_time_series(
+        engineer_id: str,
+        period: str = 'hourly',
+        as_of: date | None = None,
+    ) -> TimeSeriesResponse:
+        """
+        Get time series data for an engineer.
+
+        Periods and their granularity:
+        - hourly: last 12 hours, 5-minute buckets
+        - daily: single day, hourly buckets
+        - weekly: 7 days, daily buckets
+        - monthly: 30 days, daily buckets
+        """
         now = datetime.now(APP_TIMEZONE)
-        # Start from 24 hours ago, rounded down to the hour
-        start_time = (now - timedelta(hours=24)).replace(minute=0, second=0, microsecond=0)
+        as_of_date = as_of or get_today()
+
+        if period == 'hourly':
+            # Last 12 hours with 5-minute granularity
+            start_time = (now - timedelta(hours=12)).replace(second=0, microsecond=0)
+            # Round down to nearest 5 minutes
+            start_time = start_time.replace(minute=(start_time.minute // 5) * 5)
+            end_time = now
+            trunc_interval = 'minute'
+            bucket_minutes = 5
+        elif period == 'daily':
+            # Single day with hourly granularity
+            start_time = datetime(as_of_date.year, as_of_date.month, as_of_date.day, tzinfo=APP_TIMEZONE)
+            end_time = start_time + timedelta(days=1)
+            if end_time > now:
+                end_time = now
+            trunc_interval = 'hour'
+            bucket_minutes = 60
+        elif period == 'weekly':
+            # 7 days with daily granularity
+            end_date = as_of_date
+            start_date = end_date - timedelta(days=6)
+            start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
+            end_time = datetime(end_date.year, end_date.month, end_date.day, tzinfo=APP_TIMEZONE) + timedelta(days=1)
+            if end_time > now:
+                end_time = now
+            trunc_interval = 'day'
+            bucket_minutes = 1440
+        else:  # monthly
+            # 30 days with daily granularity
+            end_date = as_of_date
+            start_date = end_date - timedelta(days=29)
+            start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
+            end_time = datetime(end_date.year, end_date.month, end_date.day, tzinfo=APP_TIMEZONE) + timedelta(days=1)
+            if end_time > now:
+                end_time = now
+            trunc_interval = 'day'
+            bucket_minutes = 1440
 
         # Convert to UTC for database query
         start_utc = start_time.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
-        end_utc = now.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+        end_utc = end_time.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
 
-        # Query raw usage data grouped by hour
-        results = (
-            db.session.query(
-                func.date_trunc('hour', Usage.created_at).label('hour'),
-                func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
-                func.sum(Usage.tokens_input).label('tokens_input'),
-                func.sum(Usage.tokens_output).label('tokens_output'),
+        # For 5-minute buckets, we need custom truncation
+        if period == 'hourly':
+            # Use a formula to bucket into 5-minute intervals
+            # We'll query raw data and bucket it in Python for simplicity
+            results = (
+                db.session.query(
+                    Usage.created_at,
+                    Usage.tokens_input,
+                    Usage.tokens_output,
+                )
+                .filter(
+                    Usage.engineer_id == engineer_id,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at <= end_utc,
+                )
+                .all()
             )
-            .filter(
-                Usage.engineer_id == engineer_id,
-                Usage.created_at >= start_utc,
-                Usage.created_at <= end_utc,
+            cost_results = (
+                db.session.query(
+                    TelemetryEvent.created_at,
+                    TelemetryEvent.cost_usd,
+                )
+                .filter(
+                    TelemetryEvent.engineer_id == engineer_id,
+                    TelemetryEvent.created_at >= start_utc,
+                    TelemetryEvent.created_at <= end_utc,
+                )
+                .all()
             )
-            .group_by(func.date_trunc('hour', Usage.created_at))
-            .order_by(func.date_trunc('hour', Usage.created_at))
-            .all()
-        )
 
-        # Query telemetry for cost data grouped by hour
-        cost_results = (
-            db.session.query(
-                func.date_trunc('hour', TelemetryEvent.created_at).label('hour'),
-                func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+            # Bucket the data into 5-minute intervals
+            data_by_bucket: dict[datetime, tuple[int, int, int]] = {}
+            for r in results:
+                # Convert to local time for bucketing
+                local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                bucket_time = local_time.replace(
+                    minute=(local_time.minute // 5) * 5,
+                    second=0,
+                    microsecond=0
+                )
+                existing = data_by_bucket.get(bucket_time, (0, 0, 0))
+                data_by_bucket[bucket_time] = (
+                    existing[0] + r.tokens_input + r.tokens_output,
+                    existing[1] + r.tokens_input,
+                    existing[2] + r.tokens_output,
+                )
+
+            cost_by_bucket: dict[datetime, float] = {}
+            for r in cost_results:
+                local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                bucket_time = local_time.replace(
+                    minute=(local_time.minute // 5) * 5,
+                    second=0,
+                    microsecond=0
+                )
+                cost_by_bucket[bucket_time] = cost_by_bucket.get(bucket_time, 0.0) + (r.cost_usd or 0.0)
+
+            # Build complete list with zeros for missing buckets
+            data_points = []
+            current = start_time
+            while current <= end_time:
+                data = data_by_bucket.get(current, (0, 0, 0))
+                cost = cost_by_bucket.get(current, 0.0)
+                data_points.append(TimeSeriesDataPoint(
+                    timestamp=current.isoformat(),
+                    tokens=data[0],
+                    tokens_input=data[1],
+                    tokens_output=data[2],
+                    cost_usd=cost,
+                ))
+                current += timedelta(minutes=5)
+
+        else:
+            # Use database truncation for hourly/daily buckets
+            results = (
+                db.session.query(
+                    func.date_trunc(trunc_interval, Usage.created_at).label('bucket'),
+                    func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
+                    func.sum(Usage.tokens_input).label('tokens_input'),
+                    func.sum(Usage.tokens_output).label('tokens_output'),
+                )
+                .filter(
+                    Usage.engineer_id == engineer_id,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at <= end_utc,
+                )
+                .group_by(func.date_trunc(trunc_interval, Usage.created_at))
+                .order_by(func.date_trunc(trunc_interval, Usage.created_at))
+                .all()
             )
-            .filter(
-                TelemetryEvent.engineer_id == engineer_id,
-                TelemetryEvent.created_at >= start_utc,
-                TelemetryEvent.created_at <= end_utc,
+
+            cost_results = (
+                db.session.query(
+                    func.date_trunc(trunc_interval, TelemetryEvent.created_at).label('bucket'),
+                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+                )
+                .filter(
+                    TelemetryEvent.engineer_id == engineer_id,
+                    TelemetryEvent.created_at >= start_utc,
+                    TelemetryEvent.created_at <= end_utc,
+                )
+                .group_by(func.date_trunc(trunc_interval, TelemetryEvent.created_at))
+                .all()
             )
-            .group_by(func.date_trunc('hour', TelemetryEvent.created_at))
-            .all()
-        )
-        cost_by_hour = {r.hour: r.cost_usd or 0.0 for r in cost_results}
 
-        # Build dict of hour -> data
-        data_by_hour = {}
-        for r in results:
-            data_by_hour[r.hour] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0)
+            # Build dicts keyed by UTC bucket time
+            data_by_bucket = {}
+            for r in results:
+                data_by_bucket[r.bucket] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0)
 
-        # Build complete hourly list with zeros for missing hours
-        totals = []
-        current_hour = start_time
-        while current_hour <= now:
-            hour_utc = current_hour.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
-            data = data_by_hour.get(hour_utc, (0, 0, 0))
-            cost = cost_by_hour.get(hour_utc, 0.0)
-            totals.append(HourlyTotal(
-                hour=current_hour.isoformat(),
-                tokens=data[0],
-                tokens_input=data[1],
-                tokens_output=data[2],
-                cost_usd=cost,
-            ))
-            current_hour += timedelta(hours=1)
+            cost_by_bucket = {r.bucket: r.cost_usd or 0.0 for r in cost_results}
 
-        return HourlyTotalsResponse(engineer_id=engineer_id, totals=totals)
+            # Build complete list with zeros for missing buckets
+            data_points = []
+            current = start_time
+            step = timedelta(minutes=bucket_minutes)
+            while current < end_time:
+                current_utc = current.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+                data = data_by_bucket.get(current_utc, (0, 0, 0))
+                cost = cost_by_bucket.get(current_utc, 0.0)
+                data_points.append(TimeSeriesDataPoint(
+                    timestamp=current.isoformat(),
+                    tokens=data[0],
+                    tokens_input=data[1],
+                    tokens_output=data[2],
+                    cost_usd=cost,
+                ))
+                current += step
+
+        return TimeSeriesResponse(engineer_id=engineer_id, period=period, data=data_points)

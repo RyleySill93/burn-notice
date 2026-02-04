@@ -8,8 +8,8 @@ from src.app.leaderboard.domains import (
     DailyTotalsResponse,
     EngineerStatsResponse,
     HistoricalRankingsResponse,
-    HourlyTotalsResponse,
     Leaderboard,
+    TimeSeriesResponse,
     UsageStats,
 )
 from src.app.leaderboard.service import LeaderboardService
@@ -103,13 +103,23 @@ def get_historical_rankings(
     )
 
 
-@router.get('/engineers/{engineer_id}/hourly-totals', response_model=HourlyTotalsResponse)
-def get_engineer_hourly_totals(
+@router.get('/engineers/{engineer_id}/time-series', response_model=TimeSeriesResponse)
+def get_engineer_time_series(
     engineer_id: str,
+    period: str = 'hourly',
+    as_of: date | None = None,
     membership: MembershipRead = Depends(get_current_membership),
-) -> HourlyTotalsResponse:
-    """Get hourly token totals for the last 24 hours for a specific engineer."""
-    return LeaderboardService.get_engineer_hourly_totals(engineer_id)
+) -> TimeSeriesResponse:
+    """
+    Get time series data for an engineer.
+
+    Periods:
+    - hourly: last 12 hours, 5-minute buckets (ignores as_of)
+    - daily: single day, hourly buckets
+    - weekly: 7 days ending on as_of, daily buckets
+    - monthly: 30 days ending on as_of, daily buckets
+    """
+    return LeaderboardService.get_engineer_time_series(engineer_id, period, as_of)
 
 
 @router.post('/post', response_model=PostResponse)

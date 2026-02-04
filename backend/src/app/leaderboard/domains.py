@@ -143,18 +143,19 @@ class DailyTotalsByEngineerResponse(BaseModel):
     engineers: list[EngineerInfo]
 
 
-class HourlyTotal(BaseModel):
-    """Token totals for a single hour."""
+class TimeSeriesDataPoint(BaseModel):
+    """Token totals for a single time bucket."""
 
-    hour: str  # ISO format datetime string
+    timestamp: str  # ISO format datetime string
     tokens: int
     tokens_input: int
     tokens_output: int
     cost_usd: float = 0.0
 
 
-class HourlyTotalsResponse(BaseModel):
-    """Response for the hourly totals chart endpoint."""
+class TimeSeriesResponse(BaseModel):
+    """Response for the time series chart endpoint."""
 
     engineer_id: str
-    totals: list[HourlyTotal]
+    period: str  # 'hourly', 'daily', 'weekly', 'monthly'
+    data: list[TimeSeriesDataPoint]

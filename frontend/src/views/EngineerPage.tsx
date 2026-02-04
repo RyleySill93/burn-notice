@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -79,18 +81,21 @@ interface HistoricalRankingsResponse {
   rankings: HistoricalRank[]
 }
 
-interface HourlyTotal {
-  hour: string
+interface TimeSeriesDataPoint {
+  timestamp: string
   tokens: number
   tokens_input: number
   tokens_output: number
   cost_usd: number
 }
 
-interface HourlyTotalsResponse {
+interface TimeSeriesResponse {
   engineer_id: string
-  totals: HourlyTotal[]
+  period: string
+  data: TimeSeriesDataPoint[]
 }
+
+type TimeSeriesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly'
 
 function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number; cost_usd?: number }, metric: MetricType): number {
   switch (metric) {
@@ -304,9 +309,13 @@ export function EngineerPage() {
   const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 29))
   const [rankingsPeriod, setRankingsPeriod] = useState<RankingsPeriod>('daily')
   const [rankingsDate, setRankingsDate] = useState<Date>(new Date())
+  const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('hourly')
+  const [timeSeriesDate, setTimeSeriesDate] = useState<Date>(new Date())
+  const [isCumulative, setIsCumulative] = useState(true)
   const { metric, setMetric } = useMetricToggle()
 
   const rankingsIsToday = isSameDay(rankingsDate, new Date())
+  const timeSeriesIsToday = isSameDay(timeSeriesDate, new Date())
 
   const { data: stats, isLoading: statsLoading } = useQuery<EngineerStats>({
     queryKey: ['engineer-stats', engineerId],
@@ -354,28 +363,48 @@ export function EngineerPage() {
     refetchInterval: rankingsIsToday ? 30_000 : false,
   })
 
-  const { data: hourlyTotals, isLoading: hourlyLoading } = useQuery<HourlyTotalsResponse>({
-    queryKey: ['engineer-hourly-totals', engineerId],
+  const { data: timeSeries, isLoading: timeSeriesLoading } = useQuery<TimeSeriesResponse>({
+    queryKey: ['engineer-time-series', engineerId, timeSeriesPeriod, format(timeSeriesDate, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const response = await axios.get<HourlyTotalsResponse>(
-        `/api/leaderboard/engineers/${engineerId}/hourly-totals`
+      const response = await axios.get<TimeSeriesResponse>(
+        `/api/leaderboard/engineers/${engineerId}/time-series`,
+        {
+          params: {
+            period: timeSeriesPeriod,
+            as_of: format(timeSeriesDate, 'yyyy-MM-dd'),
+          },
+        }
       )
       return response.data
     },
     enabled: !!engineerId,
-    refetchInterval: 30_000, // Always poll since it's live data
+    // Poll for live data when viewing hourly or today's data
+    refetchInterval: (timeSeriesPeriod === 'hourly' || timeSeriesIsToday) ? 30_000 : false,
   })
 
-  // Build cumulative 24-hour data
-  const hourlyChartData = (() => {
-    if (!hourlyTotals) return []
+  // Build time series chart data
+  const timeSeriesChartData = (() => {
+    if (!timeSeries) return []
     let cumulative = 0
-    return hourlyTotals.totals.map((t) => {
+
+    return timeSeries.data.map((t) => {
       const value = getMetricValue(t, metric)
       cumulative += value
+
+      // Format label based on period
+      let label: string
+      const timestamp = new Date(t.timestamp)
+      if (timeSeriesPeriod === 'hourly') {
+        label = format(timestamp, 'h:mm a')
+      } else if (timeSeriesPeriod === 'daily') {
+        label = format(timestamp, 'ha')
+      } else {
+        label = format(timestamp, 'MMM d')
+      }
+
       return {
-        hour: format(new Date(t.hour), 'ha'),
-        value: cumulative,
+        label,
+        value: isCumulative ? cumulative : value,
       }
     })
   })()
@@ -388,7 +417,7 @@ export function EngineerPage() {
       tokensOutput: t.tokens_output,
     })) || []
 
-  const isLoading = statsLoading || chartLoading || rankingsLoading || hourlyLoading
+  const isLoading = statsLoading || chartLoading || rankingsLoading || timeSeriesLoading
 
   if (isLoading) {
     return (
@@ -454,24 +483,71 @@ export function EngineerPage() {
         />
       </div>
 
-      {/* Trailing 24 Hours Chart */}
+      {/* Time Series Chart */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">
-            {metric === 'cost' ? 'Trailing 24 Hours (Cumulative Cost)' : 'Trailing 24 Hours (Cumulative Tokens)'}
+            {metric === 'cost' ? 'Cost Over Time' : 'Token Usage Over Time'}
+            {isCumulative && ' (Cumulative)'}
           </CardTitle>
+          <div className="flex items-center gap-4">
+            {/* Cumulative Toggle */}
+            <div className="flex items-center gap-2">
+              <Switch
+                id="cumulative"
+                checked={isCumulative}
+                onCheckedChange={setIsCumulative}
+              />
+              <Label htmlFor="cumulative" className="text-xs">Cumulative</Label>
+            </div>
+            {/* Date Picker (only for non-hourly periods) */}
+            {timeSeriesPeriod !== 'hourly' && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    {format(timeSeriesDate, 'MMM d, yyyy')}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={timeSeriesDate}
+                    onSelect={(date) => date && setTimeSeriesDate(date)}
+                    disabled={(date) => date > new Date() || date < subDays(new Date(), 365)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
+          {/* Period Tabs */}
+          <Tabs value={timeSeriesPeriod} onValueChange={(v) => setTimeSeriesPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="hourly" className="text-xs">12 Hours</TabsTrigger>
+              <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
+              <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
+              <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="h-[200px]">
-            {hourlyChartData.length === 0 ? (
+            {timeSeriesChartData.length === 0 ? (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                No data in the last 24 hours
+                No data for this period
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={hourlyChartData}>
+                <LineChart data={timeSeriesChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="hour" fontSize={12} tickLine={false} axisLine={false} />
+                  <XAxis
+                    dataKey="label"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={timeSeriesPeriod === 'hourly' ? 11 : timeSeriesPeriod === 'daily' ? 2 : 'preserveStartEnd'}
+                  />
                   <YAxis
                     fontSize={12}
                     tickLine={false}
@@ -479,7 +555,12 @@ export function EngineerPage() {
                     tickFormatter={(value) => formatValue(value, metric)}
                   />
                   <Tooltip
-                    formatter={(value: number) => [formatValue(value, metric), metric === 'cost' ? 'Cumulative Cost' : 'Cumulative Tokens']}
+                    formatter={(value: number) => [
+                      formatValue(value, metric),
+                      metric === 'cost'
+                        ? (isCumulative ? 'Cumulative Cost' : 'Cost')
+                        : (isCumulative ? 'Cumulative Tokens' : 'Tokens')
+                    ]}
                     labelStyle={{ fontWeight: 'bold' }}
                   />
                   <Line

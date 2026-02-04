@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.0.1
  */
 
-/**
- * Response for GitHub sync operation.
- */
-export interface GitHubSyncResponse {
-  prs: number;
-}
+export type LeaderboardEntryGithubCommits = number | null;

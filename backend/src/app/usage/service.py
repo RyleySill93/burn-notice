@@ -30,18 +30,28 @@ class UsageService:
 
     @staticmethod
     def rollup_daily(for_date: date | None = None, customer_id: str | None = None) -> int:
-        """Aggregate raw usage into daily rollups. Returns count of engineers processed."""
+        """
+        Aggregate raw usage into daily rollups. Returns count of engineers processed.
+
+        Only processes Usage records that haven't been rolled up yet (rolled_up_at IS NULL).
+        After processing, marks the Usage records with rolled_up_at timestamp.
+        """
         if for_date is None:
             for_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
 
-        # Build query for aggregated data
+        rollup_time = datetime.now(timezone.utc)
+
+        # Build query for aggregated data - only unrolled records
         query = db.session.query(
             Usage.engineer_id,
             func.sum(Usage.tokens_input + Usage.tokens_output).label('total_tokens'),
             func.sum(Usage.tokens_input).label('tokens_input'),
             func.sum(Usage.tokens_output).label('tokens_output'),
             func.count(func.distinct(Usage.session_id)).label('session_count'),
-        ).filter(func.date(Usage.created_at) == for_date)
+        ).filter(
+            func.date(Usage.created_at) == for_date,
+            Usage.rolled_up_at.is_(None),  # Only unrolled records
+        )
 
         # Filter by customer if specified
         if customer_id:
@@ -65,13 +75,14 @@ class UsageService:
             # Upsert daily record
             existing = UsageDaily.get_or_none(engineer_id=row.engineer_id, date=for_date)
             if existing:
+                # Add to existing totals (in case of incremental rollup)
                 UsageDaily.update(
                     existing.id,
-                    total_tokens=row.total_tokens or 0,
-                    tokens_input=row.tokens_input or 0,
-                    tokens_output=row.tokens_output or 0,
-                    session_count=row.session_count or 0,
-                    cost_usd=cost_usd,
+                    total_tokens=existing.total_tokens + (row.total_tokens or 0),
+                    tokens_input=existing.tokens_input + (row.tokens_input or 0),
+                    tokens_output=existing.tokens_output + (row.tokens_output or 0),
+                    session_count=existing.session_count + (row.session_count or 0),
+                    cost_usd=existing.cost_usd + cost_usd,
                 )
             else:
                 UsageDaily.create(
@@ -85,6 +96,16 @@ class UsageService:
                         cost_usd=cost_usd,
                     )
                 )
+
+        # Mark processed Usage records as rolled up
+        if results:
+            engineer_ids = [row.engineer_id for row in results]
+            db.session.query(Usage).filter(
+                func.date(Usage.created_at) == for_date,
+                Usage.rolled_up_at.is_(None),
+                Usage.engineer_id.in_(engineer_ids) if customer_id else True,
+            ).update({Usage.rolled_up_at: rollup_time}, synchronize_session=False)
+            db.session.commit()
 
         return len(results)
 

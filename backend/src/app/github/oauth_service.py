@@ -22,15 +22,30 @@ from src.network.cache.cache import Cache
 
 
 class GitHubOAuthService:
-    """Handle GitHub OAuth flows for engineer GitHub integration."""
+    """Handle GitHub App OAuth flows for engineer GitHub integration.
+
+    This uses a GitHub App (not OAuth App) for fine-grained permissions.
+    The flow is:
+    1. User clicks "Connect GitHub" -> redirected to GitHub App installation page
+    2. User selects which repos/orgs to grant access to
+    3. GitHub redirects back with installation_id and setup_action
+    4. We exchange the code for an access token and store the credential
+
+    Required GitHub App permissions:
+    - Repository: Pull requests (read) - for PR stats including additions/deletions
+    - Repository: Contents (read) - for commit data
+    - Repository: Metadata (read) - automatically included
+    - Account: Email addresses (read) - to match GitHub user to engineer
+    """
+
+    # GitHub App installation URL (prompts user to select repos)
+    # Format: https://github.com/apps/{app-slug}/installations/new
+    GITHUB_APP_INSTALL_URL = 'https://github.com/apps/{app_slug}/installations/new'
 
     # GitHub OAuth endpoints
     GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize'
     GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token'
     GITHUB_USER_URL = 'https://api.github.com/user'
-
-    # OAuth scopes needed for GitHub data
-    SCOPES = 'read:user repo'
 
     # State TTL in seconds (5 minutes)
     STATE_TTL = 300
@@ -46,6 +61,10 @@ class GitHubOAuthService:
     def get_authorization_url(self, engineer_id: str) -> GitHubAuthorizationUrl:
         """
         Generate GitHub OAuth authorization URL with CSRF state.
+
+        If GITHUB_APP_SLUG is configured, redirects to the GitHub App installation page
+        which prompts users to select repositories. Otherwise, uses standard OAuth with
+        repo scope for private repository access.
 
         Args:
             engineer_id: The engineer ID to associate with this OAuth flow
@@ -63,16 +82,24 @@ class GitHubOAuthService:
         cache_key = f'github_oauth_state:{state}'
         self.cache.set(cache_key, engineer_id, ex=self.STATE_TTL)
 
-        # Build authorization URL
-        params = {
-            'client_id': settings.GITHUB_CLIENT_ID,
-            'redirect_uri': settings.GITHUB_OAUTH_REDIRECT_URI,
-            'scope': self.SCOPES,
-            'state': state,
-        }
-
-        authorization_url = f'{self.GITHUB_AUTHORIZE_URL}?{urlencode(params)}'
-        logger.info('Generated GitHub OAuth URL', engineer_id=engineer_id)
+        # If GitHub App slug is configured, use the app installation flow
+        # This prompts users to select which repos to grant access to
+        if settings.GITHUB_APP_SLUG:
+            params = {
+                'state': state,
+            }
+            authorization_url = f'https://github.com/apps/{settings.GITHUB_APP_SLUG}/installations/new?{urlencode(params)}'
+            logger.info('Generated GitHub App installation URL', engineer_id=engineer_id)
+        else:
+            # Fall back to OAuth flow with repo scope for private repo access
+            params = {
+                'client_id': settings.GITHUB_CLIENT_ID,
+                'redirect_uri': settings.GITHUB_OAUTH_REDIRECT_URI,
+                'state': state,
+                'scope': 'repo read:user',  # repo scope for private repo access
+            }
+            authorization_url = f'{self.GITHUB_AUTHORIZE_URL}?{urlencode(params)}'
+            logger.info('Generated GitHub OAuth URL', engineer_id=engineer_id)
 
         return GitHubAuthorizationUrl(authorization_url=authorization_url)
 
@@ -147,23 +174,40 @@ class GitHubOAuthService:
 
         return engineer_id, user_info, access_token, scope
 
-    def complete_oauth_callback(self, code: str, state: str) -> GitHubConnectionStatus:
+    def complete_oauth_callback(
+        self,
+        state: str,
+        code: str | None = None,
+        installation_id: int | None = None,
+    ) -> GitHubConnectionStatus:
         """
-        Complete the OAuth callback flow: exchange code, save credential, return status.
+        Complete the OAuth/installation callback flow: exchange code, save credential, return status.
 
-        This is the single entry point for handling OAuth callbacks from the router.
+        Supports both:
+        - OAuth flow: code + state -> exchange for access token
+        - App installation: installation_id + state -> store installation (requires separate OAuth for token)
 
         Args:
-            code: The authorization code from GitHub
             state: The state parameter for CSRF verification
+            code: The authorization code from GitHub (OAuth flow)
+            installation_id: The GitHub App installation ID (app installation flow)
 
         Returns:
             GitHubConnectionStatus with connection details
 
         Raises:
             GitHubOAuthStateExpired: If state not found in cache
-            GitHubOAuthError: If token exchange fails
+            GitHubOAuthError: If token exchange fails or neither code nor installation_id provided
         """
+        if not code and not installation_id:
+            raise GitHubOAuthError('Either code or installation_id must be provided')
+
+        if not code:
+            raise GitHubOAuthError(
+                'GitHub App installation received, but OAuth code is required for user access. '
+                'Please ensure "Request user authorization (OAuth) during installation" is enabled in your GitHub App settings.'
+            )
+
         engineer_id, user_info, access_token, scope = self.exchange_code(code, state)
 
         self.save_credential(

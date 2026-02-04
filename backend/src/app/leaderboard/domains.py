@@ -14,6 +14,11 @@ class LeaderboardEntry(BaseDomain):
     cost_usd: float = 0.0
     rank: int
     prev_rank: int | None = None
+    # GitHub metrics (nullable for users without GitHub connected)
+    github_commits: int | None = None
+    github_additions: int | None = None
+    github_deletions: int | None = None
+    github_prs_merged: int | None = None
 
     @computed_field
     @property
@@ -43,6 +48,15 @@ class PeriodStats(BaseDomain):
     comparison_tokens_input: int
     comparison_tokens_output: int
     comparison_cost_usd: float = 0.0
+    # GitHub metrics
+    github_commits: int = 0
+    github_additions: int = 0
+    github_deletions: int = 0
+    github_prs_merged: int = 0
+    comparison_github_commits: int = 0
+    comparison_github_additions: int = 0
+    comparison_github_deletions: int = 0
+    comparison_github_prs_merged: int = 0
 
     @computed_field
     @property
@@ -70,6 +84,11 @@ class DailyTotal(BaseDomain):
     tokens_input: int
     tokens_output: int
     cost_usd: float = 0.0
+    # GitHub metrics
+    github_commits: int = 0
+    github_additions: int = 0
+    github_deletions: int = 0
+    github_prs_merged: int = 0
 
 
 class DailyTotalsResponse(BaseDomain):
@@ -90,6 +109,11 @@ class HistoricalRank(BaseDomain):
     tokens_input: int
     tokens_output: int
     cost_usd: float = 0.0
+    # GitHub metrics
+    github_commits: int = 0
+    github_additions: int = 0
+    github_deletions: int = 0
+    github_prs_merged: int = 0
 
 
 class HistoricalRankingsResponse(BaseDomain):
@@ -120,6 +144,11 @@ class EngineerDailyTotal(BaseDomain):
     tokens_input: int
     tokens_output: int
     cost_usd: float = 0.0
+    # GitHub metrics
+    github_commits: int = 0
+    github_additions: int = 0
+    github_deletions: int = 0
+    github_prs_merged: int = 0
 
 
 class DayWithEngineers(BaseDomain):
@@ -153,6 +182,11 @@ class TimeSeriesDataPoint(BaseDomain):
     tokens_input: int
     tokens_output: int
     cost_usd: float = 0.0
+    # GitHub metrics
+    github_commits: int = 0
+    github_additions: int = 0
+    github_deletions: int = 0
+    github_prs_merged: int = 0
 
 
 class TimeSeriesResponse(BaseDomain):
@@ -171,6 +205,11 @@ class EngineerTimeSeriesData(BaseDomain):
     tokens_input: int
     tokens_output: int
     cost_usd: float = 0.0
+    # GitHub metrics
+    github_commits: int = 0
+    github_additions: int = 0
+    github_deletions: int = 0
+    github_prs_merged: int = 0
 
 
 class TeamTimeSeriesBucket(BaseDomain):

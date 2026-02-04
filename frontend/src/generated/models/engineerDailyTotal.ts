@@ -16,4 +16,8 @@ export interface EngineerDailyTotal {
   tokensInput: number;
   tokensOutput: number;
   costUsd?: number;
+  githubCommits?: number;
+  githubAdditions?: number;
+  githubDeletions?: number;
+  githubPrsMerged?: number;
 }

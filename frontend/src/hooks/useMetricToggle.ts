@@ -1,6 +1,21 @@
 import { useSearchParams } from 'react-router'
 
-export type MetricType = 'total' | 'input' | 'output' | 'cost'
+export type MetricType =
+  | 'total' | 'input' | 'output' | 'cost'  // Token metrics
+  | 'commits' | 'additions' | 'deletions' | 'lines' | 'prs'  // GitHub metrics
+
+export type MetricCategory = 'tokens' | 'github'
+
+export function getMetricCategory(metric: MetricType): MetricCategory {
+  if (metric === 'commits' || metric === 'additions' || metric === 'deletions' || metric === 'lines' || metric === 'prs') {
+    return 'github'
+  }
+  return 'tokens'
+}
+
+export function isGitHubMetric(metric: MetricType): boolean {
+  return getMetricCategory(metric) === 'github'
+}
 
 export function useMetricToggle() {
   const [searchParams, setSearchParams] = useSearchParams()

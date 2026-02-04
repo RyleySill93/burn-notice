@@ -33,7 +33,7 @@ export const getGetGithubStatusResponseMock = (overrideResponse: Partial< GitHub
 
 export const getDisconnectGithubResponseMock = (overrideResponse: Partial< GitHubConnectionStatus > = {}): GitHubConnectionStatus => ({connected: faker.datatype.boolean(), githubUsername: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), githubUserId: faker.helpers.arrayElement([faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}),null,]), undefined]), connectedAt: faker.helpers.arrayElement([faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`,null,]), undefined]), ...overrideResponse})
 
-export const getSyncGithubResponseMock = (overrideResponse: Partial< GitHubSyncResponse > = {}): GitHubSyncResponse => ({commits: faker.number.int({min: undefined, max: undefined}), prs: faker.number.int({min: undefined, max: undefined}), ...overrideResponse})
+export const getSyncGithubResponseMock = (overrideResponse: Partial< GitHubSyncResponse > = {}): GitHubSyncResponse => ({prs: faker.number.int({min: undefined, max: undefined}), ...overrideResponse})
 
 
 export const getGetGithubConnectUrlMockHandler = (overrideResponse?: GitHubAuthorizationUrl | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GitHubAuthorizationUrl> | GitHubAuthorizationUrl), options?: RequestHandlerOptions) => {

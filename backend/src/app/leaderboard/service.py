@@ -30,6 +30,7 @@ def get_day_bounds_utc(for_date: date) -> tuple[datetime, datetime]:
     return start_utc, end_utc
 
 
+from src.app.github.models import GitHubDaily
 from src.app.leaderboard.domains import (
     DailyTotal,
     DailyTotalsByEngineerResponse,
@@ -101,6 +102,34 @@ class LeaderboardService:
             .all()
         )
 
+        # Get GitHub stats for the period
+        github_results = (
+            db.session.query(
+                GitHubDaily.engineer_id,
+                func.sum(GitHubDaily.commits_count).label('commits'),
+                func.sum(GitHubDaily.lines_added).label('additions'),
+                func.sum(GitHubDaily.lines_removed).label('deletions'),
+                func.sum(GitHubDaily.prs_merged).label('prs_merged'),
+            )
+            .join(Engineer, GitHubDaily.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                GitHubDaily.date >= start_date,
+                GitHubDaily.date <= end_date,
+            )
+            .group_by(GitHubDaily.engineer_id)
+            .all()
+        )
+        github_by_engineer = {
+            r.engineer_id: {
+                'commits': r.commits,
+                'additions': r.additions,
+                'deletions': r.deletions,
+                'prs_merged': r.prs_merged,
+            }
+            for r in github_results
+        }
+
         # Previous period rankings (if provided)
         prev_rankings: dict[str, int] = {}
         if prev_start_date and prev_end_date:
@@ -125,6 +154,7 @@ class LeaderboardService:
 
         entries = []
         for rank, row in enumerate(current_results, 1):
+            github_data = github_by_engineer.get(row.engineer_id)
             entries.append(
                 LeaderboardEntry(
                     engineer_id=row.engineer_id,
@@ -135,6 +165,10 @@ class LeaderboardService:
                     cost_usd=row.cost_usd or 0.0,
                     rank=rank,
                     prev_rank=prev_rankings.get(row.engineer_id),
+                    github_commits=github_data['commits'] if github_data else None,
+                    github_additions=github_data['additions'] if github_data else None,
+                    github_deletions=github_data['deletions'] if github_data else None,
+                    github_prs_merged=github_data['prs_merged'] if github_data else None,
                 )
             )
 
@@ -142,12 +176,45 @@ class LeaderboardService:
 
     @staticmethod
     def _get_live_daily_leaderboard(customer_id: str, as_of: date) -> list[LeaderboardEntry]:
-        """Get LIVE daily leaderboard from raw usage table for today."""
+        """
+        Get daily leaderboard combining rolled-up UsageDaily with unrolled Usage data.
+
+        This ensures we don't miss any data whether it's been rolled up or not.
+        """
         # Get PST day bounds in UTC for database comparison
         start_utc, end_utc = get_day_bounds_utc(as_of)
 
-        # Query raw usage table for today's data
-        current_results = (
+        # Store totals as dict of engineer_id -> (display_name, tokens, tokens_input, tokens_output, cost_usd)
+        totals_by_engineer: dict[str, tuple[str, int, int, int, float]] = {}
+
+        # 1. Get rolled-up data from UsageDaily for this date
+        daily_results = (
+            db.session.query(
+                UsageDaily.engineer_id,
+                Engineer.display_name,
+                UsageDaily.total_tokens,
+                UsageDaily.tokens_input,
+                UsageDaily.tokens_output,
+                UsageDaily.cost_usd,
+            )
+            .join(Engineer, UsageDaily.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                UsageDaily.date == as_of,
+            )
+            .all()
+        )
+        for r in daily_results:
+            totals_by_engineer[r.engineer_id] = (
+                r.display_name,
+                r.total_tokens or 0,
+                r.tokens_input or 0,
+                r.tokens_output or 0,
+                r.cost_usd or 0.0,
+            )
+
+        # 2. Get UNROLLED data from Usage (rolled_up_at IS NULL) for this date
+        unrolled_results = (
             db.session.query(
                 Usage.engineer_id,
                 Engineer.display_name,
@@ -160,10 +227,10 @@ class LeaderboardService:
                 Engineer.customer_id == customer_id,
                 Usage.created_at >= start_utc,
                 Usage.created_at < end_utc,
+                Usage.rolled_up_at.is_(None),  # Only unrolled records
             )
             .group_by(Usage.engineer_id, Engineer.display_name)
             .having(func.sum(Usage.tokens_input + Usage.tokens_output) > 0)
-            .order_by(func.sum(Usage.tokens_input + Usage.tokens_output).desc())
             .all()
         )
 
@@ -183,6 +250,60 @@ class LeaderboardService:
             .all()
         )
         cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
+
+        # Add unrolled data to totals
+        for r in unrolled_results:
+            existing = totals_by_engineer.get(r.engineer_id)
+            unrolled_cost = cost_by_engineer.get(r.engineer_id, 0.0)
+            if existing:
+                totals_by_engineer[r.engineer_id] = (
+                    existing[0],  # display_name
+                    existing[1] + (r.tokens or 0),
+                    existing[2] + (r.tokens_input or 0),
+                    existing[3] + (r.tokens_output or 0),
+                    existing[4] + unrolled_cost,
+                )
+            else:
+                totals_by_engineer[r.engineer_id] = (
+                    r.display_name,
+                    r.tokens or 0,
+                    r.tokens_input or 0,
+                    r.tokens_output or 0,
+                    unrolled_cost,
+                )
+
+        # Sort by total tokens descending
+        sorted_engineers = sorted(
+            totals_by_engineer.items(),
+            key=lambda x: x[1][1],  # Sort by tokens (index 1)
+            reverse=True,
+        )
+
+        # Get GitHub stats for today from GitHubDaily
+        github_results = (
+            db.session.query(
+                GitHubDaily.engineer_id,
+                GitHubDaily.commits_count,
+                GitHubDaily.lines_added,
+                GitHubDaily.lines_removed,
+                GitHubDaily.prs_merged,
+            )
+            .join(Engineer, GitHubDaily.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                GitHubDaily.date == as_of,
+            )
+            .all()
+        )
+        github_by_engineer = {
+            r.engineer_id: {
+                'commits': r.commits_count,
+                'additions': r.lines_added,
+                'deletions': r.lines_removed,
+                'prs_merged': r.prs_merged,
+            }
+            for r in github_results
+        }
 
         # Get yesterday's rankings for comparison
         yesterday = as_of - timedelta(days=1)
@@ -209,17 +330,23 @@ class LeaderboardService:
             prev_rankings[row.engineer_id] = rank
 
         entries = []
-        for rank, row in enumerate(current_results, 1):
+        for rank, (engineer_id, data) in enumerate(sorted_engineers, 1):
+            display_name, tokens, tokens_input, tokens_output, cost_usd = data
+            github_data = github_by_engineer.get(engineer_id)
             entries.append(
                 LeaderboardEntry(
-                    engineer_id=row.engineer_id,
-                    display_name=row.display_name,
-                    tokens=row.tokens,
-                    tokens_input=row.tokens_input,
-                    tokens_output=row.tokens_output,
-                    cost_usd=cost_by_engineer.get(row.engineer_id, 0.0),
+                    engineer_id=engineer_id,
+                    display_name=display_name,
+                    tokens=tokens,
+                    tokens_input=tokens_input,
+                    tokens_output=tokens_output,
+                    cost_usd=cost_usd,
                     rank=rank,
-                    prev_rank=prev_rankings.get(row.engineer_id),
+                    prev_rank=prev_rankings.get(engineer_id),
+                    github_commits=github_data['commits'] if github_data else None,
+                    github_additions=github_data['additions'] if github_data else None,
+                    github_deletions=github_data['deletions'] if github_data else None,
+                    github_prs_merged=github_data['prs_merged'] if github_data else None,
                 )
             )
 
@@ -279,81 +406,115 @@ class LeaderboardService:
         prev_start_date: date | None = None,
         prev_end_date: date | None = None,
     ) -> list[LeaderboardEntry]:
-        """Get ranked entries including live data for today."""
-        today = get_today()
+        """
+        Get ranked entries combining rolled-up UsageDaily with unrolled Usage data.
 
-        # Get daily totals from UsageDaily (excluding today)
-        daily_end = min(end_date, today - timedelta(days=1)) if end_date >= today else end_date
+        This ensures metrics include both:
+        - Historical data that has been rolled up into UsageDaily
+        - Any unrolled Usage records (rolled_up_at IS NULL) within the date range
+        """
+        # Get date bounds in UTC
+        start_utc, _ = get_day_bounds_utc(start_date)
+        _, end_utc = get_day_bounds_utc(end_date)
 
         # Store totals as dict of engineer_id -> (tokens, tokens_input, tokens_output, cost_usd)
         totals_by_engineer: dict[str, tuple[int, int, int, float]] = {}
 
-        if start_date <= daily_end:
-            daily_results = (
-                db.session.query(
-                    UsageDaily.engineer_id,
-                    func.sum(UsageDaily.total_tokens).label('tokens'),
-                    func.sum(UsageDaily.tokens_input).label('tokens_input'),
-                    func.sum(UsageDaily.tokens_output).label('tokens_output'),
-                    func.sum(UsageDaily.cost_usd).label('cost_usd'),
-                )
-                .join(Engineer, UsageDaily.engineer_id == Engineer.id)
-                .filter(
-                    Engineer.customer_id == customer_id,
-                    UsageDaily.date >= start_date,
-                    UsageDaily.date <= daily_end,
-                )
-                .group_by(UsageDaily.engineer_id)
-                .all()
+        # 1. Get rolled-up data from UsageDaily for the date range
+        daily_results = (
+            db.session.query(
+                UsageDaily.engineer_id,
+                func.sum(UsageDaily.total_tokens).label('tokens'),
+                func.sum(UsageDaily.tokens_input).label('tokens_input'),
+                func.sum(UsageDaily.tokens_output).label('tokens_output'),
+                func.sum(UsageDaily.cost_usd).label('cost_usd'),
             )
-            for r in daily_results:
-                totals_by_engineer[r.engineer_id] = (r.tokens, r.tokens_input, r.tokens_output, r.cost_usd or 0.0)
+            .join(Engineer, UsageDaily.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                UsageDaily.date >= start_date,
+                UsageDaily.date <= end_date,
+            )
+            .group_by(UsageDaily.engineer_id)
+            .all()
+        )
+        for r in daily_results:
+            totals_by_engineer[r.engineer_id] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0, r.cost_usd or 0.0)
 
-        # Add live data for today if in range
-        if start_date <= today <= end_date:
-            today_start_utc, today_end_utc = get_day_bounds_utc(today)
-            live_results = (
-                db.session.query(
-                    Usage.engineer_id,
-                    func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
-                    func.sum(Usage.tokens_input).label('tokens_input'),
-                    func.sum(Usage.tokens_output).label('tokens_output'),
-                )
-                .join(Engineer, Usage.engineer_id == Engineer.id)
-                .filter(
-                    Engineer.customer_id == customer_id,
-                    Usage.created_at >= today_start_utc,
-                    Usage.created_at < today_end_utc,
-                )
-                .group_by(Usage.engineer_id)
-                .all()
+        # 2. Get UNROLLED data from Usage (rolled_up_at IS NULL) for the date range
+        unrolled_results = (
+            db.session.query(
+                Usage.engineer_id,
+                func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
+                func.sum(Usage.tokens_input).label('tokens_input'),
+                func.sum(Usage.tokens_output).label('tokens_output'),
             )
-            # Get cost from TelemetryEvent for today
-            cost_results = (
-                db.session.query(
-                    TelemetryEvent.engineer_id,
-                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
-                )
-                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
-                .filter(
-                    Engineer.customer_id == customer_id,
-                    TelemetryEvent.created_at >= today_start_utc,
-                    TelemetryEvent.created_at < today_end_utc,
-                )
-                .group_by(TelemetryEvent.engineer_id)
-                .all()
+            .join(Engineer, Usage.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
+                Usage.rolled_up_at.is_(None),  # Only unrolled records
             )
-            live_cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
+            .group_by(Usage.engineer_id)
+            .all()
+        )
 
-            for r in live_results:
-                existing = totals_by_engineer.get(r.engineer_id, (0, 0, 0, 0.0))
-                live_cost = live_cost_by_engineer.get(r.engineer_id, 0.0)
-                totals_by_engineer[r.engineer_id] = (
-                    existing[0] + r.tokens,
-                    existing[1] + r.tokens_input,
-                    existing[2] + r.tokens_output,
-                    existing[3] + live_cost,
-                )
+        # Get cost from TelemetryEvent for unrolled period
+        cost_results = (
+            db.session.query(
+                TelemetryEvent.engineer_id,
+                func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+            )
+            .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                TelemetryEvent.created_at >= start_utc,
+                TelemetryEvent.created_at < end_utc,
+            )
+            .group_by(TelemetryEvent.engineer_id)
+            .all()
+        )
+        unrolled_cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
+
+        # Add unrolled data to totals
+        for r in unrolled_results:
+            existing = totals_by_engineer.get(r.engineer_id, (0, 0, 0, 0.0))
+            unrolled_cost = unrolled_cost_by_engineer.get(r.engineer_id, 0.0)
+            totals_by_engineer[r.engineer_id] = (
+                existing[0] + (r.tokens or 0),
+                existing[1] + (r.tokens_input or 0),
+                existing[2] + (r.tokens_output or 0),
+                existing[3] + unrolled_cost,
+            )
+
+        # Get GitHub stats for the period
+        github_results = (
+            db.session.query(
+                GitHubDaily.engineer_id,
+                func.sum(GitHubDaily.commits_count).label('commits'),
+                func.sum(GitHubDaily.lines_added).label('additions'),
+                func.sum(GitHubDaily.lines_removed).label('deletions'),
+                func.sum(GitHubDaily.prs_merged).label('prs_merged'),
+            )
+            .join(Engineer, GitHubDaily.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                GitHubDaily.date >= start_date,
+                GitHubDaily.date <= end_date,
+            )
+            .group_by(GitHubDaily.engineer_id)
+            .all()
+        )
+        github_by_engineer = {
+            r.engineer_id: {
+                'commits': r.commits,
+                'additions': r.additions,
+                'deletions': r.deletions,
+                'prs_merged': r.prs_merged,
+            }
+            for r in github_results
+        }
 
         # Get engineer names
         engineer_names = {
@@ -391,6 +552,7 @@ class LeaderboardService:
 
         entries = []
         for rank, (eng_id, (tokens, tokens_input, tokens_output, cost_usd)) in enumerate(sorted_results, 1):
+            github_data = github_by_engineer.get(eng_id)
             entries.append(
                 LeaderboardEntry(
                     engineer_id=eng_id,
@@ -401,10 +563,34 @@ class LeaderboardService:
                     cost_usd=cost_usd,
                     rank=rank,
                     prev_rank=prev_rankings.get(eng_id),
+                    github_commits=github_data['commits'] if github_data else None,
+                    github_additions=github_data['additions'] if github_data else None,
+                    github_deletions=github_data['deletions'] if github_data else None,
+                    github_prs_merged=github_data['prs_merged'] if github_data else None,
                 )
             )
 
         return entries
+
+    @staticmethod
+    def _get_github_stats_for_range(customer_id: str, start_date: date, end_date: date) -> tuple[int, int, int, int]:
+        """Get GitHub stats (commits, additions, deletions, prs_merged) for a date range."""
+        result = (
+            db.session.query(
+                func.coalesce(func.sum(GitHubDaily.commits_count), 0),
+                func.coalesce(func.sum(GitHubDaily.lines_added), 0),
+                func.coalesce(func.sum(GitHubDaily.lines_removed), 0),
+                func.coalesce(func.sum(GitHubDaily.prs_merged), 0),
+            )
+            .join(Engineer, GitHubDaily.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                GitHubDaily.date >= start_date,
+                GitHubDaily.date <= end_date,
+            )
+            .one()
+        )
+        return (result[0] or 0, result[1] or 0, result[2] or 0, result[3] or 0)
 
     @staticmethod
     def get_usage_stats(customer_id: str, as_of: date | None = None) -> UsageStats:
@@ -415,6 +601,12 @@ class LeaderboardService:
         today_tokens = LeaderboardService._get_live_tokens_for_date_detailed(customer_id, as_of)
         yesterday_tokens = LeaderboardService._get_daily_tokens_detailed(customer_id, as_of - timedelta(days=1))
 
+        # GitHub stats for today vs yesterday
+        today_github = LeaderboardService._get_github_stats_for_range(customer_id, as_of, as_of)
+        yesterday_github = LeaderboardService._get_github_stats_for_range(
+            customer_id, as_of - timedelta(days=1), as_of - timedelta(days=1)
+        )
+
         # This week vs last week at this point
         # e.g., Mon-Wed this week vs Mon-Wed last week
         week_start = as_of - timedelta(days=as_of.weekday())
@@ -424,6 +616,10 @@ class LeaderboardService:
 
         this_week_tokens = LeaderboardService._get_tokens_for_range_full_detailed(customer_id, week_start, as_of)
         last_week_tokens = LeaderboardService._get_tokens_for_range_full_detailed(
+            customer_id, last_week_start, last_week_same_day
+        )
+        this_week_github = LeaderboardService._get_github_stats_for_range(customer_id, week_start, as_of)
+        last_week_github = LeaderboardService._get_github_stats_for_range(
             customer_id, last_week_start, last_week_same_day
         )
 
@@ -441,6 +637,10 @@ class LeaderboardService:
         last_month_tokens = LeaderboardService._get_tokens_for_range_full_detailed(
             customer_id, last_month_start, last_month_comparison_end
         )
+        this_month_github = LeaderboardService._get_github_stats_for_range(customer_id, month_start, as_of)
+        last_month_github = LeaderboardService._get_github_stats_for_range(
+            customer_id, last_month_start, last_month_comparison_end
+        )
 
         return UsageStats(
             date=as_of,
@@ -453,6 +653,14 @@ class LeaderboardService:
                 comparison_tokens_input=yesterday_tokens[1],
                 comparison_tokens_output=yesterday_tokens[2],
                 comparison_cost_usd=yesterday_tokens[3],
+                github_commits=today_github[0],
+                github_additions=today_github[1],
+                github_deletions=today_github[2],
+                github_prs_merged=today_github[3],
+                comparison_github_commits=yesterday_github[0],
+                comparison_github_additions=yesterday_github[1],
+                comparison_github_deletions=yesterday_github[2],
+                comparison_github_prs_merged=yesterday_github[3],
             ),
             this_week=PeriodStats(
                 tokens=this_week_tokens[0],
@@ -463,6 +671,14 @@ class LeaderboardService:
                 comparison_tokens_input=last_week_tokens[1],
                 comparison_tokens_output=last_week_tokens[2],
                 comparison_cost_usd=last_week_tokens[3],
+                github_commits=this_week_github[0],
+                github_additions=this_week_github[1],
+                github_deletions=this_week_github[2],
+                github_prs_merged=this_week_github[3],
+                comparison_github_commits=last_week_github[0],
+                comparison_github_additions=last_week_github[1],
+                comparison_github_deletions=last_week_github[2],
+                comparison_github_prs_merged=last_week_github[3],
             ),
             this_month=PeriodStats(
                 tokens=this_month_tokens[0],
@@ -473,6 +689,14 @@ class LeaderboardService:
                 comparison_tokens_input=last_month_tokens[1],
                 comparison_tokens_output=last_month_tokens[2],
                 comparison_cost_usd=last_month_tokens[3],
+                github_commits=this_month_github[0],
+                github_additions=this_month_github[1],
+                github_deletions=this_month_github[2],
+                github_prs_merged=this_month_github[3],
+                comparison_github_commits=last_month_github[0],
+                comparison_github_additions=last_month_github[1],
+                comparison_github_deletions=last_month_github[2],
+                comparison_github_prs_merged=last_month_github[3],
             ),
         )
 
@@ -759,6 +983,27 @@ class LeaderboardService:
         return DailyTotalsResponse(start_date=start_date, end_date=end_date, totals=totals)
 
     @staticmethod
+    def _get_engineer_github_stats_for_range(
+        engineer_id: str, start_date: date, end_date: date
+    ) -> tuple[int, int, int, int]:
+        """Get GitHub stats (commits, additions, deletions, prs_merged) for an engineer in a date range."""
+        result = (
+            db.session.query(
+                func.coalesce(func.sum(GitHubDaily.commits_count), 0),
+                func.coalesce(func.sum(GitHubDaily.lines_added), 0),
+                func.coalesce(func.sum(GitHubDaily.lines_removed), 0),
+                func.coalesce(func.sum(GitHubDaily.prs_merged), 0),
+            )
+            .filter(
+                GitHubDaily.engineer_id == engineer_id,
+                GitHubDaily.date >= start_date,
+                GitHubDaily.date <= end_date,
+            )
+            .one()
+        )
+        return (result[0] or 0, result[1] or 0, result[2] or 0, result[3] or 0)
+
+    @staticmethod
     def get_engineer_stats(engineer_id: str, as_of: date | None = None) -> EngineerStatsResponse:
         """Get usage stats for a specific engineer comparing to same point in previous period."""
         as_of = as_of or get_today()
@@ -771,6 +1016,12 @@ class LeaderboardService:
             engineer_id, as_of - timedelta(days=1)
         )
 
+        # GitHub stats for today vs yesterday
+        today_github = LeaderboardService._get_engineer_github_stats_for_range(engineer_id, as_of, as_of)
+        yesterday_github = LeaderboardService._get_engineer_github_stats_for_range(
+            engineer_id, as_of - timedelta(days=1), as_of - timedelta(days=1)
+        )
+
         # This week vs last week at this point
         week_start = as_of - timedelta(days=as_of.weekday())
         day_of_week = as_of.weekday()
@@ -781,6 +1032,10 @@ class LeaderboardService:
             engineer_id, week_start, as_of
         )
         last_week_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(
+            engineer_id, last_week_start, last_week_same_day
+        )
+        this_week_github = LeaderboardService._get_engineer_github_stats_for_range(engineer_id, week_start, as_of)
+        last_week_github = LeaderboardService._get_engineer_github_stats_for_range(
             engineer_id, last_week_start, last_week_same_day
         )
 
@@ -798,6 +1053,10 @@ class LeaderboardService:
         last_month_tokens = LeaderboardService._get_engineer_tokens_for_range_full_detailed(
             engineer_id, last_month_start, last_month_comparison_end
         )
+        this_month_github = LeaderboardService._get_engineer_github_stats_for_range(engineer_id, month_start, as_of)
+        last_month_github = LeaderboardService._get_engineer_github_stats_for_range(
+            engineer_id, last_month_start, last_month_comparison_end
+        )
 
         return EngineerStatsResponse(
             engineer_id=engineer_id,
@@ -812,6 +1071,14 @@ class LeaderboardService:
                 comparison_tokens_input=yesterday_tokens[1],
                 comparison_tokens_output=yesterday_tokens[2],
                 comparison_cost_usd=yesterday_tokens[3],
+                github_commits=today_github[0],
+                github_additions=today_github[1],
+                github_deletions=today_github[2],
+                github_prs_merged=today_github[3],
+                comparison_github_commits=yesterday_github[0],
+                comparison_github_additions=yesterday_github[1],
+                comparison_github_deletions=yesterday_github[2],
+                comparison_github_prs_merged=yesterday_github[3],
             ),
             this_week=PeriodStats(
                 tokens=this_week_tokens[0],
@@ -822,6 +1089,14 @@ class LeaderboardService:
                 comparison_tokens_input=last_week_tokens[1],
                 comparison_tokens_output=last_week_tokens[2],
                 comparison_cost_usd=last_week_tokens[3],
+                github_commits=this_week_github[0],
+                github_additions=this_week_github[1],
+                github_deletions=this_week_github[2],
+                github_prs_merged=this_week_github[3],
+                comparison_github_commits=last_week_github[0],
+                comparison_github_additions=last_week_github[1],
+                comparison_github_deletions=last_week_github[2],
+                comparison_github_prs_merged=last_week_github[3],
             ),
             this_month=PeriodStats(
                 tokens=this_month_tokens[0],
@@ -832,6 +1107,14 @@ class LeaderboardService:
                 comparison_tokens_input=last_month_tokens[1],
                 comparison_tokens_output=last_month_tokens[2],
                 comparison_cost_usd=last_month_tokens[3],
+                github_commits=this_month_github[0],
+                github_additions=this_month_github[1],
+                github_deletions=this_month_github[2],
+                github_prs_merged=this_month_github[3],
+                comparison_github_commits=last_month_github[0],
+                comparison_github_additions=last_month_github[1],
+                comparison_github_deletions=last_month_github[2],
+                comparison_github_prs_merged=last_month_github[3],
             ),
         )
 

@@ -212,7 +212,11 @@ OPENAI_API_KEY = config('OPENAI_API_KEY', default=None)
 ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default=None)
 AI_AUDIT_ENABLED = config('AI_AUDIT_ENABLED', default=True)
 
-# GitHub OAuth
+# GitHub App (for productivity tracking integration)
+# Create a GitHub App at https://github.com/settings/apps/new
+# Required permissions: Pull requests (read), Metadata (read)
+GITHUB_APP_ID = config('GITHUB_APP_ID', default=None)
+GITHUB_APP_SLUG = config('GITHUB_APP_SLUG', default=None)  # URL-friendly name (e.g., 'my-app' from github.com/apps/my-app)
 GITHUB_CLIENT_ID = config('GITHUB_CLIENT_ID', default=None)
 GITHUB_CLIENT_SECRET = config('GITHUB_CLIENT_SECRET', default=None)
 GITHUB_OAUTH_REDIRECT_URI = f'{FRONTEND_ORIGIN}/auth/github/callback'

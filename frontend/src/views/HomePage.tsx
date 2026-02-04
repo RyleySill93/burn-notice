@@ -19,11 +19,9 @@ import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { format, isSameDay } from 'date-fns'
-import { useMetricToggle } from '@/hooks/useMetricToggle'
+import { useMetricToggle, type MetricType } from '@/hooks/useMetricToggle'
 import { useAuth } from '@/contexts/AuthContext'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
-
-type MetricType = 'total' | 'input' | 'output' | 'cost'
 import { MetricToggle } from '@/components/MetricToggle'
 
 interface PeriodStats {
@@ -36,6 +34,15 @@ interface PeriodStats {
   comparisonTokensOutput: number
   comparisonCostUsd: number
   changePercent: number | null
+  // GitHub metrics
+  githubCommits: number
+  githubAdditions: number
+  githubDeletions: number
+  githubPrsMerged: number
+  comparisonGithubCommits: number
+  comparisonGithubAdditions: number
+  comparisonGithubDeletions: number
+  comparisonGithubPrsMerged: number
 }
 
 interface UsageStats {
@@ -55,6 +62,11 @@ interface LeaderboardEntry {
   rank: number
   prevRank: number | null
   rankChange: number | null
+  // GitHub metrics (nullable for users without GitHub connected)
+  githubCommits: number | null
+  githubAdditions: number | null
+  githubDeletions: number | null
+  githubPrsMerged: number | null
 }
 
 interface Leaderboard {
@@ -76,6 +88,11 @@ interface EngineerTimeSeriesData {
   tokensInput: number
   tokensOutput: number
   costUsd: number
+  // GitHub metrics
+  githubCommits: number
+  githubAdditions: number
+  githubDeletions: number
+  githubPrsMerged: number
 }
 
 interface TeamTimeSeriesBucket {
@@ -91,7 +108,19 @@ interface TeamTimeSeriesResponse {
 
 type TimeSeriesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly'
 
-function getMetricValue(data: { tokens: number; tokensInput: number; tokensOutput: number; costUsd?: number }, metric: MetricType): number {
+function getMetricValue(
+  data: {
+    tokens: number
+    tokensInput: number
+    tokensOutput: number
+    costUsd?: number
+    githubCommits?: number | null
+    githubAdditions?: number | null
+    githubDeletions?: number | null
+    githubPrsMerged?: number | null
+  },
+  metric: MetricType
+): number {
   switch (metric) {
     case 'input':
       return data.tokensInput
@@ -99,6 +128,16 @@ function getMetricValue(data: { tokens: number; tokensInput: number; tokensOutpu
       return data.tokensOutput
     case 'cost':
       return data.costUsd || 0
+    case 'commits':
+      return data.githubCommits ?? 0
+    case 'additions':
+      return data.githubAdditions ?? 0
+    case 'deletions':
+      return data.githubDeletions ?? 0
+    case 'lines':
+      return (data.githubAdditions ?? 0) + (data.githubDeletions ?? 0)
+    case 'prs':
+      return data.githubPrsMerged ?? 0
     default:
       return data.tokens
   }
@@ -112,6 +151,16 @@ function getComparisonValue(data: PeriodStats, metric: MetricType): number {
       return data.comparisonTokensOutput
     case 'cost':
       return data.comparisonCostUsd || 0
+    case 'commits':
+      return data.comparisonGithubCommits ?? 0
+    case 'additions':
+      return data.comparisonGithubAdditions ?? 0
+    case 'deletions':
+      return data.comparisonGithubDeletions ?? 0
+    case 'lines':
+      return (data.comparisonGithubAdditions ?? 0) + (data.comparisonGithubDeletions ?? 0)
+    case 'prs':
+      return data.comparisonGithubPrsMerged ?? 0
     default:
       return data.comparisonTokens
   }
@@ -141,6 +190,23 @@ function formatValue(n: number, metric: MetricType): string {
     return formatCost(n)
   }
   return formatTokens(n)
+}
+
+function getMetricUnit(metric: MetricType): string {
+  switch (metric) {
+    case 'cost':
+      return ''
+    case 'commits':
+      return ' commits'
+    case 'additions':
+    case 'deletions':
+    case 'lines':
+      return ' lines'
+    case 'prs':
+      return ' PRs'
+    default:
+      return ' tokens'
+  }
 }
 
 function ChangeIndicator({ change, delta, metric }: { change: number | null; delta: number; metric: MetricType }) {
@@ -301,7 +367,7 @@ function LeaderboardTable({
               <p className={cn(
                 'text-xs',
                 index <= 2 ? 'text-gray-600' : 'text-muted-foreground'
-              )}>{formatValue(getMetricValue(entry, metric), metric)}{metric !== 'cost' && ' tokens'}</p>
+              )}>{formatValue(getMetricValue(entry, metric), metric)}{getMetricUnit(metric)}</p>
             </div>
           </div>
           <RankChangeIndicator change={entry.rankChange} />

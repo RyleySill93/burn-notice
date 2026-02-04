@@ -45,9 +45,13 @@ def github_callback(
     request: GitHubCallbackRequest,
     oauth_service: GitHubOAuthService = Depends(GitHubOAuthService.factory),
 ) -> GitHubConnectionStatus:
-    """Handle GitHub OAuth callback."""
+    """Handle GitHub OAuth/installation callback."""
     try:
-        return oauth_service.complete_oauth_callback(code=request.code, state=request.state)
+        return oauth_service.complete_oauth_callback(
+            state=request.state,
+            code=request.code,
+            installation_id=request.installation_id,
+        )
     except GitHubOAuthStateExpired as e:
         logger.warning('GitHub OAuth state expired', error=str(e))
         raise APIException(
@@ -92,15 +96,17 @@ def sync_github(
     """Manually trigger GitHub data sync for an engineer."""
     try:
         result = github_service.sync_engineer(engineer_id)
-        return GitHubSyncResponse(commits=result['commits'], prs=result['prs'])
+        return GitHubSyncResponse(prs=result['prs'])
     except GitHubCredentialNotFound:
         raise APIException(
             code=status.HTTP_400_BAD_REQUEST,
             message='GitHub is not connected for this engineer.',
         )
     except Exception as e:
-        logger.error('GitHub sync failed', engineer_id=engineer_id, error=str(e))
+        logger.exception('GitHub sync failed', engineer_id=engineer_id)
         raise APIException(
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             message='Failed to sync GitHub data. Please try again later.',
         )
+
+

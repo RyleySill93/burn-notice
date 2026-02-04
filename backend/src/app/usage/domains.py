@@ -48,6 +48,7 @@ class UsageRead(BaseDomain):
     tokens_output: int
     model: str | None
     session_id: str | None
+    rolled_up_at: datetime | None
     created_at: datetime
 
     @property

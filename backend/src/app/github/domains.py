@@ -38,6 +38,7 @@ class GitHubCommitCreate(BaseDomain):
     id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=GITHUB_COMMIT_PK_ABBREV))
     engineer_id: str
     github_commit_sha: str
+    github_pr_id: int | None = None
     repo_full_name: str
     message: str | None = None
     lines_added: int = 0
@@ -50,6 +51,7 @@ class GitHubCommitRead(BaseDomain):
     id: str
     engineer_id: str
     github_commit_sha: str
+    github_pr_id: int | None
     repo_full_name: str
     message: str | None
     lines_added: int
@@ -125,17 +127,23 @@ class GitHubDailyRead(BaseDomain):
 
 # API request/response domains
 class GitHubCallbackRequest(BaseDomain):
-    """Request payload for GitHub OAuth callback."""
+    """Request payload for GitHub OAuth/App installation callback.
 
-    code: str
+    Supports both:
+    - OAuth flow: code + state
+    - App installation flow: installation_id + state (+ optional code)
+    """
+
     state: str
+    code: str | None = None  # OAuth authorization code
+    installation_id: int | None = None  # GitHub App installation ID
+    setup_action: str | None = None  # 'install' or 'update' (app installation only)
 
 
 class GitHubSyncResponse(BaseDomain):
     """Response for GitHub sync operation."""
 
-    commits: int
-    prs: int
+    prs: int  # Number of merged PRs synced
 
 
 class GitHubConnectionStatus(BaseDomain):

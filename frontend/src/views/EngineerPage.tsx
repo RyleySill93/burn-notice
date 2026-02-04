@@ -21,10 +21,8 @@ import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { format, isSameDay } from 'date-fns'
-import { useMetricToggle } from '@/hooks/useMetricToggle'
+import { useMetricToggle, type MetricType } from '@/hooks/useMetricToggle'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
-
-type MetricType = 'total' | 'input' | 'output' | 'cost'
 import { MetricToggle } from '@/components/MetricToggle'
 
 interface PeriodStats {
@@ -37,6 +35,15 @@ interface PeriodStats {
   comparison_tokensOutput: number
   comparison_costUsd: number
   change_percent: number | null
+  // GitHub metrics
+  githubCommits: number
+  githubAdditions: number
+  githubDeletions: number
+  githubPrsMerged: number
+  comparisonGithubCommits: number
+  comparisonGithubAdditions: number
+  comparisonGithubDeletions: number
+  comparisonGithubPrsMerged: number
 }
 
 interface EngineerStats {
@@ -56,6 +63,11 @@ interface HistoricalRank {
   tokensInput: number
   tokensOutput: number
   costUsd: number
+  // GitHub metrics
+  githubCommits: number
+  githubAdditions: number
+  githubDeletions: number
+  githubPrsMerged: number
 }
 
 interface HistoricalRankingsResponse {
@@ -70,6 +82,11 @@ interface TimeSeriesDataPoint {
   tokensInput: number
   tokensOutput: number
   costUsd: number
+  // GitHub metrics
+  githubCommits: number
+  githubAdditions: number
+  githubDeletions: number
+  githubPrsMerged: number
 }
 
 interface TimeSeriesResponse {
@@ -80,7 +97,19 @@ interface TimeSeriesResponse {
 
 type TimeSeriesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly'
 
-function getMetricValue(data: { tokens: number; tokensInput: number; tokensOutput: number; costUsd?: number }, metric: MetricType): number {
+function getMetricValue(
+  data: {
+    tokens: number
+    tokensInput: number
+    tokensOutput: number
+    costUsd?: number
+    githubCommits?: number
+    githubAdditions?: number
+    githubDeletions?: number
+    githubPrsMerged?: number
+  },
+  metric: MetricType
+): number {
   switch (metric) {
     case 'input':
       return data.tokensInput
@@ -88,6 +117,16 @@ function getMetricValue(data: { tokens: number; tokensInput: number; tokensOutpu
       return data.tokensOutput
     case 'cost':
       return data.costUsd || 0
+    case 'commits':
+      return data.githubCommits ?? 0
+    case 'additions':
+      return data.githubAdditions ?? 0
+    case 'deletions':
+      return data.githubDeletions ?? 0
+    case 'lines':
+      return (data.githubAdditions ?? 0) + (data.githubDeletions ?? 0)
+    case 'prs':
+      return data.githubPrsMerged ?? 0
     default:
       return data.tokens
   }
@@ -101,6 +140,16 @@ function getComparisonValue(data: PeriodStats, metric: MetricType): number {
       return data.comparison_tokensOutput
     case 'cost':
       return data.comparison_costUsd || 0
+    case 'commits':
+      return data.comparisonGithubCommits ?? 0
+    case 'additions':
+      return data.comparisonGithubAdditions ?? 0
+    case 'deletions':
+      return data.comparisonGithubDeletions ?? 0
+    case 'lines':
+      return (data.comparisonGithubAdditions ?? 0) + (data.comparisonGithubDeletions ?? 0)
+    case 'prs':
+      return data.comparisonGithubPrsMerged ?? 0
     default:
       return data.comparison_tokens
   }
@@ -130,6 +179,23 @@ function formatValue(n: number, metric: MetricType): string {
     return formatCost(n)
   }
   return formatTokens(n)
+}
+
+function getMetricUnit(metric: MetricType): string {
+  switch (metric) {
+    case 'cost':
+      return ''
+    case 'commits':
+      return ' commits'
+    case 'additions':
+    case 'deletions':
+    case 'lines':
+      return ' lines'
+    case 'prs':
+      return ' PRs'
+    default:
+      return ' tokens'
+  }
 }
 
 function ChangeIndicator({ change, delta, metric }: { change: number | null; delta: number; metric: MetricType }) {
@@ -282,7 +348,7 @@ function HistoricalRankingsTable({
               <p className={cn(
                 'text-xs',
                 entry.rank !== null && entry.rank <= 3 ? 'text-gray-600' : 'text-muted-foreground'
-              )}>{formatValue(getMetricValue(entry, metric), metric)}{metric !== 'cost' && ' tokens'}</p>
+              )}>{formatValue(getMetricValue(entry, metric), metric)}{getMetricUnit(metric)}</p>
             </div>
           </div>
         </div>

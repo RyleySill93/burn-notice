@@ -1,6 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Date, Float, ForeignKey, Index, Integer, String
+from sqlalchemy import BigInteger, Date, DateTime, Float, ForeignKey, Index, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,6 +28,7 @@ class Usage(BaseModel[UsageRead, UsageCreate]):
     tokens_output: Mapped[int] = mapped_column(Integer, default=0)
     model: Mapped[str | None] = mapped_column(String(100), nullable=True)
     session_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    rolled_up_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
 
     engineer = relationship('Engineer')
 
@@ -35,7 +36,10 @@ class Usage(BaseModel[UsageRead, UsageCreate]):
     __read_domain__ = UsageRead
     __create_domain__ = UsageCreate
 
-    __table_args__ = (Index('idx_usage_engineer_created', 'engineer_id', 'created_at'),)
+    __table_args__ = (
+        Index('idx_usage_engineer_created', 'engineer_id', 'created_at'),
+        Index('idx_usage_rolled_up_at', 'rolled_up_at'),
+    )
 
 
 class UsageDaily(BaseModel[UsageDailyRead, UsageDailyCreate]):

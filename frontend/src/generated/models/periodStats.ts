@@ -18,4 +18,12 @@ export interface PeriodStats {
   comparisonTokensInput: number;
   comparisonTokensOutput: number;
   comparisonCostUsd?: number;
+  githubCommits?: number;
+  githubAdditions?: number;
+  githubDeletions?: number;
+  githubPrsMerged?: number;
+  comparisonGithubCommits?: number;
+  comparisonGithubAdditions?: number;
+  comparisonGithubDeletions?: number;
+  comparisonGithubPrsMerged?: number;
 }

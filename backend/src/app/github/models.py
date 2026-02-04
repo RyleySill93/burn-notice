@@ -47,6 +47,7 @@ class GitHubCommit(BaseModel[GitHubCommitRead, GitHubCommitCreate]):
 
     engineer_id: Mapped[str] = mapped_column(ForeignKey('engineer.id'), nullable=False, index=True)
     github_commit_sha: Mapped[str] = mapped_column(String(40), nullable=False)
+    github_pr_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
     repo_full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     lines_added: Mapped[int] = mapped_column(Integer, default=0)

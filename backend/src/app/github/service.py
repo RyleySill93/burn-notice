@@ -80,7 +80,7 @@ class GitHubService:
         username = credential.github_username
 
         if since is None:
-            since = datetime.now(timezone.utc) - timedelta(days=7)
+            since = datetime.now(timezone.utc) - timedelta(days=30)
 
         since_str = since.strftime('%Y-%m-%dT%H:%M:%SZ')
 
@@ -215,7 +215,7 @@ class GitHubService:
         username = credential.github_username
 
         if since is None:
-            since = datetime.now(timezone.utc) - timedelta(days=7)
+            since = datetime.now(timezone.utc) - timedelta(days=30)
 
         since_str = since.strftime('%Y-%m-%dT%H:%M:%SZ')
         headers = self._get_headers(access_token)
@@ -239,10 +239,10 @@ class GitHubService:
         since_str: str,
         headers: dict[str, str],
     ) -> list[GitHubPullRequestRead]:
-        """Fetch PRs authored by the user."""
+        """Fetch merged PRs authored by the user."""
         search_url = f'{self.GITHUB_API_BASE}/search/issues'
         params = {
-            'q': f'type:pr author:{username} updated:>={since_str}',
+            'q': f'type:pr author:{username} is:merged merged:>={since_str}',
             'sort': 'updated',
             'order': 'desc',
             'per_page': 100,
@@ -251,21 +251,40 @@ class GitHubService:
         prs_created = []
 
         try:
+            logger.info(
+                'GitHub PR search query',
+                url=search_url,
+                query=params['q'],
+            )
             response = requests.get(search_url, headers=headers, params=params, timeout=60)
             self._handle_rate_limit(response)
 
+            logger.info(
+                'GitHub API response',
+                status_code=response.status_code,
+                rate_limit_remaining=response.headers.get('X-RateLimit-Remaining'),
+            )
+
             if response.status_code != 200:
-                logger.error('GitHub PR search failed', status=response.status_code)
+                logger.error('GitHub PR search failed', status=response.status_code, response=response.text[:500])
                 return prs_created
 
             data = response.json()
             items = data.get('items', [])
+            total_count = data.get('total_count', 0)
+
+            # Log any errors from the API
+            if 'message' in data:
+                logger.warning('GitHub API message', message=data['message'])
+            if 'errors' in data:
+                logger.warning('GitHub API errors', errors=data['errors'])
 
             logger.info(
                 'Fetched authored PRs from GitHub',
                 engineer_id=engineer_id,
                 username=username,
                 count=len(items),
+                total_count=total_count,
             )
 
             for item in items:
@@ -389,7 +408,7 @@ class GitHubService:
             except Exception as e:
                 logger.warning('Failed to fetch PR details', pr_id=pr_id, error=str(e))
 
-        return GitHubPullRequest.create(
+        pr = GitHubPullRequest.create(
             GitHubPullRequestCreate(
                 engineer_id=engineer_id,
                 github_pr_id=pr_id,
@@ -408,9 +427,128 @@ class GitHubService:
             )
         )
 
+        # If this is a merged PR authored by the user, fetch its commits
+        if is_author and merged_at and pr:
+            self._fetch_commits_for_pr(engineer_id, repo_full_name, pr_number, pr_id, headers)
+
+        return pr
+
+    def _fetch_commits_for_pr(
+        self,
+        engineer_id: str,
+        repo_full_name: str,
+        pr_number: int,
+        github_pr_id: int,
+        headers: dict[str, str],
+    ) -> list[GitHubCommitRead]:
+        """Fetch all commits for a specific PR."""
+        commits_url = f'{self.GITHUB_API_BASE}/repos/{repo_full_name}/pulls/{pr_number}/commits'
+        commits_created = []
+
+        try:
+            response = requests.get(commits_url, headers=headers, params={'per_page': 100}, timeout=60)
+            self._handle_rate_limit(response)
+
+            if response.status_code != 200:
+                logger.warning(
+                    'Failed to fetch PR commits',
+                    repo=repo_full_name,
+                    pr_number=pr_number,
+                    status=response.status_code,
+                )
+                return commits_created
+
+            commits = response.json()
+
+            logger.info(
+                'Fetching commits for PR',
+                repo=repo_full_name,
+                pr_number=pr_number,
+                commit_count=len(commits),
+            )
+
+            for commit_data in commits:
+                commit = self._process_pr_commit(
+                    engineer_id=engineer_id,
+                    commit_data=commit_data,
+                    repo_full_name=repo_full_name,
+                    github_pr_id=github_pr_id,
+                    headers=headers,
+                )
+                if commit:
+                    commits_created.append(commit)
+
+        except requests.RequestException as e:
+            logger.error('Failed to fetch PR commits', repo=repo_full_name, pr_number=pr_number, error=str(e))
+
+        return commits_created
+
+    def _process_pr_commit(
+        self,
+        engineer_id: str,
+        commit_data: dict[str, Any],
+        repo_full_name: str,
+        github_pr_id: int,
+        headers: dict[str, str],
+    ) -> GitHubCommitRead | None:
+        """Process a single commit from a PR's commit list."""
+        sha = commit_data.get('sha')
+        if not sha:
+            return None
+
+        # Check if we already have this commit
+        existing = GitHubCommit.get_or_none(engineer_id=engineer_id, github_commit_sha=sha)
+        if existing:
+            # Update to link to PR if not already linked
+            if existing.github_pr_id is None:
+                return GitHubCommit.update(existing.id, github_pr_id=github_pr_id)
+            return existing
+
+        commit_info = commit_data.get('commit', {})
+        message = (commit_info.get('message', '') or '')[:500]
+        committer = commit_info.get('committer', {})
+        committed_at_str = committer.get('date')
+
+        if not committed_at_str:
+            return None
+
+        committed_at = datetime.fromisoformat(committed_at_str.replace('Z', '+00:00'))
+
+        # Fetch commit details for lines added/removed
+        lines_added = 0
+        lines_removed = 0
+
+        try:
+            commit_url = f'{self.GITHUB_API_BASE}/repos/{repo_full_name}/commits/{sha}'
+            detail_response = requests.get(commit_url, headers=headers, timeout=30)
+
+            if detail_response.status_code == 200:
+                detail_data = detail_response.json()
+                stats = detail_data.get('stats', {})
+                lines_added = stats.get('additions', 0)
+                lines_removed = stats.get('deletions', 0)
+        except Exception as e:
+            logger.warning('Failed to fetch commit details', sha=sha, error=str(e))
+
+        return GitHubCommit.create(
+            GitHubCommitCreate(
+                engineer_id=engineer_id,
+                github_commit_sha=sha,
+                github_pr_id=github_pr_id,
+                repo_full_name=repo_full_name,
+                message=message,
+                lines_added=lines_added,
+                lines_removed=lines_removed,
+                committed_at=committed_at,
+                raw_payload=commit_data,
+            )
+        )
+
     def sync_engineer(self, engineer_id: str, since: datetime | None = None) -> dict[str, int]:
         """
         Sync all GitHub data for an engineer.
+
+        Syncs merged PRs and fetches commits for each merged PR.
 
         Args:
             engineer_id: The engineer ID
@@ -419,12 +557,29 @@ class GitHubService:
         Returns:
             Dictionary with counts of synced items
         """
-        commits = self.fetch_commits_for_engineer(engineer_id, since)
         prs = self.fetch_prs_for_engineer(engineer_id, since)
 
+        # Count merged PRs for the response
+        merged_prs = [pr for pr in prs if pr.merged_at is not None]
+
+        # Count commits that were fetched (commits are fetched inside _process_pr for merged PRs)
+        # Query commits with github_pr_id to get an accurate count of PR-linked commits
+        if since is None:
+            since = datetime.now(timezone.utc) - timedelta(days=30)
+
+        commit_count = (
+            db.session.query(func.count(GitHubCommit.id))
+            .filter(
+                GitHubCommit.engineer_id == engineer_id,
+                GitHubCommit.github_pr_id.isnot(None),
+                GitHubCommit.committed_at >= since,
+            )
+            .scalar()
+        ) or 0
+
         return {
-            'commits': len(commits),
-            'prs': len(prs),
+            'commits': commit_count,
+            'prs': len(merged_prs),
         }
 
     def sync_all_engineers(self, since: datetime | None = None) -> dict[str, Any]:

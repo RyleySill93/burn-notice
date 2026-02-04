@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings, Copy, Check, Github } from 'lucide-react'
+import { Settings, Copy, Check, Github, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useAuth } from '@/contexts/AuthContext'
 import { SuperButton } from '@/components/SuperButton'
@@ -10,6 +10,7 @@ import {
   useGetGithubStatus,
   useGetGithubConnectUrl,
   useDisconnectGithub,
+  useSyncGithub,
 } from '@/generated/github/github'
 
 export function SetupPage() {
@@ -49,6 +50,10 @@ export function SetupPage() {
   // GitHub disconnect mutation
   const disconnectMutation = useDisconnectGithub()
 
+  // GitHub sync mutation
+  const syncMutation = useSyncGithub()
+  const [syncResult, setSyncResult] = useState<{ prs: number } | null>(null)
+
   const handleConnectGitHub = async () => {
     if (!engineerId) return
     apiError.clearError()
@@ -68,6 +73,18 @@ export function SetupPage() {
     try {
       await disconnectMutation.mutateAsync({ engineerId })
       refetchGitHubStatus()
+    } catch (err) {
+      apiError.setError(err)
+    }
+  }
+
+  const handleSyncGitHub = async () => {
+    if (!engineerId) return
+    apiError.clearError()
+    setSyncResult(null)
+    try {
+      const result = await syncMutation.mutateAsync({ engineerId })
+      setSyncResult(result)
     } catch (err) {
       apiError.setError(err)
     }
@@ -154,20 +171,37 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
               </div>
             ) : githubStatus?.connected ? (
-              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                <div className="flex items-center gap-2">
-                  <Github className="h-5 w-5 text-green-600 dark:text-green-400" />
-                  <span className="text-sm">
-                    Connected as <strong>@{githubStatus.githubUsername}</strong>
-                  </span>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2">
+                    <Github className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <span className="text-sm">
+                      Connected as <strong>@{githubStatus.githubUsername}</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <SuperButton
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSyncGitHub}
+                      leftIcon={RefreshCw}
+                    >
+                      Sync Now
+                    </SuperButton>
+                    <SuperButton
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDisconnectGitHub}
+                    >
+                      Disconnect
+                    </SuperButton>
+                  </div>
                 </div>
-                <SuperButton
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDisconnectGitHub}
-                >
-                  Disconnect
-                </SuperButton>
+                {syncResult && (
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 text-sm">
+                    Synced <strong>{syncResult.prs}</strong> merged PRs
+                  </div>
+                )}
               </div>
             ) : (
               <SuperButton onClick={handleConnectGitHub} leftIcon={Github}>

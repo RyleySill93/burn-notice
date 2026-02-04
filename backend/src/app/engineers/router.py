@@ -6,6 +6,7 @@ from src.core.authentication.dependencies import get_current_membership
 from src.core.authentication.domains import AuthenticatedUser
 from src.core.authentication.guards import authenticate_user
 from src.core.membership.domains import MembershipRead
+from src.core.user import UserService
 
 router = APIRouter()
 
@@ -35,11 +36,13 @@ def list_engineers(
 def get_my_engineer(
     user: AuthenticatedUser = Depends(authenticate_user),
     membership: MembershipRead = Depends(get_current_membership),
+    user_service: UserService = Depends(UserService.factory),
 ) -> EngineerRead | None:
     """Get the engineer record for the current user (by email)."""
-    if not user.email:
+    user_record = user_service.get_user_for_id(user.id)
+    if not user_record.email:
         return None
-    return EngineerService.get_by_external_id(membership.customer_id, user.email)
+    return EngineerService.get_by_external_id(membership.customer_id, user_record.email)
 
 
 @router.get('/{external_id}', response_model=EngineerRead | None)

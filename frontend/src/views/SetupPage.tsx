@@ -204,9 +204,12 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
                 )}
               </div>
             ) : (
-              <SuperButton onClick={handleConnectGitHub} leftIcon={Github}>
-                Connect GitHub
-              </SuperButton>
+              <div className="space-y-2">
+                <SuperButton onClick={handleConnectGitHub} leftIcon={Github} disabled>
+                  Connect GitHub
+                </SuperButton>
+                <p className="text-xs text-muted-foreground">Coming soon</p>
+              </div>
             )}
           </div>
         </CardContent>

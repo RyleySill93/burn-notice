@@ -41,7 +41,7 @@ export function SetupPage() {
 
   // GitHub connect URL query (enabled on demand)
   const { refetch: fetchConnectUrl } = useGetGithubConnectUrl(
-    { engineerId: engineerId },
+    { engineer_id: engineerId },
     { query: { enabled: false } }
   )
 
@@ -53,8 +53,8 @@ export function SetupPage() {
     apiError.clearError()
     try {
       const result = await fetchConnectUrl()
-      if (result.data?.authorization_url) {
-        window.location.href = result.data.authorization_url
+      if (result.data?.authorizationUrl) {
+        window.location.href = result.data.authorizationUrl
       }
     } catch (err) {
       apiError.setError(err)
@@ -157,7 +157,7 @@ export OTEL_EXPORTER_OTLP_HEADERS="X-API-Key=${apiKey}"`
                 <div className="flex items-center gap-2">
                   <Github className="h-5 w-5 text-green-600 dark:text-green-400" />
                   <span className="text-sm">
-                    Connected as <strong>@{githubStatus.github_username}</strong>
+                    Connected as <strong>@{githubStatus.githubUsername}</strong>
                   </span>
                 </div>
                 <SuperButton

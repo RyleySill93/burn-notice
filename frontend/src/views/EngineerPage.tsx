@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { format, subDays, isToday, isSameDay } from 'date-fns'
 import { useMetricToggle } from '@/hooks/useMetricToggle'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
@@ -345,6 +345,8 @@ export function EngineerPage() {
     dailyTotals?.totals.map((t) => ({
       date: format(new Date(t.date), 'MMM d'),
       tokens: getMetricValue(t, metric),
+      tokensInput: t.tokens_input,
+      tokensOutput: t.tokens_output,
     })) || []
 
   const isLoading = statsLoading || chartLoading || rankingsLoading
@@ -453,7 +455,15 @@ export function EngineerPage() {
                     formatter={(value: number) => [formatValue(value, metric), metric === 'cost' ? 'Cost' : 'Tokens']}
                     labelStyle={{ fontWeight: 'bold' }}
                   />
-                  <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  {metric === 'cost' ? (
+                    <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  ) : (
+                    <>
+                      <Legend />
+                      <Bar dataKey="tokensInput" stackId="tokens" fill="#3b82f6" name="Input" />
+                      <Bar dataKey="tokensOutput" stackId="tokens" fill="#f97316" name="Output" radius={[4, 4, 0, 0]} />
+                    </>
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </div>

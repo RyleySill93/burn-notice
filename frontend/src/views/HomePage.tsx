@@ -261,6 +261,11 @@ function LeaderboardTable({
   metric: MetricType
   isLoading?: boolean
 }) {
+  // Sort entries by the selected metric and assign new ranks
+  const sortedEntries = [...entries]
+    .sort((a, b) => getMetricValue(b, metric) - getMetricValue(a, metric))
+    .map((entry, index) => ({ ...entry, displayRank: index + 1 }))
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -269,7 +274,7 @@ function LeaderboardTable({
     )
   }
 
-  if (entries.length === 0) {
+  if (sortedEntries.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Flame className="h-8 w-8 mx-auto mb-2 opacity-20" />
@@ -280,7 +285,7 @@ function LeaderboardTable({
 
   return (
     <div className="space-y-1.5">
-      {entries.slice(0, 10).map((entry, index) => (
+      {sortedEntries.slice(0, 10).map((entry, index) => (
         <Link
           key={entry.engineer_id}
           to={`/engineers/${entry.engineer_id}`}
@@ -302,7 +307,7 @@ function LeaderboardTable({
                 index > 2 && 'bg-gray-100 text-gray-600'
               )}
             >
-              {entry.rank}
+              {entry.displayRank}
             </div>
             <div>
               <p className={cn(
@@ -389,6 +394,8 @@ export function HomePage() {
     dailyTotals?.totals.map((t) => ({
       date: format(new Date(t.date), 'MMM d'),
       tokens: getMetricValue(t, metric),
+      tokensInput: t.tokens_input,
+      tokensOutput: t.tokens_output,
     })) || []
 
   // Build cumulative line chart data
@@ -573,13 +580,24 @@ export function HomePage() {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(value) => formatValue(value, metric)}
+                      tickFormatter={(value) => formatValue(value, metric === 'cost' ? 'cost' : 'total')}
                     />
                     <Tooltip
-                      formatter={(value: number) => [formatValue(value, metric), metric === 'cost' ? 'Cost' : 'Tokens']}
+                      formatter={(value: number, name: string) => {
+                        const label = name === 'tokensInput' ? 'Input' : name === 'tokensOutput' ? 'Output' : metric === 'cost' ? 'Cost' : 'Tokens'
+                        return [formatValue(value, metric === 'cost' ? 'cost' : 'total'), label]
+                      }}
                       labelStyle={{ fontWeight: 'bold' }}
                     />
-                    <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    {metric === 'cost' ? (
+                      <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    ) : (
+                      <>
+                        <Legend />
+                        <Bar dataKey="tokensInput" stackId="tokens" fill="#3b82f6" name="Input" />
+                        <Bar dataKey="tokensOutput" stackId="tokens" fill="#f97316" name="Output" radius={[4, 4, 0, 0]} />
+                      </>
+                    )}
                   </BarChart>
                 </ResponsiveContainer>
               )}

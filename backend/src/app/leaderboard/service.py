@@ -51,7 +51,6 @@ from src.app.leaderboard.domains import (
 )
 from src.app.usage.models import TelemetryEvent, Usage, UsageDaily
 from src.network.database import db
-from src.platform.slack.service import SlackService
 
 
 class LeaderboardService:
@@ -2053,6 +2052,9 @@ class LeaderboardService:
         Returns:
             PostResponse with success status and date
         """
+        # Import here to avoid circular import
+        from src.platform.slack.service import SlackService
+
         leaderboard = LeaderboardService.get_leaderboard(customer_id, as_of)
         success = SlackService.post_leaderboard(leaderboard)
         return PostResponse(success=success, date=leaderboard.date)

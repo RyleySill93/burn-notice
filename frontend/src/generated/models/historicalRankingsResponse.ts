@@ -11,7 +11,7 @@ import type { HistoricalRank } from './historicalRank';
  * Response for historical rankings endpoint.
  */
 export interface HistoricalRankingsResponse {
-  engineer_id: string;
-  period_type: string;
+  engineerId: string;
+  periodType: string;
   rankings: HistoricalRank[];
 }

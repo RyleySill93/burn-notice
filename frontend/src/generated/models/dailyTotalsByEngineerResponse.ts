@@ -12,8 +12,8 @@ import type { EngineerInfo } from './engineerInfo';
  * Response for the daily totals by engineer chart endpoint.
  */
 export interface DailyTotalsByEngineerResponse {
-  start_date: string;
-  end_date: string;
+  startDate: string;
+  endDate: string;
   days: DayWithEngineers[];
   engineers: EngineerInfo[];
 }

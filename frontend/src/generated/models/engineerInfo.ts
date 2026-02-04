@@ -11,5 +11,5 @@
  */
 export interface EngineerInfo {
   id: string;
-  display_name: string;
+  displayName: string;
 }

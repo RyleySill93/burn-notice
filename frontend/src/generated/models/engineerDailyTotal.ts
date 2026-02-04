@@ -10,10 +10,10 @@
  * Token totals for a single engineer on a single day.
  */
 export interface EngineerDailyTotal {
-  engineer_id: string;
-  display_name: string;
+  engineerId: string;
+  displayName: string;
   tokens: number;
-  tokens_input: number;
-  tokens_output: number;
-  cost_usd?: number;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
 }

@@ -10,5 +10,5 @@
  * Response containing GitHub OAuth authorization URL.
  */
 export interface GitHubAuthorizationUrl {
-  authorization_url: string;
+  authorizationUrl: string;
 }

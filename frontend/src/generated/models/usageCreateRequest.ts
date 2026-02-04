@@ -8,11 +8,14 @@
 import type { UsageCreateRequestModel } from './usageCreateRequestModel';
 import type { UsageCreateRequestSessionId } from './usageCreateRequestSessionId';
 
+/**
+ * Request payload for recording usage.
+ */
 export interface UsageCreateRequest {
-  external_id: string;
-  display_name: string;
-  tokens_input?: number;
-  tokens_output?: number;
+  externalId: string;
+  displayName: string;
+  tokensInput?: number;
+  tokensOutput?: number;
   model?: UsageCreateRequestModel;
-  session_id?: UsageCreateRequestSessionId;
+  sessionId?: UsageCreateRequestSessionId;
 }

@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 
+/**
+ * Request payload for GitHub OAuth callback.
+ */
 export interface GitHubCallbackRequest {
   code: string;
   state: string;

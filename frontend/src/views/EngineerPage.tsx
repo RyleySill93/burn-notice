@@ -29,23 +29,23 @@ import { MetricToggle } from '@/components/MetricToggle'
 
 interface PeriodStats {
   tokens: number
-  tokens_input: number
-  tokens_output: number
-  cost_usd: number
+  tokensInput: number
+  tokensOutput: number
+  costUsd: number
   comparison_tokens: number
-  comparison_tokens_input: number
-  comparison_tokens_output: number
-  comparison_cost_usd: number
+  comparison_tokensInput: number
+  comparison_tokensOutput: number
+  comparison_costUsd: number
   change_percent: number | null
 }
 
 interface EngineerStats {
-  engineer_id: string
-  display_name: string
+  engineerId: string
+  displayName: string
   date: string
   today: PeriodStats
-  this_week: PeriodStats
-  this_month: PeriodStats
+  thisWeek: PeriodStats
+  thisMonth: PeriodStats
 }
 
 interface HistoricalRank {
@@ -53,13 +53,13 @@ interface HistoricalRank {
   period_end: string
   rank: number | null
   tokens: number
-  tokens_input: number
-  tokens_output: number
-  cost_usd: number
+  tokensInput: number
+  tokensOutput: number
+  costUsd: number
 }
 
 interface HistoricalRankingsResponse {
-  engineer_id: string
+  engineerId: string
   period_type: string
   rankings: HistoricalRank[]
 }
@@ -67,27 +67,27 @@ interface HistoricalRankingsResponse {
 interface TimeSeriesDataPoint {
   timestamp: string
   tokens: number
-  tokens_input: number
-  tokens_output: number
-  cost_usd: number
+  tokensInput: number
+  tokensOutput: number
+  costUsd: number
 }
 
 interface TimeSeriesResponse {
-  engineer_id: string
+  engineerId: string
   period: string
   data: TimeSeriesDataPoint[]
 }
 
 type TimeSeriesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly'
 
-function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number; cost_usd?: number }, metric: MetricType): number {
+function getMetricValue(data: { tokens: number; tokensInput: number; tokensOutput: number; costUsd?: number }, metric: MetricType): number {
   switch (metric) {
     case 'input':
-      return data.tokens_input
+      return data.tokensInput
     case 'output':
-      return data.tokens_output
+      return data.tokensOutput
     case 'cost':
-      return data.cost_usd || 0
+      return data.costUsd || 0
     default:
       return data.tokens
   }
@@ -96,11 +96,11 @@ function getMetricValue(data: { tokens: number; tokens_input: number; tokens_out
 function getComparisonValue(data: PeriodStats, metric: MetricType): number {
   switch (metric) {
     case 'input':
-      return data.comparison_tokens_input
+      return data.comparison_tokensInput
     case 'output':
-      return data.comparison_tokens_output
+      return data.comparison_tokensOutput
     case 'cost':
-      return data.comparison_cost_usd || 0
+      return data.comparison_costUsd || 0
     default:
       return data.comparison_tokens
   }
@@ -388,8 +388,8 @@ export function EngineerPage() {
         label,
         value: isCumulative ? cumulative : value,
         // Include input/output for stacked bar charts
-        tokensInput: t.tokens_input,
-        tokensOutput: t.tokens_output,
+        tokensInput: t.tokensInput,
+        tokensOutput: t.tokensOutput,
       }
     })
 
@@ -414,10 +414,10 @@ export function EngineerPage() {
 
   const todayTokens = stats ? getMetricValue(stats.today, metric) : 0
   const todayComparison = stats ? getComparisonValue(stats.today, metric) : 0
-  const weekTokens = stats ? getMetricValue(stats.this_week, metric) : 0
-  const weekComparison = stats ? getComparisonValue(stats.this_week, metric) : 0
-  const monthTokens = stats ? getMetricValue(stats.this_month, metric) : 0
-  const monthComparison = stats ? getComparisonValue(stats.this_month, metric) : 0
+  const weekTokens = stats ? getMetricValue(stats.thisWeek, metric) : 0
+  const weekComparison = stats ? getComparisonValue(stats.thisWeek, metric) : 0
+  const monthTokens = stats ? getMetricValue(stats.thisMonth, metric) : 0
+  const monthComparison = stats ? getComparisonValue(stats.thisMonth, metric) : 0
 
   return (
     <div className="space-y-6">
@@ -430,7 +430,7 @@ export function EngineerPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">{stats?.display_name}</h1>
+            <h1 className="text-2xl font-bold">{stats?.displayName}</h1>
             <p className="text-muted-foreground text-sm">Individual token usage</p>
           </div>
         </div>

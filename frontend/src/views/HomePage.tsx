@@ -28,33 +28,33 @@ import { MetricToggle } from '@/components/MetricToggle'
 
 interface PeriodStats {
   tokens: number
-  tokens_input: number
-  tokens_output: number
-  cost_usd: number
-  comparison_tokens: number
-  comparison_tokens_input: number
-  comparison_tokens_output: number
-  comparison_cost_usd: number
-  change_percent: number | null
+  tokensInput: number
+  tokensOutput: number
+  costUsd: number
+  comparisonTokens: number
+  comparisonTokensInput: number
+  comparisonTokensOutput: number
+  comparisonCostUsd: number
+  changePercent: number | null
 }
 
 interface UsageStats {
   date: string
   today: PeriodStats
-  this_week: PeriodStats
-  this_month: PeriodStats
+  thisWeek: PeriodStats
+  thisMonth: PeriodStats
 }
 
 interface LeaderboardEntry {
-  engineer_id: string
-  display_name: string
+  engineerId: string
+  displayName: string
   tokens: number
-  tokens_input: number
-  tokens_output: number
-  cost_usd: number
+  tokensInput: number
+  tokensOutput: number
+  costUsd: number
   rank: number
-  prev_rank: number | null
-  rank_change: number | null
+  prevRank: number | null
+  rankChange: number | null
 }
 
 interface Leaderboard {
@@ -67,15 +67,15 @@ interface Leaderboard {
 
 interface EngineerInfo {
   id: string
-  display_name: string
+  displayName: string
 }
 
 interface EngineerTimeSeriesData {
-  engineer_id: string
+  engineerId: string
   tokens: number
-  tokens_input: number
-  tokens_output: number
-  cost_usd: number
+  tokensInput: number
+  tokensOutput: number
+  costUsd: number
 }
 
 interface TeamTimeSeriesBucket {
@@ -91,14 +91,14 @@ interface TeamTimeSeriesResponse {
 
 type TimeSeriesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly'
 
-function getMetricValue(data: { tokens: number; tokens_input: number; tokens_output: number; cost_usd?: number }, metric: MetricType): number {
+function getMetricValue(data: { tokens: number; tokensInput: number; tokensOutput: number; costUsd?: number }, metric: MetricType): number {
   switch (metric) {
     case 'input':
-      return data.tokens_input
+      return data.tokensInput
     case 'output':
-      return data.tokens_output
+      return data.tokensOutput
     case 'cost':
-      return data.cost_usd || 0
+      return data.costUsd || 0
     default:
       return data.tokens
   }
@@ -107,13 +107,13 @@ function getMetricValue(data: { tokens: number; tokens_input: number; tokens_out
 function getComparisonValue(data: PeriodStats, metric: MetricType): number {
   switch (metric) {
     case 'input':
-      return data.comparison_tokens_input
+      return data.comparisonTokensInput
     case 'output':
-      return data.comparison_tokens_output
+      return data.comparisonTokensOutput
     case 'cost':
-      return data.comparison_cost_usd || 0
+      return data.comparisonCostUsd || 0
     default:
-      return data.comparison_tokens
+      return data.comparisonTokens
   }
 }
 
@@ -271,8 +271,8 @@ function LeaderboardTable({
     <div className="space-y-1.5">
       {sortedEntries.slice(0, 10).map((entry, index) => (
         <Link
-          key={entry.engineer_id}
-          to={`/engineers/${entry.engineer_id}`}
+          key={entry.engineerId}
+          to={`/engineers/${entry.engineerId}`}
           className={cn(
             'flex items-center justify-between p-2.5 rounded-lg border transition-colors hover:border-orange-300',
             index === 0 && 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200',
@@ -297,14 +297,14 @@ function LeaderboardTable({
               <p className={cn(
                 'font-medium text-sm',
                 index <= 2 ? 'text-gray-900 hover:text-orange-700' : 'hover:text-orange-600'
-              )}>{entry.display_name}</p>
+              )}>{entry.displayName}</p>
               <p className={cn(
                 'text-xs',
                 index <= 2 ? 'text-gray-600' : 'text-muted-foreground'
               )}>{formatValue(getMetricValue(entry, metric), metric)}{metric !== 'cost' && ' tokens'}</p>
             </div>
           </div>
-          <RankChangeIndicator change={entry.rank_change} />
+          <RankChangeIndicator change={entry.rankChange} />
         </Link>
       ))}
     </div>
@@ -412,8 +412,8 @@ export function HomePage() {
       let bucketOutput = 0
       for (const eng of bucket.engineers) {
         bucketTotal += getMetricValue(eng, metric)
-        bucketInput += eng.tokens_input
-        bucketOutput += eng.tokens_output
+        bucketInput += eng.tokensInput
+        bucketOutput += eng.tokensOutput
       }
 
       cumulative += bucketTotal
@@ -463,7 +463,7 @@ export function HomePage() {
       // Update cumulative totals and add values to row
       for (const eng of bucket.engineers) {
         const value = getMetricValue(eng, metric)
-        cumulative[eng.engineer_id] = (cumulative[eng.engineer_id] || 0) + value
+        cumulative[eng.engineerId] = (cumulative[eng.engineerId] || 0) + value
       }
 
       // Add all engineers to this row
@@ -471,7 +471,7 @@ export function HomePage() {
         if (isCumulative) {
           row[eng.id] = cumulative[eng.id] || 0
         } else {
-          const engData = bucket.engineers.find(e => e.engineer_id === eng.id)
+          const engData = bucket.engineers.find(e => e.engineerId === eng.id)
           row[eng.id] = engData ? getMetricValue(engData, metric) : 0
         }
       }
@@ -516,10 +516,10 @@ export function HomePage() {
 
   const todayTokens = stats?.today ? getMetricValue(stats.today, metric) : 0
   const todayComparison = stats?.today ? getComparisonValue(stats.today, metric) : 0
-  const weekTokens = stats?.this_week ? getMetricValue(stats.this_week, metric) : 0
-  const weekComparison = stats?.this_week ? getComparisonValue(stats.this_week, metric) : 0
-  const monthTokens = stats?.this_month ? getMetricValue(stats.this_month, metric) : 0
-  const monthComparison = stats?.this_month ? getComparisonValue(stats.this_month, metric) : 0
+  const weekTokens = stats?.thisWeek ? getMetricValue(stats.thisWeek, metric) : 0
+  const weekComparison = stats?.thisWeek ? getComparisonValue(stats.thisWeek, metric) : 0
+  const monthTokens = stats?.thisMonth ? getMetricValue(stats.thisMonth, metric) : 0
+  const monthComparison = stats?.thisMonth ? getComparisonValue(stats.thisMonth, metric) : 0
 
   return (
     <div className="space-y-6">
@@ -794,7 +794,7 @@ export function HomePage() {
                   <Tooltip
                     formatter={(value: number, name: string) => {
                       const engineer = sortedEngineers.find(e => e.id === name)
-                      return [formatValue(value, metric), engineer?.display_name || name]
+                      return [formatValue(value, metric), engineer?.displayName || name]
                     }}
                     labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
@@ -811,7 +811,7 @@ export function HomePage() {
                               className="w-3 h-3 rounded-full"
                               style={{ backgroundColor: lineColors[idx % lineColors.length] }}
                             />
-                            {eng.display_name}
+                            {eng.displayName}
                           </Link>
                         ))}
                       </div>
@@ -849,7 +849,7 @@ export function HomePage() {
                   <Tooltip
                     formatter={(value: number, name: string) => {
                       const engineer = sortedEngineers.find(e => e.id === name)
-                      return [formatValue(value, metric), engineer?.display_name || name]
+                      return [formatValue(value, metric), engineer?.displayName || name]
                     }}
                     labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
@@ -866,7 +866,7 @@ export function HomePage() {
                               className="w-3 h-3 rounded-full"
                               style={{ backgroundColor: lineColors[idx % lineColors.length] }}
                             />
-                            {eng.display_name}
+                            {eng.displayName}
                           </Link>
                         ))}
                       </div>

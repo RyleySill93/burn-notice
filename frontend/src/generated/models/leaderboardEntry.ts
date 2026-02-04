@@ -8,12 +8,12 @@
 import type { LeaderboardEntryPrevRank } from './leaderboardEntryPrevRank';
 
 export interface LeaderboardEntry {
-  engineer_id: string;
-  display_name: string;
+  engineerId: string;
+  displayName: string;
   tokens: number;
-  tokens_input: number;
-  tokens_output: number;
-  cost_usd?: number;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
   rank: number;
-  prev_rank?: LeaderboardEntryPrevRank;
+  prevRank?: LeaderboardEntryPrevRank;
 }

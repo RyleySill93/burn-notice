@@ -11,7 +11,7 @@ import type { DailyTotal } from './dailyTotal';
  * Response for the daily totals chart endpoint.
  */
 export interface DailyTotalsResponse {
-  start_date: string;
-  end_date: string;
+  startDate: string;
+  endDate: string;
   totals: DailyTotal[];
 }

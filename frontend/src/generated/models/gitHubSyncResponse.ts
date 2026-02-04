@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 
+/**
+ * Response for GitHub sync operation.
+ */
 export interface GitHubSyncResponse {
   commits: number;
   prs: number;

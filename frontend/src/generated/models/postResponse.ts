@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.0.1
  */
 
+/**
+ * Response for Slack post operation.
+ */
 export interface PostResponse {
   success: boolean;
   date: string;

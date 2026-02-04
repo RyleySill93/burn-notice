@@ -11,10 +11,10 @@ import type { PeriodStats } from './periodStats';
  * Stats for a specific engineer.
  */
 export interface EngineerStatsResponse {
-  engineer_id: string;
-  display_name: string;
+  engineerId: string;
+  displayName: string;
   date: string;
   today: PeriodStats;
-  this_week: PeriodStats;
-  this_month: PeriodStats;
+  thisWeek: PeriodStats;
+  thisMonth: PeriodStats;
 }

@@ -11,7 +11,7 @@ import type { TimeSeriesDataPoint } from './timeSeriesDataPoint';
  * Response for the time series chart endpoint.
  */
 export interface TimeSeriesResponse {
-  engineer_id: string;
+  engineerId: string;
   period: string;
   data: TimeSeriesDataPoint[];
 }

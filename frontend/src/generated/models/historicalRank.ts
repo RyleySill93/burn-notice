@@ -11,11 +11,11 @@ import type { HistoricalRankRank } from './historicalRankRank';
  * A single historical ranking entry.
  */
 export interface HistoricalRank {
-  period_start: string;
-  period_end: string;
+  periodStart: string;
+  periodEnd: string;
   rank: HistoricalRankRank;
   tokens: number;
-  tokens_input: number;
-  tokens_output: number;
-  cost_usd?: number;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
 }

@@ -12,7 +12,7 @@
 export interface DailyTotal {
   date: string;
   tokens: number;
-  tokens_input: number;
-  tokens_output: number;
-  cost_usd?: number;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
 }

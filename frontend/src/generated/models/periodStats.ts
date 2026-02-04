@@ -11,11 +11,11 @@
  */
 export interface PeriodStats {
   tokens: number;
-  tokens_input: number;
-  tokens_output: number;
-  cost_usd?: number;
-  comparison_tokens: number;
-  comparison_tokens_input: number;
-  comparison_tokens_output: number;
-  comparison_cost_usd?: number;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
+  comparisonTokens: number;
+  comparisonTokensInput: number;
+  comparisonTokensOutput: number;
+  comparisonCostUsd?: number;
 }

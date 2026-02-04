@@ -14,7 +14,7 @@ import type { GitHubConnectionStatusConnectedAt } from './gitHubConnectionStatus
  */
 export interface GitHubConnectionStatus {
   connected: boolean;
-  github_username?: GitHubConnectionStatusGithubUsername;
-  github_user_id?: GitHubConnectionStatusGithubUserId;
-  connected_at?: GitHubConnectionStatusConnectedAt;
+  githubUsername?: GitHubConnectionStatusGithubUsername;
+  githubUserId?: GitHubConnectionStatusGithubUserId;
+  connectedAt?: GitHubConnectionStatusConnectedAt;
 }

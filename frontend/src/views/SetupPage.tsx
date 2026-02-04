@@ -41,7 +41,7 @@ export function SetupPage() {
 
   // GitHub connect URL query (enabled on demand)
   const { refetch: fetchConnectUrl } = useGetGithubConnectUrl(
-    { engineer_id: engineerId },
+    { engineerId: engineerId },
     { query: { enabled: false } }
   )
 

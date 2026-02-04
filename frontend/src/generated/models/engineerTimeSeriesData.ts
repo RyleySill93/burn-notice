@@ -10,9 +10,9 @@
  * Token totals for a single engineer in a time bucket.
  */
 export interface EngineerTimeSeriesData {
-  engineer_id: string;
+  engineerId: string;
   tokens: number;
-  tokens_input: number;
-  tokens_output: number;
-  cost_usd?: number;
+  tokensInput: number;
+  tokensOutput: number;
+  costUsd?: number;
 }

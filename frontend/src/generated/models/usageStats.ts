@@ -13,6 +13,6 @@ import type { PeriodStats } from './periodStats';
 export interface UsageStats {
   date: string;
   today: PeriodStats;
-  this_week: PeriodStats;
-  this_month: PeriodStats;
+  thisWeek: PeriodStats;
+  thisMonth: PeriodStats;
 }

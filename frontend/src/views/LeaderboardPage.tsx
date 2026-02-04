@@ -9,12 +9,12 @@ import axios from '@/lib/axios-instance'
 
 
 interface LeaderboardEntry {
-  engineer_id: string
-  display_name: string
+  engineerId: string
+  displayName: string
   tokens: number
   rank: number
-  prev_rank: number | null
-  rank_change: number | null
+  prevRank: number | null
+  rankChange: number | null
 }
 
 interface Leaderboard {
@@ -81,8 +81,8 @@ function LeaderboardTable({ entries, emptyMessage }: { entries: LeaderboardEntry
     <div className="space-y-2">
       {entries.map((entry, index) => (
         <Link
-          key={entry.engineer_id}
-          to={`/engineers/${entry.engineer_id}`}
+          key={entry.engineerId}
+          to={`/engineers/${entry.engineerId}`}
           className={cn(
             'flex items-center justify-between p-4 rounded-lg border transition-colors hover:border-orange-300',
             index === 0 && 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200',
@@ -104,11 +104,11 @@ function LeaderboardTable({ entries, emptyMessage }: { entries: LeaderboardEntry
               {entry.rank}
             </div>
             <div>
-              <p className="font-medium hover:text-orange-600">{entry.display_name}</p>
+              <p className="font-medium hover:text-orange-600">{entry.displayName}</p>
               <p className="text-sm text-muted-foreground">{formatTokens(entry.tokens)} tokens</p>
             </div>
           </div>
-          <RankChangeIndicator change={entry.rank_change} />
+          <RankChangeIndicator change={entry.rankChange} />
         </Link>
       ))}
     </div>

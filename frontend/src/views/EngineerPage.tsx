@@ -380,9 +380,8 @@ export function EngineerPage() {
     })
   })()
 
-  const isLoading = statsLoading || rankingsLoading || timeSeriesLoading
-
-  if (isLoading) {
+  // Only block page render on initial stats load
+  if (statsLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -446,7 +445,8 @@ export function EngineerPage() {
         />
       </div>
 
-      {/* Time Series Chart */}
+      {/* Time Series Chart and Historical Rankings */}
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">
@@ -484,7 +484,11 @@ export function EngineerPage() {
             </TabsList>
           </Tabs>
           <div className="h-[200px]">
-            {timeSeriesChartData.length === 0 ? (
+            {timeSeriesLoading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : timeSeriesChartData.length === 0 ? (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 No data for this period
               </div>
@@ -613,6 +617,7 @@ export function EngineerPage() {
             </Tabs>
           </CardContent>
         </Card>
+      </div>
     </div>
   )
 }

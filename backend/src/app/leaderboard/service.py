@@ -1,8 +1,33 @@
 from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, cast, Date
 
 from src.app.engineers.models import Engineer
+
+# Timezone for day boundaries (when "today" starts/ends)
+APP_TIMEZONE = ZoneInfo('America/Los_Angeles')
+
+
+def get_today() -> date:
+    """Get today's date in the app's configured timezone (PST/PDT)."""
+    return datetime.now(APP_TIMEZONE).date()
+
+
+def get_day_bounds_utc(for_date: date) -> tuple[datetime, datetime]:
+    """
+    Get the UTC datetime bounds for a PST/PDT day.
+    Returns (start_utc, end_utc) where start is inclusive and end is exclusive.
+    """
+    # Create midnight in PST for the given date
+    start_local = datetime(for_date.year, for_date.month, for_date.day, tzinfo=APP_TIMEZONE)
+    end_local = start_local + timedelta(days=1)
+
+    # Convert to UTC (naive datetimes for database comparison)
+    start_utc = start_local.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+    end_utc = end_local.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+
+    return start_utc, end_utc
 from src.app.leaderboard.domains import (
     DailyTotal,
     DailyTotalsResponse,
@@ -26,7 +51,7 @@ class LeaderboardService:
     @staticmethod
     def get_leaderboard(customer_id: str, as_of: date | None = None) -> Leaderboard:
         """Build leaderboard data for today (live), yesterday, weekly, and monthly views."""
-        as_of = as_of or date.today()
+        as_of = as_of or get_today()
 
         # Today shows LIVE data from raw usage table
         today = LeaderboardService._get_live_daily_leaderboard(customer_id, as_of)
@@ -110,6 +135,9 @@ class LeaderboardService:
     @staticmethod
     def _get_live_daily_leaderboard(customer_id: str, as_of: date) -> list[LeaderboardEntry]:
         """Get LIVE daily leaderboard from raw usage table for today."""
+        # Get PST day bounds in UTC for database comparison
+        start_utc, end_utc = get_day_bounds_utc(as_of)
+
         # Query raw usage table for today's data
         current_results = (
             db.session.query(
@@ -122,7 +150,8 @@ class LeaderboardService:
             .join(Engineer, Usage.engineer_id == Engineer.id)
             .filter(
                 Engineer.customer_id == customer_id,
-                cast(Usage.created_at, Date) == as_of,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
             )
             .group_by(Usage.engineer_id, Engineer.display_name)
             .having(func.sum(Usage.tokens_input + Usage.tokens_output) > 0)
@@ -139,7 +168,8 @@ class LeaderboardService:
             .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
             .filter(
                 Engineer.customer_id == customer_id,
-                cast(TelemetryEvent.created_at, Date) == as_of,
+                TelemetryEvent.created_at >= start_utc,
+                TelemetryEvent.created_at < end_utc,
             )
             .group_by(TelemetryEvent.engineer_id)
             .all()
@@ -148,6 +178,7 @@ class LeaderboardService:
 
         # Get yesterday's rankings for comparison
         yesterday = as_of - timedelta(days=1)
+        yesterday_start_utc, yesterday_end_utc = get_day_bounds_utc(yesterday)
         prev_results = (
             db.session.query(
                 Usage.engineer_id,
@@ -156,7 +187,8 @@ class LeaderboardService:
             .join(Engineer, Usage.engineer_id == Engineer.id)
             .filter(
                 Engineer.customer_id == customer_id,
-                cast(Usage.created_at, Date) == yesterday,
+                Usage.created_at >= yesterday_start_utc,
+                Usage.created_at < yesterday_end_utc,
             )
             .group_by(Usage.engineer_id)
             .having(func.sum(Usage.tokens_input + Usage.tokens_output) > 0)
@@ -240,7 +272,7 @@ class LeaderboardService:
         prev_end_date: date | None = None,
     ) -> list[LeaderboardEntry]:
         """Get ranked entries including live data for today."""
-        today = date.today()
+        today = get_today()
 
         # Get daily totals from UsageDaily (excluding today)
         daily_end = min(end_date, today - timedelta(days=1)) if end_date >= today else end_date
@@ -271,6 +303,7 @@ class LeaderboardService:
 
         # Add live data for today if in range
         if start_date <= today <= end_date:
+            today_start_utc, today_end_utc = get_day_bounds_utc(today)
             live_results = (
                 db.session.query(
                     Usage.engineer_id,
@@ -281,7 +314,8 @@ class LeaderboardService:
                 .join(Engineer, Usage.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(Usage.created_at, Date) == today,
+                    Usage.created_at >= today_start_utc,
+                    Usage.created_at < today_end_utc,
                 )
                 .group_by(Usage.engineer_id)
                 .all()
@@ -295,7 +329,8 @@ class LeaderboardService:
                 .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(TelemetryEvent.created_at, Date) == today,
+                    TelemetryEvent.created_at >= today_start_utc,
+                    TelemetryEvent.created_at < today_end_utc,
                 )
                 .group_by(TelemetryEvent.engineer_id)
                 .all()
@@ -367,7 +402,7 @@ class LeaderboardService:
     @staticmethod
     def get_usage_stats(customer_id: str, as_of: date | None = None) -> UsageStats:
         """Get usage stats comparing current period to same point in previous period."""
-        as_of = as_of or date.today()
+        as_of = as_of or get_today()
 
         # Today (live) vs yesterday at this point
         today_tokens = LeaderboardService._get_live_tokens_for_date_detailed(customer_id, as_of)
@@ -433,12 +468,14 @@ class LeaderboardService:
     @staticmethod
     def _get_live_tokens_for_date(customer_id: str, for_date: date) -> int:
         """Get total tokens for a date from live Usage table."""
+        start_utc, end_utc = get_day_bounds_utc(for_date)
         result = (
             db.session.query(func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0))
             .join(Engineer, Usage.engineer_id == Engineer.id)
             .filter(
                 Engineer.customer_id == customer_id,
-                cast(Usage.created_at, Date) == for_date,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
             )
             .scalar()
         )
@@ -447,6 +484,7 @@ class LeaderboardService:
     @staticmethod
     def _get_live_tokens_for_date_detailed(customer_id: str, for_date: date) -> tuple[int, int, int, float]:
         """Get token breakdown (total, input, output, cost) for a date from live Usage/TelemetryEvent table."""
+        start_utc, end_utc = get_day_bounds_utc(for_date)
         result = (
             db.session.query(
                 func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
@@ -456,7 +494,8 @@ class LeaderboardService:
             .join(Engineer, Usage.engineer_id == Engineer.id)
             .filter(
                 Engineer.customer_id == customer_id,
-                cast(Usage.created_at, Date) == for_date,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
             )
             .one()
         )
@@ -466,7 +505,8 @@ class LeaderboardService:
             .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
             .filter(
                 Engineer.customer_id == customer_id,
-                cast(TelemetryEvent.created_at, Date) == for_date,
+                TelemetryEvent.created_at >= start_utc,
+                TelemetryEvent.created_at < end_utc,
             )
             .scalar()
         )
@@ -508,7 +548,7 @@ class LeaderboardService:
     @staticmethod
     def _get_tokens_for_range_full(customer_id: str, start_date: date, end_date: date) -> int:
         """Get total tokens for a date range (full days, no time cutoff)."""
-        today = date.today()
+        today = get_today()
 
         # Get from UsageDaily for all days except today
         if start_date <= end_date:
@@ -540,7 +580,7 @@ class LeaderboardService:
     @staticmethod
     def _get_tokens_for_range_full_detailed(customer_id: str, start_date: date, end_date: date) -> tuple[int, int, int, float]:
         """Get token breakdown (total, input, output, cost) for a date range (full days, no time cutoff)."""
-        today = date.today()
+        today = get_today()
 
         # Get from UsageDaily for all days except today
         daily_total, daily_input, daily_output, daily_cost = 0, 0, 0, 0.0
@@ -576,16 +616,19 @@ class LeaderboardService:
 
     @staticmethod
     def _get_tokens_up_to_time(customer_id: str, for_date: date, up_to_time) -> int:
-        """Get total tokens for a date up to a specific time of day."""
-        cutoff = datetime.combine(for_date, up_to_time)
+        """Get total tokens for a date up to a specific time of day (in PST)."""
+        # Create the cutoff time in PST, then convert to UTC
+        cutoff_local = datetime.combine(for_date, up_to_time).replace(tzinfo=APP_TIMEZONE)
+        cutoff_utc = cutoff_local.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+        start_utc, _ = get_day_bounds_utc(for_date)
 
         result = (
             db.session.query(func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0))
             .join(Engineer, Usage.engineer_id == Engineer.id)
             .filter(
                 Engineer.customer_id == customer_id,
-                cast(Usage.created_at, Date) == for_date,
-                Usage.created_at <= cutoff,
+                Usage.created_at >= start_utc,
+                Usage.created_at <= cutoff_utc,
             )
             .scalar()
         )
@@ -613,12 +656,14 @@ class LeaderboardService:
         if up_to_time:
             end_date_result = LeaderboardService._get_tokens_up_to_time(customer_id, end_date, up_to_time)
         else:
+            start_utc, end_utc = get_day_bounds_utc(end_date)
             end_date_result = (
                 db.session.query(func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0))
                 .join(Engineer, Usage.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(Usage.created_at, Date) == end_date,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at < end_utc,
                 )
                 .scalar()
             ) or 0
@@ -628,7 +673,7 @@ class LeaderboardService:
     @staticmethod
     def get_daily_totals(customer_id: str, start_date: date, end_date: date | None = None) -> DailyTotalsResponse:
         """Get daily token totals for charting."""
-        end_date = end_date or date.today()
+        end_date = end_date or get_today()
 
         # Get rolled up data from UsageDaily for all days except today
         daily_results = (
@@ -656,8 +701,9 @@ class LeaderboardService:
         }
 
         # If end_date is today, get live data from Usage/TelemetryEvent table
-        today = date.today()
+        today = get_today()
         if end_date >= today:
+            today_start_utc, today_end_utc = get_day_bounds_utc(today)
             live_result = (
                 db.session.query(
                     func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
@@ -667,7 +713,8 @@ class LeaderboardService:
                 .join(Engineer, Usage.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(Usage.created_at, Date) == today,
+                    Usage.created_at >= today_start_utc,
+                    Usage.created_at < today_end_utc,
                 )
                 .one()
             )
@@ -677,7 +724,8 @@ class LeaderboardService:
                 .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(TelemetryEvent.created_at, Date) == today,
+                    TelemetryEvent.created_at >= today_start_utc,
+                    TelemetryEvent.created_at < today_end_utc,
                 )
                 .scalar()
             )
@@ -696,7 +744,7 @@ class LeaderboardService:
     @staticmethod
     def get_engineer_stats(engineer_id: str, as_of: date | None = None) -> EngineerStatsResponse:
         """Get usage stats for a specific engineer comparing to same point in previous period."""
-        as_of = as_of or date.today()
+        as_of = as_of or get_today()
 
         engineer = Engineer.get(id=engineer_id)
 
@@ -763,11 +811,13 @@ class LeaderboardService:
     @staticmethod
     def _get_engineer_live_tokens(engineer_id: str, for_date: date) -> int:
         """Get total tokens for an engineer from live Usage table."""
+        start_utc, end_utc = get_day_bounds_utc(for_date)
         result = (
             db.session.query(func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0))
             .filter(
                 Usage.engineer_id == engineer_id,
-                cast(Usage.created_at, Date) == for_date,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
             )
             .scalar()
         )
@@ -776,6 +826,7 @@ class LeaderboardService:
     @staticmethod
     def _get_engineer_live_tokens_detailed(engineer_id: str, for_date: date) -> tuple[int, int, int, float]:
         """Get token breakdown (total, input, output, cost) for an engineer from live Usage/TelemetryEvent table."""
+        start_utc, end_utc = get_day_bounds_utc(for_date)
         result = (
             db.session.query(
                 func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
@@ -784,7 +835,8 @@ class LeaderboardService:
             )
             .filter(
                 Usage.engineer_id == engineer_id,
-                cast(Usage.created_at, Date) == for_date,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
             )
             .one()
         )
@@ -793,7 +845,8 @@ class LeaderboardService:
             db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
             .filter(
                 TelemetryEvent.engineer_id == engineer_id,
-                cast(TelemetryEvent.created_at, Date) == for_date,
+                TelemetryEvent.created_at >= start_utc,
+                TelemetryEvent.created_at < end_utc,
             )
             .scalar()
         )
@@ -833,7 +886,7 @@ class LeaderboardService:
     @staticmethod
     def _get_engineer_tokens_for_range_full(engineer_id: str, start_date: date, end_date: date) -> int:
         """Get total tokens for an engineer in a date range (full days)."""
-        today = date.today()
+        today = get_today()
 
         # Get from UsageDaily for all days except today
         if start_date <= end_date:
@@ -864,7 +917,7 @@ class LeaderboardService:
     @staticmethod
     def _get_engineer_tokens_for_range_full_detailed(engineer_id: str, start_date: date, end_date: date) -> tuple[int, int, int, float]:
         """Get token breakdown (total, input, output, cost) for an engineer in a date range (full days)."""
-        today = date.today()
+        today = get_today()
 
         # Get from UsageDaily for all days except today
         daily_total, daily_input, daily_output, daily_cost = 0, 0, 0, 0.0
@@ -899,15 +952,18 @@ class LeaderboardService:
 
     @staticmethod
     def _get_engineer_tokens_up_to_time(engineer_id: str, for_date: date, up_to_time) -> int:
-        """Get tokens for a specific engineer up to a time of day."""
-        cutoff = datetime.combine(for_date, up_to_time)
+        """Get tokens for a specific engineer up to a time of day (in PST)."""
+        # Create the cutoff time in PST, then convert to UTC
+        cutoff_local = datetime.combine(for_date, up_to_time).replace(tzinfo=APP_TIMEZONE)
+        cutoff_utc = cutoff_local.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
+        start_utc, _ = get_day_bounds_utc(for_date)
 
         result = (
             db.session.query(func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0))
             .filter(
                 Usage.engineer_id == engineer_id,
-                cast(Usage.created_at, Date) == for_date,
-                Usage.created_at <= cutoff,
+                Usage.created_at >= start_utc,
+                Usage.created_at <= cutoff_utc,
             )
             .scalar()
         )
@@ -932,11 +988,13 @@ class LeaderboardService:
         if up_to_time:
             end_date_result = LeaderboardService._get_engineer_tokens_up_to_time(engineer_id, end_date, up_to_time)
         else:
+            start_utc, end_utc = get_day_bounds_utc(end_date)
             end_date_result = (
                 db.session.query(func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0))
                 .filter(
                     Usage.engineer_id == engineer_id,
-                    cast(Usage.created_at, Date) == end_date,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at < end_utc,
                 )
                 .scalar()
             ) or 0
@@ -946,7 +1004,7 @@ class LeaderboardService:
     @staticmethod
     def get_engineer_daily_totals(engineer_id: str, start_date: date, end_date: date | None = None) -> DailyTotalsResponse:
         """Get daily token totals for a specific engineer."""
-        end_date = end_date or date.today()
+        end_date = end_date or get_today()
 
         daily_results = (
             db.session.query(
@@ -971,8 +1029,9 @@ class LeaderboardService:
         }
 
         # Live data for today
-        today = date.today()
+        today = get_today()
         if end_date >= today:
+            today_start_utc, today_end_utc = get_day_bounds_utc(today)
             live_result = (
                 db.session.query(
                     func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
@@ -981,7 +1040,8 @@ class LeaderboardService:
                 )
                 .filter(
                     Usage.engineer_id == engineer_id,
-                    cast(Usage.created_at, Date) == today,
+                    Usage.created_at >= today_start_utc,
+                    Usage.created_at < today_end_utc,
                 )
                 .one()
             )
@@ -990,7 +1050,8 @@ class LeaderboardService:
                 db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
                 .filter(
                     TelemetryEvent.engineer_id == engineer_id,
-                    cast(TelemetryEvent.created_at, Date) == today,
+                    TelemetryEvent.created_at >= today_start_utc,
+                    TelemetryEvent.created_at < today_end_utc,
                 )
                 .scalar()
             )
@@ -1010,7 +1071,7 @@ class LeaderboardService:
         customer_id: str, engineer_id: str, period_type: str, num_periods: int = 20
     ) -> HistoricalRankingsResponse:
         """Get historical rankings for an engineer over past periods."""
-        today = date.today()
+        today = get_today()
         rankings = []
 
         if period_type == 'daily':
@@ -1086,10 +1147,11 @@ class LeaderboardService:
     @staticmethod
     def _get_rank_for_day(customer_id: str, engineer_id: str, for_date: date) -> tuple[int | None, int]:
         """Get an engineer's rank for a specific day."""
-        today = date.today()
+        today = get_today()
 
         if for_date == today:
             # Use live data
+            start_utc, end_utc = get_day_bounds_utc(for_date)
             results = (
                 db.session.query(
                     Usage.engineer_id,
@@ -1098,7 +1160,8 @@ class LeaderboardService:
                 .join(Engineer, Usage.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(Usage.created_at, Date) == for_date,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at < end_utc,
                 )
                 .group_by(Usage.engineer_id)
                 .having(func.sum(Usage.tokens_input + Usage.tokens_output) > 0)
@@ -1131,10 +1194,11 @@ class LeaderboardService:
     @staticmethod
     def _get_rank_for_day_detailed(customer_id: str, engineer_id: str, for_date: date) -> tuple[int | None, int, int, int, float]:
         """Get an engineer's rank and token breakdown for a specific day."""
-        today = date.today()
+        today = get_today()
 
         if for_date == today:
             # Use live data
+            start_utc, end_utc = get_day_bounds_utc(for_date)
             results = (
                 db.session.query(
                     Usage.engineer_id,
@@ -1145,7 +1209,8 @@ class LeaderboardService:
                 .join(Engineer, Usage.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(Usage.created_at, Date) == for_date,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at < end_utc,
                 )
                 .group_by(Usage.engineer_id)
                 .having(func.sum(Usage.tokens_input + Usage.tokens_output) > 0)
@@ -1161,7 +1226,8 @@ class LeaderboardService:
                 .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(TelemetryEvent.created_at, Date) == for_date,
+                    TelemetryEvent.created_at >= start_utc,
+                    TelemetryEvent.created_at < end_utc,
                 )
                 .group_by(TelemetryEvent.engineer_id)
                 .all()
@@ -1201,7 +1267,7 @@ class LeaderboardService:
     @staticmethod
     def _get_rank_for_range(customer_id: str, engineer_id: str, start_date: date, end_date: date) -> tuple[int | None, int]:
         """Get an engineer's rank for a date range."""
-        today = date.today()
+        today = get_today()
 
         # Get aggregated totals for the range
         results = (
@@ -1223,6 +1289,7 @@ class LeaderboardService:
 
         # If range includes today, add live data
         if end_date >= today:
+            today_start_utc, today_end_utc = get_day_bounds_utc(today)
             live_results = (
                 db.session.query(
                     Usage.engineer_id,
@@ -1231,7 +1298,8 @@ class LeaderboardService:
                 .join(Engineer, Usage.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(Usage.created_at, Date) == today,
+                    Usage.created_at >= today_start_utc,
+                    Usage.created_at < today_end_utc,
                 )
                 .group_by(Usage.engineer_id)
                 .all()
@@ -1259,7 +1327,7 @@ class LeaderboardService:
     @staticmethod
     def _get_rank_for_range_detailed(customer_id: str, engineer_id: str, start_date: date, end_date: date) -> tuple[int | None, int, int, int, float]:
         """Get an engineer's rank and token breakdown for a date range."""
-        today = date.today()
+        today = get_today()
 
         # Get aggregated totals for the range
         results = (
@@ -1284,6 +1352,7 @@ class LeaderboardService:
 
         # If range includes today, add live data
         if end_date >= today:
+            today_start_utc, today_end_utc = get_day_bounds_utc(today)
             live_results = (
                 db.session.query(
                     Usage.engineer_id,
@@ -1294,7 +1363,8 @@ class LeaderboardService:
                 .join(Engineer, Usage.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(Usage.created_at, Date) == today,
+                    Usage.created_at >= today_start_utc,
+                    Usage.created_at < today_end_utc,
                 )
                 .group_by(Usage.engineer_id)
                 .all()
@@ -1308,7 +1378,8 @@ class LeaderboardService:
                 .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(TelemetryEvent.created_at, Date) == today,
+                    TelemetryEvent.created_at >= today_start_utc,
+                    TelemetryEvent.created_at < today_end_utc,
                 )
                 .group_by(TelemetryEvent.engineer_id)
                 .all()
@@ -1348,7 +1419,7 @@ class LeaderboardService:
         customer_id: str, start_date: date, end_date: date
     ) -> DailyTotalsByEngineerResponse:
         """Get daily token totals broken down by engineer for charting."""
-        today = date.today()
+        today = get_today()
 
         # Get all engineers for this customer
         all_engineers = (
@@ -1396,6 +1467,7 @@ class LeaderboardService:
 
         # If end_date is today, get live data from Usage/TelemetryEvent table
         if end_date >= today:
+            today_start_utc, today_end_utc = get_day_bounds_utc(today)
             live_results = (
                 db.session.query(
                     Usage.engineer_id,
@@ -1406,7 +1478,8 @@ class LeaderboardService:
                 .join(Engineer, Usage.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(Usage.created_at, Date) == today,
+                    Usage.created_at >= today_start_utc,
+                    Usage.created_at < today_end_utc,
                 )
                 .group_by(Usage.engineer_id)
                 .all()
@@ -1420,7 +1493,8 @@ class LeaderboardService:
                 .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
                 .filter(
                     Engineer.customer_id == customer_id,
-                    cast(TelemetryEvent.created_at, Date) == today,
+                    TelemetryEvent.created_at >= today_start_utc,
+                    TelemetryEvent.created_at < today_end_utc,
                 )
                 .group_by(TelemetryEvent.engineer_id)
                 .all()

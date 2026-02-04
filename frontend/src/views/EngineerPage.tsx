@@ -56,8 +56,8 @@ interface EngineerStats {
 }
 
 interface HistoricalRank {
-  period_start: string
-  period_end: string
+  periodStart: string
+  periodEnd: string
   rank: number | null
   tokens: number
   tokensInput: number
@@ -72,7 +72,7 @@ interface HistoricalRank {
 
 interface HistoricalRankingsResponse {
   engineerId: string
-  period_type: string
+  periodType: string
   rankings: HistoricalRank[]
 }
 
@@ -343,7 +343,7 @@ function HistoricalRankingsTable({
                 'font-medium text-sm',
                 entry.rank !== null && entry.rank <= 3 && 'text-gray-900'
               )}>
-                {formatPeriodLabel(entry.period_start, entry.period_end, periodType)}
+                {formatPeriodLabel(entry.periodStart, entry.periodEnd, periodType)}
               </p>
               <p className={cn(
                 'text-xs',

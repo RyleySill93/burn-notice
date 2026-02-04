@@ -383,12 +383,12 @@ export function HomePage() {
   // Aggregated chart state
   const [aggPeriod, setAggPeriod] = useState<TimeSeriesPeriod>('hourly')
   const [aggDate, setAggDate] = useState<Date>(new Date())
-  const [aggIsCumulative, setAggIsCumulative] = useState(true)
+  const [aggIsCumulative, setAggIsCumulative] = useState(false)
 
   // By-engineer chart state
   const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('hourly')
   const [timeSeriesDate, setTimeSeriesDate] = useState<Date>(new Date())
-  const [isCumulative, setIsCumulative] = useState(true)
+  const [isCumulative, setIsCumulative] = useState(false)
 
   const [leaderboardDate, setLeaderboardDate] = useState<Date>(new Date())
   const [leaderboardTab, setLeaderboardTab] = useState<LeaderboardTab>('today')

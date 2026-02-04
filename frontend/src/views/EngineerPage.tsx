@@ -373,7 +373,7 @@ export function EngineerPage() {
   const [rankingsDate, setRankingsDate] = useState<Date>(new Date())
   const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('hourly')
   const [timeSeriesDate, setTimeSeriesDate] = useState<Date>(new Date())
-  const [isCumulative, setIsCumulative] = useState(true)
+  const [isCumulative, setIsCumulative] = useState(false)
   const { metric, setMetric } = useMetricToggle()
 
   const rankingsIsToday = isSameDay(rankingsDate, new Date())

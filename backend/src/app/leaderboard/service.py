@@ -599,7 +599,7 @@ class LeaderboardService:
 
         # Today (live) vs yesterday at this point
         today_tokens = LeaderboardService._get_live_tokens_for_date_detailed(customer_id, as_of)
-        yesterday_tokens = LeaderboardService._get_daily_tokens_detailed(customer_id, as_of - timedelta(days=1))
+        yesterday_tokens = LeaderboardService._get_tokens_at_this_point_detailed(customer_id, as_of - timedelta(days=1))
 
         # GitHub stats for today vs yesterday
         today_github = LeaderboardService._get_github_stats_for_range(customer_id, as_of, as_of)
@@ -720,6 +720,44 @@ class LeaderboardService:
     def _get_live_tokens_for_date_detailed(customer_id: str, for_date: date) -> tuple[int, int, int, float]:
         """Get token breakdown (total, input, output, cost) for a date from live Usage/TelemetryEvent table."""
         start_utc, end_utc = get_day_bounds_utc(for_date)
+        result = (
+            db.session.query(
+                func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
+                func.coalesce(func.sum(Usage.tokens_input), 0),
+                func.coalesce(func.sum(Usage.tokens_output), 0),
+            )
+            .join(Engineer, Usage.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
+            )
+            .one()
+        )
+        # Get cost from TelemetryEvent
+        cost_result = (
+            db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
+            .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                TelemetryEvent.created_at >= start_utc,
+                TelemetryEvent.created_at < end_utc,
+            )
+            .scalar()
+        )
+        return (result[0] or 0, result[1] or 0, result[2] or 0, cost_result or 0.0)
+
+    @staticmethod
+    def _get_tokens_at_this_point_detailed(customer_id: str, for_date: date) -> tuple[int, int, int, float]:
+        """Get token breakdown for a date up to the current time of day (for 'at this point' comparisons)."""
+        now_utc = datetime.now(timezone.utc)
+        start_utc, _ = get_day_bounds_utc(for_date)
+
+        # Calculate the end time as: start of that day + time elapsed since start of today
+        today_start_utc, _ = get_day_bounds_utc(get_today())
+        time_elapsed = now_utc - today_start_utc
+        end_utc = start_utc + time_elapsed
+
         result = (
             db.session.query(
                 func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
@@ -1012,7 +1050,7 @@ class LeaderboardService:
 
         # Today (live) vs yesterday at this point
         today_tokens = LeaderboardService._get_engineer_live_tokens_detailed(engineer_id, as_of)
-        yesterday_tokens = LeaderboardService._get_engineer_daily_tokens_detailed(
+        yesterday_tokens = LeaderboardService._get_engineer_tokens_at_this_point_detailed(
             engineer_id, as_of - timedelta(days=1)
         )
 
@@ -1137,6 +1175,42 @@ class LeaderboardService:
     def _get_engineer_live_tokens_detailed(engineer_id: str, for_date: date) -> tuple[int, int, int, float]:
         """Get token breakdown (total, input, output, cost) for an engineer from live Usage/TelemetryEvent table."""
         start_utc, end_utc = get_day_bounds_utc(for_date)
+        result = (
+            db.session.query(
+                func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
+                func.coalesce(func.sum(Usage.tokens_input), 0),
+                func.coalesce(func.sum(Usage.tokens_output), 0),
+            )
+            .filter(
+                Usage.engineer_id == engineer_id,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
+            )
+            .one()
+        )
+        # Get cost from TelemetryEvent
+        cost_result = (
+            db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
+            .filter(
+                TelemetryEvent.engineer_id == engineer_id,
+                TelemetryEvent.created_at >= start_utc,
+                TelemetryEvent.created_at < end_utc,
+            )
+            .scalar()
+        )
+        return (result[0] or 0, result[1] or 0, result[2] or 0, cost_result or 0.0)
+
+    @staticmethod
+    def _get_engineer_tokens_at_this_point_detailed(engineer_id: str, for_date: date) -> tuple[int, int, int, float]:
+        """Get token breakdown for an engineer up to the current time of day (for 'at this point' comparisons)."""
+        now_utc = datetime.now(timezone.utc)
+        start_utc, _ = get_day_bounds_utc(for_date)
+
+        # Calculate the end time as: start of that day + time elapsed since start of today
+        today_start_utc, _ = get_day_bounds_utc(get_today())
+        time_elapsed = now_utc - today_start_utc
+        end_utc = start_utc + time_elapsed
+
         result = (
             db.session.query(
                 func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),

@@ -602,7 +602,7 @@ export function HomePage() {
           value={todayTokens}
           comparisonValue={todayComparison}
           change={calculateChangePercent(todayTokens, todayComparison)}
-          comparison="vs yesterday"
+          comparison="vs yesterday at this point"
           icon={Zap}
           metric={metric}
         />

@@ -1558,10 +1558,10 @@ class LeaderboardService:
         Get time series data for an engineer.
 
         Periods and their granularity:
-        - hourly: last 12 hours, 5-minute buckets
-        - daily: single day, hourly buckets
-        - weekly: 7 days, daily buckets
-        - monthly: 30 days, daily buckets
+        - hourly: last 12 hours, 5-minute buckets (live data)
+        - daily: last 30 days, daily buckets
+        - weekly: last 12 weeks, weekly buckets
+        - monthly: last 12 months, monthly buckets
         """
         now = datetime.now(APP_TIMEZONE)
         as_of_date = as_of or get_today()
@@ -1575,25 +1575,7 @@ class LeaderboardService:
             trunc_interval = 'minute'
             bucket_minutes = 5
         elif period == 'daily':
-            # Single day with hourly granularity
-            start_time = datetime(as_of_date.year, as_of_date.month, as_of_date.day, tzinfo=APP_TIMEZONE)
-            end_time = start_time + timedelta(days=1)
-            if end_time > now:
-                end_time = now
-            trunc_interval = 'hour'
-            bucket_minutes = 60
-        elif period == 'weekly':
-            # 7 days with daily granularity
-            end_date = as_of_date
-            start_date = end_date - timedelta(days=6)
-            start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
-            end_time = datetime(end_date.year, end_date.month, end_date.day, tzinfo=APP_TIMEZONE) + timedelta(days=1)
-            if end_time > now:
-                end_time = now
-            trunc_interval = 'day'
-            bucket_minutes = 1440
-        else:  # monthly
-            # 30 days with daily granularity
+            # Last 30 days with daily granularity
             end_date = as_of_date
             start_date = end_date - timedelta(days=29)
             start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
@@ -1602,6 +1584,39 @@ class LeaderboardService:
                 end_time = now
             trunc_interval = 'day'
             bucket_minutes = 1440
+        elif period == 'weekly':
+            # Last 12 weeks with weekly granularity
+            # Find the start of the current week (Monday)
+            days_since_monday = as_of_date.weekday()
+            current_week_start = as_of_date - timedelta(days=days_since_monday)
+            start_date = current_week_start - timedelta(weeks=11)
+            start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
+            end_time = datetime(current_week_start.year, current_week_start.month, current_week_start.day, tzinfo=APP_TIMEZONE) + timedelta(days=7)
+            if end_time > now:
+                end_time = now
+            trunc_interval = 'week'
+            bucket_minutes = 10080  # 7 days
+        else:  # monthly
+            # Last 12 months with monthly granularity
+            current_month_start = as_of_date.replace(day=1)
+            # Go back 11 months
+            year = current_month_start.year
+            month = current_month_start.month - 11
+            while month <= 0:
+                month += 12
+                year -= 1
+            start_date = date(year, month, 1)
+            start_time = datetime(start_date.year, start_date.month, start_date.day, tzinfo=APP_TIMEZONE)
+            # End at the end of current month
+            if current_month_start.month == 12:
+                next_month = date(current_month_start.year + 1, 1, 1)
+            else:
+                next_month = date(current_month_start.year, current_month_start.month + 1, 1)
+            end_time = datetime(next_month.year, next_month.month, next_month.day, tzinfo=APP_TIMEZONE)
+            if end_time > now:
+                end_time = now
+            trunc_interval = 'month'
+            bucket_minutes = 43200  # ~30 days, not used for iteration
 
         # Convert to UTC for database query
         start_utc = start_time.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
@@ -1722,7 +1737,7 @@ class LeaderboardService:
             # Build complete list with zeros for missing buckets
             data_points = []
             current = start_time
-            step = timedelta(minutes=bucket_minutes)
+
             while current < end_time:
                 current_utc = current.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
                 data = data_by_bucket.get(current_utc, (0, 0, 0))
@@ -1734,6 +1749,19 @@ class LeaderboardService:
                     tokens_output=data[2],
                     cost_usd=cost,
                 ))
-                current += step
+
+                # Advance to next bucket based on period
+                if period == 'daily':
+                    current += timedelta(days=1)
+                elif period == 'weekly':
+                    current += timedelta(weeks=1)
+                elif period == 'monthly':
+                    # Move to next month
+                    if current.month == 12:
+                        current = current.replace(year=current.year + 1, month=1)
+                    else:
+                        current = current.replace(month=current.month + 1)
+                else:
+                    current += timedelta(minutes=bucket_minutes)
 
         return TimeSeriesResponse(engineer_id=engineer_id, period=period, data=data_points)

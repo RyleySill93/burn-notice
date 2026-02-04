@@ -7,13 +7,10 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
 import {
   TrendingUp,
   TrendingDown,
   Minus,
-  CalendarIcon,
   Zap,
   Activity,
   BarChart3,
@@ -23,7 +20,7 @@ import {
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
-import { format, subDays, isToday, isSameDay } from 'date-fns'
+import { format, isSameDay } from 'date-fns'
 import { useMetricToggle } from '@/hooks/useMetricToggle'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
 
@@ -49,20 +46,6 @@ interface EngineerStats {
   today: PeriodStats
   this_week: PeriodStats
   this_month: PeriodStats
-}
-
-interface DailyTotal {
-  date: string
-  tokens: number
-  tokens_input: number
-  tokens_output: number
-  cost_usd: number
-}
-
-interface DailyTotalsResponse {
-  start_date: string
-  end_date: string
-  totals: DailyTotal[]
 }
 
 interface HistoricalRank {
@@ -306,7 +289,6 @@ type RankingsPeriod = 'daily' | 'weekly' | 'monthly'
 
 export function EngineerPage() {
   const { engineerId } = useParams<{ engineerId: string }>()
-  const [chartStartDate, setChartStartDate] = useState<Date>(subDays(new Date(), 29))
   const [rankingsPeriod, setRankingsPeriod] = useState<RankingsPeriod>('daily')
   const [rankingsDate, setRankingsDate] = useState<Date>(new Date())
   const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('hourly')
@@ -325,23 +307,6 @@ export function EngineerPage() {
     },
     enabled: !!engineerId,
     refetchInterval: 30_000,
-  })
-
-  const { data: dailyTotals, isLoading: chartLoading } = useQuery<DailyTotalsResponse>({
-    queryKey: ['engineer-daily-totals', engineerId, chartStartDate.toISOString()],
-    queryFn: async () => {
-      const response = await axios.get<DailyTotalsResponse>(
-        `/api/leaderboard/engineers/${engineerId}/daily-totals`,
-        {
-          params: {
-            start_date: format(chartStartDate, 'yyyy-MM-dd'),
-            end_date: format(new Date(), 'yyyy-MM-dd'),
-          },
-        }
-      )
-      return response.data
-    },
-    enabled: !!engineerId,
   })
 
   const { data: rankings, isLoading: rankingsLoading } = useQuery<HistoricalRankingsResponse>({
@@ -397,27 +362,25 @@ export function EngineerPage() {
       if (timeSeriesPeriod === 'hourly') {
         label = format(timestamp, 'h:mm a')
       } else if (timeSeriesPeriod === 'daily') {
-        label = format(timestamp, 'ha')
-      } else {
         label = format(timestamp, 'MMM d')
+      } else if (timeSeriesPeriod === 'weekly') {
+        label = format(timestamp, 'MMM d')
+      } else {
+        // monthly
+        label = format(timestamp, 'MMM yyyy')
       }
 
       return {
         label,
         value: isCumulative ? cumulative : value,
+        // Include input/output for stacked bar charts
+        tokensInput: t.tokens_input,
+        tokensOutput: t.tokens_output,
       }
     })
   })()
 
-  const chartData =
-    dailyTotals?.totals.map((t) => ({
-      date: format(new Date(t.date), 'MMM d'),
-      tokens: getMetricValue(t, metric),
-      tokensInput: t.tokens_input,
-      tokensOutput: t.tokens_output,
-    })) || []
-
-  const isLoading = statsLoading || chartLoading || rankingsLoading || timeSeriesLoading
+  const isLoading = statsLoading || rankingsLoading || timeSeriesLoading
 
   if (isLoading) {
     return (
@@ -502,23 +465,11 @@ export function EngineerPage() {
             </div>
             {/* Date Picker (only for non-hourly periods) */}
             {timeSeriesPeriod !== 'hourly' && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <CalendarIcon className="h-4 w-4" />
-                    {format(timeSeriesDate, 'MMM d, yyyy')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={timeSeriesDate}
-                    onSelect={(date) => date && setTimeSeriesDate(date)}
-                    disabled={(date) => date > new Date() || date < subDays(new Date(), 365)}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <LeaderboardDatePicker
+                activeTab={timeSeriesPeriod === 'daily' ? 'today' : timeSeriesPeriod}
+                selectedDate={timeSeriesDate}
+                onDateChange={setTimeSeriesDate}
+              />
             )}
           </div>
         </CardHeader>
@@ -537,7 +488,7 @@ export function EngineerPage() {
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 No data for this period
               </div>
-            ) : (
+            ) : timeSeriesPeriod === 'hourly' ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={timeSeriesChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -546,7 +497,7 @@ export function EngineerPage() {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    interval={timeSeriesPeriod === 'hourly' ? 11 : timeSeriesPeriod === 'daily' ? 2 : 'preserveStartEnd'}
+                    interval={11}
                   />
                   <YAxis
                     fontSize={12}
@@ -572,41 +523,17 @@ export function EngineerPage() {
                   />
                 </LineChart>
               </ResponsiveContainer>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Chart and Historical Rankings */}
-      <div className="grid gap-6 lg:grid-cols-5 items-start">
-        {/* Chart */}
-        <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-base">{metric === 'cost' ? 'Daily Costs' : 'Daily Token Burns'}</CardTitle>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  {format(chartStartDate, 'MMM d')} - Today
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={chartStartDate}
-                  onSelect={(date) => date && setChartStartDate(date)}
-                  disabled={(date) => date > new Date() || date < subDays(new Date(), 90)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
+            ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
+                <BarChart data={timeSeriesChartData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
+                  <XAxis
+                    dataKey="label"
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={timeSeriesPeriod === 'monthly' ? 0 : 'preserveStartEnd'}
+                  />
                   <YAxis
                     fontSize={12}
                     tickLine={false}
@@ -614,11 +541,14 @@ export function EngineerPage() {
                     tickFormatter={(value) => formatValue(value, metric)}
                   />
                   <Tooltip
-                    formatter={(value: number) => [formatValue(value, metric), metric === 'cost' ? 'Cost' : 'Tokens']}
+                    formatter={(value: number, name: string) => {
+                      const label = name === 'tokensInput' ? 'Input' : name === 'tokensOutput' ? 'Output' : metric === 'cost' ? 'Cost' : 'Tokens'
+                      return [formatValue(value, metric), label]
+                    }}
                     labelStyle={{ fontWeight: 'bold' }}
                   />
-                  {metric === 'cost' ? (
-                    <Bar dataKey="tokens" fill="#f97316" radius={[4, 4, 0, 0]} />
+                  {metric === 'cost' || isCumulative ? (
+                    <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />
                   ) : (
                     <>
                       <Legend />
@@ -628,12 +558,13 @@ export function EngineerPage() {
                   )}
                 </BarChart>
               </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Historical Rankings */}
-        <Card className="lg:col-span-2">
+      {/* Historical Rankings */}
+      <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Trophy className="h-4 w-4 text-amber-500" />
@@ -682,7 +613,6 @@ export function EngineerPage() {
             </Tabs>
           </CardContent>
         </Card>
-      </div>
     </div>
   )
 }

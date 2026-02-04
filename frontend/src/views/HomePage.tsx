@@ -4,15 +4,11 @@ import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
 import {
   Flame,
   TrendingUp,
   TrendingDown,
   Minus,
-  CalendarIcon,
   Zap,
   Activity,
   BarChart3,
@@ -547,23 +543,11 @@ export function HomePage() {
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">{metric === 'cost' ? 'Daily Costs' : 'Daily Token Burns'}</CardTitle>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  {format(chartStartDate, 'MMM d')} - Today
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={chartStartDate}
-                  onSelect={(date) => date && setChartStartDate(date)}
-                  disabled={(date) => date > new Date() || date < subDays(new Date(), 90)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+            <LeaderboardDatePicker
+              activeTab="today"
+              selectedDate={chartStartDate}
+              onDateChange={setChartStartDate}
+            />
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">

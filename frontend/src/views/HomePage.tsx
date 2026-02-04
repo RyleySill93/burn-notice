@@ -311,18 +311,26 @@ function LeaderboardTable({
   )
 }
 
-type LeaderboardTab = 'today' | 'yesterday' | 'weekly' | 'monthly'
+type LeaderboardTab = 'today' | 'weekly' | 'monthly'
 
 export function HomePage() {
+  // Aggregated chart state
+  const [aggPeriod, setAggPeriod] = useState<TimeSeriesPeriod>('hourly')
+  const [aggDate, setAggDate] = useState<Date>(new Date())
+  const [aggIsCumulative, setAggIsCumulative] = useState(true)
+
+  // By-engineer chart state
   const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('hourly')
   const [timeSeriesDate, setTimeSeriesDate] = useState<Date>(new Date())
   const [isCumulative, setIsCumulative] = useState(true)
+
   const [leaderboardDate, setLeaderboardDate] = useState<Date>(new Date())
   const [leaderboardTab, setLeaderboardTab] = useState<LeaderboardTab>('today')
   const { metric, setMetric } = useMetricToggle()
   const { customer } = useAuth()
 
   // Poll for live updates when viewing today's data (every 10s)
+  const aggIsToday = isSameDay(aggDate, new Date())
   const timeSeriesIsToday = isSameDay(timeSeriesDate, new Date())
   const leaderboardIsToday = isSameDay(leaderboardDate, new Date())
 
@@ -335,6 +343,22 @@ export function HomePage() {
     refetchInterval: 10_000, // Always poll stats since it shows today's data
   })
 
+  // Aggregated chart data
+  const { data: aggTimeSeries, isLoading: aggLoading } = useQuery<TeamTimeSeriesResponse>({
+    queryKey: ['team-time-series-agg', aggPeriod, format(aggDate, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await axios.get<TeamTimeSeriesResponse>('/api/leaderboard/time-series', {
+        params: {
+          period: aggPeriod,
+          as_of: format(aggDate, 'yyyy-MM-dd'),
+        },
+      })
+      return response.data
+    },
+    refetchInterval: (aggPeriod === 'hourly' || aggIsToday) ? 10_000 : false,
+  })
+
+  // By-engineer chart data
   const { data: teamTimeSeries, isLoading: timeSeriesLoading } = useQuery<TeamTimeSeriesResponse>({
     queryKey: ['team-time-series', timeSeriesPeriod, format(timeSeriesDate, 'yyyy-MM-dd')],
     queryFn: async () => {
@@ -362,7 +386,48 @@ export function HomePage() {
     refetchInterval: leaderboardIsToday ? 10_000 : false,
   })
 
-  // Build time series chart data
+  // Build aggregated chart data (sum across all engineers)
+  const aggChartData = (() => {
+    if (!aggTimeSeries) return []
+
+    let cumulative = 0
+
+    return aggTimeSeries.data.map((bucket) => {
+      // Format label based on period
+      let label: string
+      const timestamp = new Date(bucket.timestamp)
+      if (aggPeriod === 'hourly') {
+        label = format(timestamp, 'h:mm a')
+      } else if (aggPeriod === 'daily') {
+        label = format(timestamp, 'MMM d')
+      } else if (aggPeriod === 'weekly') {
+        label = format(timestamp, 'MMM d')
+      } else {
+        label = format(timestamp, 'MMM yyyy')
+      }
+
+      // Sum across all engineers for this bucket
+      let bucketTotal = 0
+      let bucketInput = 0
+      let bucketOutput = 0
+      for (const eng of bucket.engineers) {
+        bucketTotal += getMetricValue(eng, metric)
+        bucketInput += eng.tokens_input
+        bucketOutput += eng.tokens_output
+      }
+
+      cumulative += bucketTotal
+
+      return {
+        label,
+        value: aggIsCumulative ? cumulative : bucketTotal,
+        tokensInput: bucketInput,
+        tokensOutput: bucketOutput,
+      }
+    })
+  })()
+
+  // Build time series chart data (by engineer)
   const { timeSeriesChartData, sortedEngineers } = (() => {
     if (!teamTimeSeries) return { timeSeriesChartData: [], sortedEngineers: [] }
 
@@ -475,15 +540,187 @@ export function HomePage() {
         />
       </div>
 
-      {/* Team Time Series Chart */}
+      {/* Aggregated Chart and Leaderboard - Side by Side */}
+      <div className="grid gap-6 lg:grid-cols-2 items-start">
+        {/* Aggregated Token Usage Chart */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">
+              {metric === 'cost' ? 'Team Costs' : 'Team Token Usage'}
+              {aggIsCumulative && ' (Cumulative)'}
+            </CardTitle>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="agg-cumulative"
+                  checked={aggIsCumulative}
+                  onCheckedChange={setAggIsCumulative}
+                />
+                <Label htmlFor="agg-cumulative" className="text-xs">Cumulative</Label>
+              </div>
+              <LeaderboardDatePicker
+                activeTab={aggPeriod === 'daily' || aggPeriod === 'hourly' ? 'today' : aggPeriod}
+                selectedDate={aggDate}
+                onDateChange={setAggDate}
+              />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={aggPeriod} onValueChange={(v) => setAggPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="hourly" className="text-xs">Live</TabsTrigger>
+                <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
+                <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
+                <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <div className="h-[300px]">
+              {aggLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                </div>
+              ) : aggChartData.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-muted-foreground">
+                  No data for this period
+                </div>
+              ) : aggPeriod === 'hourly' ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={aggChartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={11}
+                    />
+                    <YAxis
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => formatValue(value, metric)}
+                    />
+                    <Tooltip
+                      formatter={(value: number) => [
+                        formatValue(value, metric),
+                        metric === 'cost'
+                          ? (aggIsCumulative ? 'Cumulative Cost' : 'Cost')
+                          : (aggIsCumulative ? 'Cumulative Tokens' : 'Tokens')
+                      ]}
+                      labelStyle={{ fontWeight: 'bold', color: '#111827' }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="value"
+                      stroke="#f97316"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={aggChartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={aggPeriod === 'monthly' ? 0 : 'preserveStartEnd'}
+                    />
+                    <YAxis
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => formatValue(value, metric)}
+                    />
+                    <Tooltip
+                      formatter={(value: number, name: string) => {
+                        const label = name === 'tokensInput' ? 'Input' : name === 'tokensOutput' ? 'Output' : metric === 'cost' ? 'Cost' : 'Tokens'
+                        return [formatValue(value, metric), label]
+                      }}
+                      labelStyle={{ fontWeight: 'bold', color: '#111827' }}
+                    />
+                    {metric === 'cost' || aggIsCumulative ? (
+                      <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    ) : (
+                      <>
+                        <Legend />
+                        <Bar dataKey="tokensInput" stackId="tokens" fill="#3b82f6" name="Input" />
+                        <Bar dataKey="tokensOutput" stackId="tokens" fill="#f97316" name="Output" radius={[4, 4, 0, 0]} />
+                      </>
+                    )}
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Leaderboard */}
+        <Card>
+          <CardHeader className="pb-2 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Flame className="h-4 w-4 text-orange-500" />
+              Leaderboard
+            </CardTitle>
+            <LeaderboardDatePicker
+              activeTab={leaderboardTab}
+              selectedDate={leaderboardDate}
+              onDateChange={setLeaderboardDate}
+            />
+          </CardHeader>
+          <CardContent>
+            <Tabs value={leaderboardTab} onValueChange={(v) => setLeaderboardTab(v as LeaderboardTab)} className="w-full">
+              <TabsList className="grid w-full grid-cols-3 mb-4">
+                <TabsTrigger value="today" className="text-xs">
+                  Today
+                </TabsTrigger>
+                <TabsTrigger value="weekly" className="text-xs">
+                  Week
+                </TabsTrigger>
+                <TabsTrigger value="monthly" className="text-xs">
+                  Month
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="today">
+                <LeaderboardTable
+                  entries={leaderboard?.today || []}
+                  emptyMessage="No usage today yet"
+                  metric={metric}
+                  isLoading={leaderboardLoading}
+                />
+              </TabsContent>
+              <TabsContent value="weekly">
+                <LeaderboardTable
+                  entries={leaderboard?.weekly || []}
+                  emptyMessage="No usage this week"
+                  metric={metric}
+                  isLoading={leaderboardLoading}
+                />
+              </TabsContent>
+              <TabsContent value="monthly">
+                <LeaderboardTable
+                  entries={leaderboard?.monthly || []}
+                  emptyMessage="No usage this month"
+                  metric={metric}
+                  isLoading={leaderboardLoading}
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Team Token Usage by Engineer */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">
-            {metric === 'cost' ? 'Team Costs Over Time' : 'Team Token Usage Over Time'}
+            {metric === 'cost' ? 'Team Costs by Engineer' : 'Team Token Usage by Engineer'}
             {isCumulative && ' (Cumulative)'}
           </CardTitle>
           <div className="flex items-center gap-4">
-            {/* Cumulative Toggle */}
             <div className="flex items-center gap-2">
               <Switch
                 id="cumulative"
@@ -492,18 +729,14 @@ export function HomePage() {
               />
               <Label htmlFor="cumulative" className="text-xs">Cumulative</Label>
             </div>
-            {/* Date Picker (only for non-hourly periods) */}
-            {timeSeriesPeriod !== 'hourly' && (
-              <LeaderboardDatePicker
-                activeTab={timeSeriesPeriod === 'daily' ? 'today' : timeSeriesPeriod}
-                selectedDate={timeSeriesDate}
-                onDateChange={setTimeSeriesDate}
-              />
-            )}
+            <LeaderboardDatePicker
+              activeTab={timeSeriesPeriod === 'daily' || timeSeriesPeriod === 'hourly' ? 'today' : timeSeriesPeriod}
+              selectedDate={timeSeriesDate}
+              onDateChange={setTimeSeriesDate}
+            />
           </div>
         </CardHeader>
         <CardContent>
-          {/* Period Tabs */}
           <Tabs value={timeSeriesPeriod} onValueChange={(v) => setTimeSeriesPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="hourly" className="text-xs">Live</TabsTrigger>
@@ -543,7 +776,7 @@ export function HomePage() {
                       const engineer = sortedEngineers.find(e => e.id === name)
                       return [formatValue(value, metric), engineer?.display_name || name]
                     }}
-                    labelStyle={{ fontWeight: 'bold' }}
+                    labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
                   <Legend
                     content={() => (
@@ -598,7 +831,7 @@ export function HomePage() {
                       const engineer = sortedEngineers.find(e => e.id === name)
                       return [formatValue(value, metric), engineer?.display_name || name]
                     }}
-                    labelStyle={{ fontWeight: 'bold' }}
+                    labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
                   <Legend
                     content={() => (
@@ -634,71 +867,6 @@ export function HomePage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Leaderboard */}
-      <Card>
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-500" />
-              Leaderboard
-            </CardTitle>
-            <LeaderboardDatePicker
-              activeTab={leaderboardTab}
-              selectedDate={leaderboardDate}
-              onDateChange={setLeaderboardDate}
-            />
-          </CardHeader>
-          <CardContent>
-            <Tabs value={leaderboardTab} onValueChange={(v) => setLeaderboardTab(v as LeaderboardTab)} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-4">
-                <TabsTrigger value="today" className="text-xs">
-                  Today
-                </TabsTrigger>
-                <TabsTrigger value="yesterday" className="text-xs">
-                  Yesterday
-                </TabsTrigger>
-                <TabsTrigger value="weekly" className="text-xs">
-                  Week
-                </TabsTrigger>
-                <TabsTrigger value="monthly" className="text-xs">
-                  Month
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="today">
-                <LeaderboardTable
-                  entries={leaderboard?.today || []}
-                  emptyMessage="No usage today yet"
-                  metric={metric}
-                  isLoading={leaderboardLoading}
-                />
-              </TabsContent>
-              <TabsContent value="yesterday">
-                <LeaderboardTable
-                  entries={leaderboard?.yesterday || []}
-                  emptyMessage="No usage yesterday"
-                  metric={metric}
-                  isLoading={leaderboardLoading}
-                />
-              </TabsContent>
-              <TabsContent value="weekly">
-                <LeaderboardTable
-                  entries={leaderboard?.weekly || []}
-                  emptyMessage="No usage this week"
-                  metric={metric}
-                  isLoading={leaderboardLoading}
-                />
-              </TabsContent>
-              <TabsContent value="monthly">
-                <LeaderboardTable
-                  entries={leaderboard?.monthly || []}
-                  emptyMessage="No usage this month"
-                  metric={metric}
-                  isLoading={leaderboardLoading}
-                />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
     </div>
   )
 }

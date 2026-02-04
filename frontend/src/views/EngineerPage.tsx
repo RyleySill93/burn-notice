@@ -242,6 +242,9 @@ function HistoricalRankingsTable({
   periodType: string
   metric: MetricType
 }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const INITIAL_COUNT = 5
+
   if (rankings.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -251,9 +254,12 @@ function HistoricalRankingsTable({
     )
   }
 
+  const displayedRankings = isExpanded ? rankings : rankings.slice(0, INITIAL_COUNT)
+  const hasMore = rankings.length > INITIAL_COUNT
+
   return (
     <div className="space-y-1.5">
-      {rankings.map((entry, index) => (
+      {displayedRankings.map((entry, index) => (
         <div
           key={index}
           className={cn(
@@ -281,6 +287,14 @@ function HistoricalRankingsTable({
           </div>
         </div>
       ))}
+      {hasMore && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full text-center text-sm text-muted-foreground hover:text-foreground py-2 transition-colors"
+        >
+          {isExpanded ? 'Show less' : `Show more (${rankings.length - INITIAL_COUNT} more)`}
+        </button>
+      )}
     </div>
   )
 }
@@ -463,14 +477,11 @@ export function EngineerPage() {
               />
               <Label htmlFor="cumulative" className="text-xs">Cumulative</Label>
             </div>
-            {/* Date Picker (only for non-hourly periods) */}
-            {timeSeriesPeriod !== 'hourly' && (
-              <LeaderboardDatePicker
-                activeTab={timeSeriesPeriod === 'daily' ? 'today' : timeSeriesPeriod}
-                selectedDate={timeSeriesDate}
-                onDateChange={setTimeSeriesDate}
-              />
-            )}
+            <LeaderboardDatePicker
+              activeTab={timeSeriesPeriod === 'daily' || timeSeriesPeriod === 'hourly' ? 'today' : timeSeriesPeriod}
+              selectedDate={timeSeriesDate}
+              onDateChange={setTimeSeriesDate}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -516,7 +527,7 @@ export function EngineerPage() {
                         ? (isCumulative ? 'Cumulative Cost' : 'Cost')
                         : (isCumulative ? 'Cumulative Tokens' : 'Tokens')
                     ]}
-                    labelStyle={{ fontWeight: 'bold' }}
+                    labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
                   <Line
                     type="monotone"
@@ -549,7 +560,7 @@ export function EngineerPage() {
                       const label = name === 'tokensInput' ? 'Input' : name === 'tokensOutput' ? 'Output' : metric === 'cost' ? 'Cost' : 'Tokens'
                       return [formatValue(value, metric), label]
                     }}
-                    labelStyle={{ fontWeight: 'bold' }}
+                    labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
                   {metric === 'cost' || isCumulative ? (
                     <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />

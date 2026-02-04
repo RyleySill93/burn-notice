@@ -355,7 +355,7 @@ export function HomePage() {
       })
       return response.data
     },
-    refetchInterval: (aggPeriod === 'hourly' || aggIsToday) ? 10_000 : false,
+    refetchInterval: aggIsToday ? 10_000 : false,
   })
 
   // By-engineer chart data
@@ -370,7 +370,7 @@ export function HomePage() {
       })
       return response.data
     },
-    refetchInterval: (timeSeriesPeriod === 'hourly' || timeSeriesIsToday) ? 10_000 : false,
+    refetchInterval: timeSeriesIsToday ? 10_000 : false,
   })
 
   const { data: leaderboard, isLoading: leaderboardLoading } = useQuery<Leaderboard>({
@@ -397,7 +397,7 @@ export function HomePage() {
       let label: string
       const timestamp = new Date(bucket.timestamp)
       if (aggPeriod === 'hourly') {
-        label = format(timestamp, 'h:mm a')
+        label = format(timestamp, 'h a')
       } else if (aggPeriod === 'daily') {
         label = format(timestamp, 'MMM d')
       } else if (aggPeriod === 'weekly') {
@@ -439,7 +439,7 @@ export function HomePage() {
       let label: string
       const timestamp = new Date(bucket.timestamp)
       if (timeSeriesPeriod === 'hourly') {
-        label = format(timestamp, 'h:mm a')
+        label = format(timestamp, 'h a')
       } else if (timeSeriesPeriod === 'daily') {
         label = format(timestamp, 'MMM d')
       } else if (timeSeriesPeriod === 'weekly') {
@@ -568,7 +568,7 @@ export function HomePage() {
           <CardContent>
             <Tabs value={aggPeriod} onValueChange={(v) => setAggPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
               <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="hourly" className="text-xs">Live</TabsTrigger>
+                <TabsTrigger value="hourly" className="text-xs">Hourly</TabsTrigger>
                 <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
                 <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
                 <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
@@ -592,7 +592,7 @@ export function HomePage() {
                       fontSize={12}
                       tickLine={false}
                       axisLine={false}
-                      interval={11}
+                      interval={3}
                     />
                     <YAxis
                       fontSize={12}
@@ -739,7 +739,7 @@ export function HomePage() {
         <CardContent>
           <Tabs value={timeSeriesPeriod} onValueChange={(v) => setTimeSeriesPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="hourly" className="text-xs">Live</TabsTrigger>
+              <TabsTrigger value="hourly" className="text-xs">Hourly</TabsTrigger>
               <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
               <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
               <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
@@ -763,7 +763,7 @@ export function HomePage() {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    interval={11}
+                    interval={3}
                   />
                   <YAxis
                     fontSize={12}

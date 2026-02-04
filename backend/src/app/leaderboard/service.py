@@ -1561,7 +1561,7 @@ class LeaderboardService:
         Get time series data for an engineer.
 
         Periods and their granularity:
-        - hourly: last 12 hours, 5-minute buckets (live data)
+        - hourly: 24 hours for selected day, hourly buckets
         - daily: last 30 days, daily buckets
         - weekly: last 12 weeks, weekly buckets
         - monthly: last 12 months, monthly buckets
@@ -1570,13 +1570,13 @@ class LeaderboardService:
         as_of_date = as_of or get_today()
 
         if period == 'hourly':
-            # Last 12 hours with 5-minute granularity
-            start_time = (now - timedelta(hours=12)).replace(second=0, microsecond=0)
-            # Round down to nearest 5 minutes
-            start_time = start_time.replace(minute=(start_time.minute // 5) * 5)
-            end_time = now
-            trunc_interval = 'minute'
-            bucket_minutes = 5
+            # 24 hours for the selected day with hourly granularity
+            start_time = datetime(as_of_date.year, as_of_date.month, as_of_date.day, tzinfo=APP_TIMEZONE)
+            end_of_day = start_time + timedelta(days=1)
+            # If viewing today, only go up to now; otherwise show full day
+            end_time = min(end_of_day, now)
+            trunc_interval = 'hour'
+            bucket_minutes = 60
         elif period == 'daily':
             # Last 30 days with daily granularity
             end_date = as_of_date
@@ -1655,13 +1655,13 @@ class LeaderboardService:
                 .all()
             )
 
-            # Bucket the data into 5-minute intervals
+            # Bucket the data into hourly intervals
             data_by_bucket: dict[datetime, tuple[int, int, int]] = {}
             for r in results:
                 # Convert to local time for bucketing
                 local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
                 bucket_time = local_time.replace(
-                    minute=(local_time.minute // 5) * 5,
+                    minute=0,
                     second=0,
                     microsecond=0
                 )
@@ -1676,7 +1676,7 @@ class LeaderboardService:
             for r in cost_results:
                 local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
                 bucket_time = local_time.replace(
-                    minute=(local_time.minute // 5) * 5,
+                    minute=0,
                     second=0,
                     microsecond=0
                 )
@@ -1695,7 +1695,7 @@ class LeaderboardService:
                     tokens_output=data[2],
                     cost_usd=cost,
                 ))
-                current += timedelta(minutes=5)
+                current += timedelta(hours=1)
 
         else:
             # Use database truncation for hourly/daily buckets
@@ -1779,7 +1779,7 @@ class LeaderboardService:
         Get time series data for all engineers in a team.
 
         Periods and their granularity:
-        - hourly: last 12 hours, 5-minute buckets (live data)
+        - hourly: 24 hours for selected day, hourly buckets
         - daily: last 30 days, daily buckets
         - weekly: last 12 weeks, weekly buckets
         - monthly: last 12 months, monthly buckets
@@ -1796,11 +1796,11 @@ class LeaderboardService:
         engineer_names = {e.id: e.display_name for e in all_engineers}
 
         if period == 'hourly':
-            # Last 12 hours with 5-minute granularity
-            start_time = (now - timedelta(hours=12)).replace(second=0, microsecond=0)
-            # Round down to nearest 5 minutes
-            start_time = start_time.replace(minute=(start_time.minute // 5) * 5)
-            end_time = now
+            # 24 hours for the selected day with hourly granularity
+            start_time = datetime(as_of_date.year, as_of_date.month, as_of_date.day, tzinfo=APP_TIMEZONE)
+            end_of_day = start_time + timedelta(days=1)
+            # If viewing today, only go up to now; otherwise show full day
+            end_time = min(end_of_day, now)
         elif period == 'daily':
             # Last 30 days with daily granularity
             end_date = as_of_date
@@ -1879,7 +1879,7 @@ class LeaderboardService:
             for r in results:
                 local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
                 bucket_time = local_time.replace(
-                    minute=(local_time.minute // 5) * 5,
+                    minute=0,
                     second=0,
                     microsecond=0
                 )
@@ -1897,7 +1897,7 @@ class LeaderboardService:
             for r in cost_results:
                 local_time = r.created_at.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
                 bucket_time = local_time.replace(
-                    minute=(local_time.minute // 5) * 5,
+                    minute=0,
                     second=0,
                     microsecond=0
                 )
@@ -1930,7 +1930,7 @@ class LeaderboardService:
                     timestamp=current.isoformat(),
                     engineers=engineers_list,
                 ))
-                current += timedelta(minutes=5)
+                current += timedelta(hours=1)
 
         else:
             # Use database truncation for daily/weekly/monthly

@@ -357,8 +357,8 @@ export function EngineerPage() {
       return response.data
     },
     enabled: !!engineerId,
-    // Poll for live data when viewing hourly or today's data
-    refetchInterval: (timeSeriesPeriod === 'hourly' || timeSeriesIsToday) ? 10_000 : false,
+    // Poll for live data when viewing today's data
+    refetchInterval: timeSeriesIsToday ? 10_000 : false,
   })
 
   // Build time series chart data
@@ -374,7 +374,7 @@ export function EngineerPage() {
       let label: string
       const timestamp = new Date(t.timestamp)
       if (timeSeriesPeriod === 'hourly') {
-        label = format(timestamp, 'h:mm a')
+        label = format(timestamp, 'h a')
       } else if (timeSeriesPeriod === 'daily') {
         label = format(timestamp, 'MMM d')
       } else if (timeSeriesPeriod === 'weekly') {
@@ -488,7 +488,7 @@ export function EngineerPage() {
           {/* Period Tabs */}
           <Tabs value={timeSeriesPeriod} onValueChange={(v) => setTimeSeriesPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="hourly" className="text-xs">Live</TabsTrigger>
+              <TabsTrigger value="hourly" className="text-xs">Hourly</TabsTrigger>
               <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
               <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
               <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
@@ -512,7 +512,7 @@ export function EngineerPage() {
                     fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    interval={11}
+                    interval={3}
                   />
                   <YAxis
                     fontSize={12}

@@ -15,17 +15,18 @@ from sqlalchemy import func
 from src.app.usage.models import Usage
 from src.app.usage.service import UsageService
 from src.network.database import db
-from src.setup import setup
+from src.setup import run as setup
 
 
 def get_date_range_with_unrolled_usage() -> tuple[date | None, date | None]:
     """Find the min and max dates that have unrolled Usage records."""
-    result = db.session.query(
-        func.min(func.date(Usage.created_at)),
-        func.max(func.date(Usage.created_at)),
-    ).filter(Usage.rolled_up_at.is_(None)).one()
+    with db():
+        result = db.session.query(
+            func.min(func.date(Usage.created_at)),
+            func.max(func.date(Usage.created_at)),
+        ).filter(Usage.rolled_up_at.is_(None)).one()
 
-    return result[0], result[1]
+        return result[0], result[1]
 
 
 def backfill_all():
@@ -47,7 +48,8 @@ def backfill_all():
     days_processed = 0
 
     while current_date <= end_date:
-        count = UsageService.rollup_daily(for_date=current_date)
+        with db():
+            count = UsageService.rollup_daily(for_date=current_date)
         if count > 0:
             logger.info(f"  {current_date}: {count} engineers rolled up")
             total_engineers += count

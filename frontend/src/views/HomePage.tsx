@@ -940,15 +940,18 @@ export function HomePage() {
                       </div>
                     )}
                   />
-                  {sortedEngineers.map((eng, idx) => (
-                    <Bar
-                      key={eng.id}
-                      dataKey={eng.id}
-                      fill={lineColors[idx % lineColors.length]}
-                      stackId="engineers"
-                      radius={idx === sortedEngineers.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
-                    />
-                  ))}
+                  {[...sortedEngineers].reverse().map((eng) => {
+                    const originalIdx = sortedEngineers.findIndex(e => e.id === eng.id)
+                    return (
+                      <Bar
+                        key={eng.id}
+                        dataKey={eng.id}
+                        fill={lineColors[originalIdx % lineColors.length]}
+                        stackId="engineers"
+                        radius={originalIdx === 0 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                      />
+                    )
+                  })}
                 </BarChart>
               </ResponsiveContainer>
             )}

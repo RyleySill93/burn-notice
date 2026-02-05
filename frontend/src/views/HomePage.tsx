@@ -509,10 +509,6 @@ export function HomePage() {
     const engineers = teamTimeSeries.engineers
     const cumulative: Record<string, number> = {}
 
-    // Debug logging
-    console.log('teamTimeSeries.engineers:', engineers)
-    console.log('teamTimeSeries.data sample:', teamTimeSeries.data.slice(-2))
-
     const data = teamTimeSeries.data.map((bucket) => {
       // Format label based on period
       let label: string
@@ -566,11 +562,6 @@ export function HomePage() {
         filteredData = data.slice(firstNonZeroIndex)
       }
     }
-
-    // Debug logging
-    console.log('Chart data sample (last 2):', filteredData.slice(-2))
-    console.log('Cumulative totals:', cumulative)
-    console.log('Sorted engineers:', sorted)
 
     return { timeSeriesChartData: filteredData, sortedEngineers: sorted }
   })()

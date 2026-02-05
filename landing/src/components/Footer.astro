@@ -1,0 +1,27 @@
+---
+const appUrl = 'https://app.burnnotice.cc';
+---
+
+<footer class="border-t border-surface-border bg-surface-bg">
+  <div class="mx-auto max-w-6xl px-6 py-12">
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+      <!-- Brand -->
+      <div class="flex items-center gap-2">
+        <img src="/flame.svg" alt="" class="w-6 h-6" />
+        <span class="font-bangers text-xl tracking-wide text-white">burn notice</span>
+      </div>
+
+      <!-- Links -->
+      <div class="flex items-center gap-6 text-sm text-neutral-400">
+        <a href={`${appUrl}/dashboard`} class="hover:text-white transition-colors">App</a>
+        <a href={`${appUrl}/signup`} class="hover:text-white transition-colors">Sign Up</a>
+        <a href="mailto:hello@burnnotice.cc" class="hover:text-white transition-colors">Contact</a>
+      </div>
+
+      <!-- Tagline -->
+      <p class="text-sm text-neutral-600">
+        Built with Claude Code, obviously.
+      </p>
+    </div>
+  </div>
+</footer>

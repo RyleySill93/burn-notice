@@ -1,0 +1,33 @@
+---
+const appUrl = 'https://app.burnnotice.cc';
+---
+
+<nav
+  class="fixed top-0 left-0 right-0 z-50 border-b border-surface-border backdrop-blur-md bg-surface-bg/80"
+>
+  <div class="mx-auto max-w-6xl px-6 flex items-center justify-between h-16">
+    <!-- Brand -->
+    <a href="/" class="flex items-center gap-2">
+      <img src="/flame.svg" alt="" class="w-7 h-7" />
+      <span class="font-bangers text-[28px] tracking-wide text-white leading-none mt-1">
+        burn notice
+      </span>
+    </a>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-4">
+      <a
+        href={`${appUrl}/login`}
+        class="text-sm text-neutral-400 hover:text-white transition-colors"
+      >
+        Sign In
+      </a>
+      <a
+        href={`${appUrl}/signup`}
+        class="inline-flex items-center px-4 py-2 rounded-lg bg-brand-orange text-white text-sm font-semibold hover:bg-orange-600 transition-colors"
+      >
+        Get Started
+      </a>
+    </div>
+  </div>
+</nav>

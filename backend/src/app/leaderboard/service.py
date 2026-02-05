@@ -2382,6 +2382,9 @@ class LeaderboardService:
             start_date_only = start_time.date()
             end_date_only = (end_time - timedelta(seconds=1)).date()  # end_time is exclusive
 
+            from loguru import logger
+            logger.info(f"Team time series query: period={period}, customer={customer_id}, start={start_date_only}, end={end_date_only}")
+
             if period == 'daily':
                 # Query UsageDaily directly - one record per engineer per day
                 results = (
@@ -2401,6 +2404,8 @@ class LeaderboardService:
                     )
                     .all()
                 )
+
+                logger.info(f"Daily query returned {len(results)} results")
 
                 for r in results:
                     bucket_time = datetime(r.date.year, r.date.month, r.date.day, tzinfo=APP_TIMEZONE)
@@ -2495,6 +2500,9 @@ class LeaderboardService:
             for eng_id in sorted(engineers_with_data)
             if eng_id in engineer_names
         ]
+
+        from loguru import logger
+        logger.info(f"Team time series response: {len(engineers)} engineers, {len(data_points)} data points, engineers_with_data={len(engineers_with_data)}")
 
         return TeamTimeSeriesResponse(
             period=period,

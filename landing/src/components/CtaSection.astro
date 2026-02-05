@@ -1,0 +1,25 @@
+---
+const appUrl = 'https://app.burnnotice.cc';
+---
+
+<section class="relative py-24 bg-surface-bg overflow-hidden">
+  <!-- Background glow -->
+  <div class="absolute inset-0 bg-radial-orange pointer-events-none"></div>
+
+  <div class="relative mx-auto max-w-6xl px-6 text-center">
+    <div class="fade-in-on-scroll">
+      <h2 class="font-bangers text-5xl sm:text-6xl tracking-wide mb-4 text-white">
+        Free while in <span class="text-brand-orange text-glow-orange">beta.</span>
+      </h2>
+      <p class="text-xl text-neutral-400 mb-8">
+        No credit card required. Set up in five minutes.
+      </p>
+      <a
+        href={`${appUrl}/signup`}
+        class="inline-flex items-center px-8 py-4 rounded-lg bg-brand-orange text-white font-semibold text-lg hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/25"
+      >
+        Get Started for Free
+      </a>
+    </div>
+  </div>
+</section>

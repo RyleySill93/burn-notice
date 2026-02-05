@@ -987,6 +987,22 @@ export function HomePage() {
                       </div>
                     )}
                   />
+                  {(() => {
+                    // DEBUG: Log right before rendering bars
+                    console.log('[ChartDebug] Rendering BarChart:', {
+                      period: timeSeriesPeriod,
+                      dataLength: timeSeriesChartData.length,
+                      engineerCount: sortedEngineers.length,
+                      barDataKeys: sortedEngineers.map(e => e.id),
+                      firstDataRow: timeSeriesChartData[0],
+                      sampleRowKeys: timeSeriesChartData[0] ? Object.keys(timeSeriesChartData[0]) : [],
+                      // Find row with data
+                      rowWithData: timeSeriesChartData.find(row =>
+                        sortedEngineers.some(e => (row[e.id] as number) > 0)
+                      )
+                    })
+                    return null
+                  })()}
                   {[...sortedEngineers].reverse().map((eng) => {
                     const originalIdx = sortedEngineers.findIndex(e => e.id === eng.id)
                     return (

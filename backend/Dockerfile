@@ -24,4 +24,4 @@ ENV PORT=8080
 EXPOSE $PORT
 
 # Default command - run migrations then start server
-CMD alembic upgrade head && uvicorn src.network.http.server:server --host 0.0.0.0 --port $PORT
+CMD alembic upgrade head && uvicorn src.network.http.launch:server --host 0.0.0.0 --port $PORT

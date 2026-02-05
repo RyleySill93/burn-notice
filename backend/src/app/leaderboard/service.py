@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func
@@ -718,9 +718,30 @@ class LeaderboardService:
 
     @staticmethod
     def _get_live_tokens_for_date_detailed(customer_id: str, for_date: date) -> tuple[int, int, int, float]:
-        """Get token breakdown (total, input, output, cost) for a date from live Usage/TelemetryEvent table."""
+        """Get token breakdown (total, input, output, cost) for a date.
+
+        Combines rolled-up UsageDaily data with unrolled Usage records to ensure
+        no data is missed regardless of rollup state.
+        """
         start_utc, end_utc = get_day_bounds_utc(for_date)
-        result = (
+
+        # 1. Get rolled-up token data from UsageDaily
+        daily_result = (
+            db.session.query(
+                func.coalesce(func.sum(UsageDaily.total_tokens), 0),
+                func.coalesce(func.sum(UsageDaily.tokens_input), 0),
+                func.coalesce(func.sum(UsageDaily.tokens_output), 0),
+            )
+            .join(Engineer, UsageDaily.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                UsageDaily.date == for_date,
+            )
+            .one()
+        )
+
+        # 2. Get unrolled token data from Usage (rolled_up_at IS NULL)
+        unrolled_result = (
             db.session.query(
                 func.coalesce(func.sum(Usage.tokens_input + Usage.tokens_output), 0),
                 func.coalesce(func.sum(Usage.tokens_input), 0),
@@ -731,10 +752,13 @@ class LeaderboardService:
                 Engineer.customer_id == customer_id,
                 Usage.created_at >= start_utc,
                 Usage.created_at < end_utc,
+                Usage.rolled_up_at.is_(None),
             )
             .one()
         )
-        # Get cost from TelemetryEvent
+
+        # 3. Get cost from TelemetryEvent for the full date range
+        # (TelemetryEvents are never marked as rolled up, so always query the full range)
         cost_result = (
             db.session.query(func.coalesce(func.sum(TelemetryEvent.cost_usd), 0.0))
             .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
@@ -745,7 +769,12 @@ class LeaderboardService:
             )
             .scalar()
         )
-        return (result[0] or 0, result[1] or 0, result[2] or 0, cost_result or 0.0)
+
+        total = (daily_result[0] or 0) + (unrolled_result[0] or 0)
+        total_input = (daily_result[1] or 0) + (unrolled_result[1] or 0)
+        total_output = (daily_result[2] or 0) + (unrolled_result[2] or 0)
+
+        return (total, total_input, total_output, cost_result or 0.0)
 
     @staticmethod
     def _get_tokens_at_this_point_detailed(customer_id: str, for_date: date) -> tuple[int, int, int, float]:

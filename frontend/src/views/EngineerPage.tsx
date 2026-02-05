@@ -574,9 +574,10 @@ export function EngineerPage() {
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
               </div>
-            ) : timeSeriesChartData.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                No data for this period
+            ) : timeSeriesChartData.length === 0 || timeSeriesChartData.every(d => d.value === 0) ? (
+              <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                <BarChart3 className="h-12 w-12 mb-2 opacity-20" />
+                <p>No data for this period</p>
               </div>
             ) : timeSeriesPeriod === 'hourly' ? (
               <ResponsiveContainer width="100%" height="100%">

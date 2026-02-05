@@ -9,8 +9,7 @@ BASE_MODULE = 'src'
 SRC_DIR = os.path.join(BASE_DIR, BASE_MODULE)
 # Used for local file storage
 TEMP_DIR = os.path.join(BASE_DIR, 'tmp')
-if not os.path.exists(TEMP_DIR):
-    os.makedirs(TEMP_DIR)
+os.makedirs(TEMP_DIR, exist_ok=True)
 
 # pdf dir
 PDF_CSS_DIR = os.path.join(SRC_DIR, 'platform/pdf/css')

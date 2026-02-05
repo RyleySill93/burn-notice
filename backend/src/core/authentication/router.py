@@ -1,6 +1,7 @@
 from typing import Any, List
 
 from fastapi import APIRouter, Body, Depends, Request, status
+from pydantic import EmailStr
 from loguru import logger
 
 from src import settings
@@ -52,7 +53,6 @@ from src.core.authentication.services.authentication_service import (
     PasswordFailsPolicyCheck,
 )
 from src.core.authorization.guards import CustomerAdminGuard
-from src.core.user import UserCreate
 
 router = APIRouter()
 
@@ -60,6 +60,10 @@ router = APIRouter()
 class EmailChallenge(BaseDomain):
     token: str
     user_id: str
+
+
+class EmailPayload(BaseDomain):
+    email: EmailStr
 
 
 class PasswordCreatePayload(BaseDomain):
@@ -151,24 +155,24 @@ def signup(
 
 @router.post('/generate-email-challenge', status_code=201)
 def generate_email_challenge(
-    user_create: UserCreate,
+    payload: EmailPayload,
     auth_service: AuthenticationService = Depends(AuthenticationService.factory),
 ) -> Any:
     """
     Send user a login magic link email
     """
     try:
-        auth_service.send_email_challenge_link(user_create.email, challenge_type=EmailChallengeTemplatesEnum.MAGIC_LINK)
+        auth_service.send_email_challenge_link(payload.email, challenge_type=EmailChallengeTemplatesEnum.MAGIC_LINK)
     except AuthUserNotFound:
         # Don't reveal if the email exists or not for security
-        logger.info(f'Magic link requested for non-existent email: {user_create.email}')
+        logger.info(f'Magic link requested for non-existent email: {payload.email}')
         # Return success anyway to prevent email enumeration
         return {'message': 'If an account exists with this email, you will receive a login link shortly.'}
 
 
 @router.post('/generate-setup-email', status_code=201)
 def generate_setup_email(
-    user_create: UserCreate,
+    payload: EmailPayload,
     auth_service: AuthenticationService = Depends(AuthenticationService.factory),
 ) -> Any:
     """
@@ -177,15 +181,15 @@ def generate_setup_email(
 
     try:
         auth_service.send_email_challenge_link(
-            user_create.email, challenge_type=EmailChallengeTemplatesEnum.PASSWORD_CREATE
+            payload.email, challenge_type=EmailChallengeTemplatesEnum.PASSWORD_CREATE
         )
     except AuthUserNotFound:
-        raise APIException(code=status.HTTP_400_BAD_REQUEST, message=f'No user found for email: {user_create.email}')
+        raise APIException(code=status.HTTP_400_BAD_REQUEST, message=f'No user found for email: {payload.email}')
 
 
 @router.post('/generate-password-reset-email', status_code=201)
 def generate_password_reset_email(
-    user_create: UserCreate,
+    payload: EmailPayload,
     auth_service: AuthenticationService = Depends(AuthenticationService.factory),
 ) -> dict:
     """
@@ -193,7 +197,7 @@ def generate_password_reset_email(
     """
     try:
         auth_service.send_email_challenge_link(
-            user_create.email, challenge_type=EmailChallengeTemplatesEnum.PASSWORD_RESET
+            payload.email, challenge_type=EmailChallengeTemplatesEnum.PASSWORD_RESET
         )
     except AuthUserNotFound:
         # Obfuscate that a user may or may not exist with this email

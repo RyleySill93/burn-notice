@@ -31,6 +31,15 @@ class RollupResponse(BaseDomain):
     engineers_processed: int
 
 
+class BackfillResponse(BaseDomain):
+    """Response for backfill operation."""
+
+    start_date: date | None
+    end_date: date | None
+    days_processed: int
+    total_engineer_days: int
+
+
 # Usage domains
 class UsageCreate(BaseDomain):
     id: Optional[NanoIdType] = Field(default_factory=lambda: NanoId.gen(abbrev=USAGE_PK_ABBREV))

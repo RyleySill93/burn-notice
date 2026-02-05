@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Header, HTTPException
 
 from src.app.engineers.service import EngineerService
-from src.app.usage.domains import RollupResponse, UsageCreateRequest, UsageRead
+from src.app.usage.domains import BackfillResponse, RollupResponse, UsageCreateRequest, UsageRead
 from src.app.usage.service import UsageService
 from src.core.authentication.dependencies import get_current_membership
 from src.core.customer.models import Customer
@@ -54,3 +54,11 @@ def run_rollup(
     count = UsageService.rollup_daily(target_date, customer_id=membership.customer_id)
 
     return RollupResponse(date=target_date, engineers_processed=count)
+
+
+@router.post('/backfill', response_model=BackfillResponse)
+def run_backfill(
+    membership: MembershipRead = Depends(get_current_membership),
+) -> BackfillResponse:
+    """Backfill all historical usage data into UsageDaily. Admin only."""
+    return UsageService.backfill_all()

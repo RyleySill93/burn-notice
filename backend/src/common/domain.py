@@ -24,7 +24,8 @@ class BaseDomain(BaseModel):
     model_config = BaseDomainConfig
 
     def to_dict(self) -> Dict[str, Any]:
-        return self.model_dump()
+        """Return dict with snake_case keys for internal use (e.g., creating SQLAlchemy models)."""
+        return self.model_dump(by_alias=False)
 
     def get_provided_fields(self) -> Dict[str, Any]:
         """

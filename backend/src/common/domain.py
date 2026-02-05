@@ -27,6 +27,10 @@ class BaseDomain(BaseModel):
         """Return dict with snake_case keys for internal use (e.g., creating SQLAlchemy models)."""
         return self.model_dump(by_alias=False)
 
+    def to_json_dict(self) -> Dict[str, Any]:
+        """Return dict with camelCase keys for JSON serialization (e.g., WebSocket messages)."""
+        return self.model_dump(by_alias=True)
+
     def get_provided_fields(self) -> Dict[str, Any]:
         """
         Return only fields that were explicitly provided in the input data.

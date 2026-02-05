@@ -119,7 +119,7 @@ class _ConnectionManager:
         Returns bool based on whether or not is has sent
         """
         try:
-            await websocket.send_json(message.to_dict())
+            await websocket.send_json(message.to_json_dict())
             logger.debug('Websocket message sent!')
             return True
         except WebSocketDisconnect:

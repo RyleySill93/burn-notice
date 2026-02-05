@@ -149,7 +149,7 @@ async def websocket_endpoint(
             channel_type=CONNECTION_CHANNEL_TYPE,
             payload={'message': reason},
         )
-        await websocket.send_json(response.to_dict())
+        await websocket.send_json(response.to_json_dict())
         await websocket.close(code=status.WS_1001_GOING_AWAY, reason=reason)
         return
     except AuthTokenInvalid:
@@ -160,7 +160,7 @@ async def websocket_endpoint(
             channel_type=CONNECTION_CHANNEL_TYPE,
             payload={'message': reason},
         )
-        await websocket.send_json(response.to_dict())
+        await websocket.send_json(response.to_json_dict())
         await websocket.close(code=status.WS_1001_GOING_AWAY, reason=reason)
         return
     except Exception:
@@ -171,7 +171,7 @@ async def websocket_endpoint(
             channel_type=CONNECTION_CHANNEL_TYPE,
             payload={'message': reason},
         )
-        await websocket.send_json(response.to_dict())
+        await websocket.send_json(response.to_json_dict())
         await websocket.close(code=status.WS_1001_GOING_AWAY, reason=reason)
         return
 

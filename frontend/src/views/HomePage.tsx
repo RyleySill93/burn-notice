@@ -579,12 +579,22 @@ export function HomePage() {
     const nonZeroRows = filteredData.filter(row =>
       engineers.some(eng => (row[eng.id] as number) > 0)
     )
+    const sampleRow = nonZeroRows[0] || filteredData[0]
+    const dataRowKeys = sampleRow ? Object.keys(sampleRow).filter(k => k !== 'label') : []
+    const engineerIds = sorted.map(e => e.id)
+    const idsMatch = dataRowKeys.length === engineerIds.length &&
+      dataRowKeys.every(k => engineerIds.includes(k))
+
     console.log('[ChartDebug] Transformed data:', {
       totalRows: filteredData.length,
       nonZeroRows: nonZeroRows.length,
-      sampleNonZeroRow: nonZeroRows[0],
-      sortedEngineers: sorted.map(e => ({ id: e.id, displayName: e.displayName })),
-      cumulative
+      sampleRow,
+      dataRowKeys,
+      engineerIds,
+      idsMatch,
+      cumulative,
+      // Check actual values in sample row
+      valuesInSampleRow: engineerIds.map(id => ({ id, value: sampleRow?.[id], type: typeof sampleRow?.[id] }))
     })
 
     return { timeSeriesChartData: filteredData, sortedEngineers: sorted }

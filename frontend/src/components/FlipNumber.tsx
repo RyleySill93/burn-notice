@@ -7,72 +7,66 @@ interface FlipDigitProps {
 }
 
 function FlipDigit({ digit, delay }: FlipDigitProps) {
-  const [currentDigit, setCurrentDigit] = useState(digit)
-  const [previousDigit, setPreviousDigit] = useState(digit)
-  const [isFlipping, setIsFlipping] = useState(false)
+  const [displayDigit, setDisplayDigit] = useState(digit)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [hasInitialized, setHasInitialized] = useState(false)
+  const prevDigitRef = useRef(digit)
 
-  useEffect(() => {
-    if (digit !== currentDigit) {
-      setPreviousDigit(currentDigit)
-      setIsFlipping(true)
-
-      const timer = setTimeout(() => {
-        setCurrentDigit(digit)
-        setIsFlipping(false)
-      }, 300) // Match animation duration
-
-      return () => clearTimeout(timer)
-    }
-  }, [digit, currentDigit])
-
-  // Initial animation on mount
-  const [hasAnimated, setHasAnimated] = useState(false)
+  // Handle initial mount animation
   useEffect(() => {
     const timer = setTimeout(() => {
-      setHasAnimated(true)
+      setHasInitialized(true)
     }, delay)
     return () => clearTimeout(timer)
   }, [delay])
+
+  // Handle digit changes after initialization
+  useEffect(() => {
+    if (hasInitialized && digit !== prevDigitRef.current) {
+      setIsAnimating(true)
+      const timer = setTimeout(() => {
+        setDisplayDigit(digit)
+        setIsAnimating(false)
+        prevDigitRef.current = digit
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [digit, hasInitialized])
+
+  // Sync display digit when it changes externally during initial render
+  useEffect(() => {
+    if (!hasInitialized) {
+      setDisplayDigit(digit)
+      prevDigitRef.current = digit
+    }
+  }, [digit, hasInitialized])
+
+  const isSymbol = digit === ',' || digit === '.' || digit === '$' || digit === 'K' || digit === 'M' || digit === '%'
 
   return (
     <span
       className={cn(
         "inline-block relative overflow-hidden",
-        "w-[0.6em] h-[1.2em]",
-        digit === ',' || digit === '.' || digit === '$' || digit === 'K' || digit === 'M' || digit === '%'
-          ? "w-[0.4em]"
-          : ""
+        "h-[1.2em]",
+        isSymbol ? "w-[0.35em]" : "w-[0.6em]"
       )}
     >
-      {/* Static background digit (shows briefly during flip) */}
-      <span
-        className="absolute inset-0 flex items-center justify-center text-inherit"
-        aria-hidden="true"
-      >
-        {previousDigit}
-      </span>
-
-      {/* Animated digit */}
+      {/* Current digit */}
       <span
         className={cn(
-          "absolute inset-0 flex items-center justify-center text-inherit",
-          "transition-transform duration-300 ease-out",
-          !hasAnimated && "translate-y-full opacity-0",
-          hasAnimated && !isFlipping && "translate-y-0 opacity-100",
-          isFlipping && "-translate-y-full opacity-0"
+          "absolute inset-0 flex items-center justify-center text-inherit transition-all duration-150 ease-out",
+          !hasInitialized && "translate-y-full opacity-0",
+          hasInitialized && !isAnimating && "translate-y-0 opacity-100",
+          isAnimating && "-translate-y-full opacity-0"
         )}
-        style={{ transitionDelay: hasAnimated ? '0ms' : `${delay}ms` }}
       >
-        {currentDigit}
+        {displayDigit}
       </span>
 
-      {/* New digit flipping in */}
-      {isFlipping && (
+      {/* New digit sliding in */}
+      {isAnimating && (
         <span
-          className={cn(
-            "absolute inset-0 flex items-center justify-center text-inherit",
-            "animate-flip-in"
-          )}
+          className="absolute inset-0 flex items-center justify-center text-inherit animate-flip-in"
         >
           {digit}
         </span>
@@ -89,24 +83,24 @@ interface FlipNumberProps {
 
 export function FlipNumber({ value, formatter, className }: FlipNumberProps) {
   const formattedValue = formatter ? formatter(value) : value.toString()
-  const prevValueRef = useRef(formattedValue)
+  const prevLengthRef = useRef(formattedValue.length)
 
-  // Pad shorter strings to match length for smooth transitions
-  const maxLen = Math.max(formattedValue.length, prevValueRef.current.length)
-  const paddedCurrent = formattedValue.padStart(maxLen, ' ')
-  const digits = paddedCurrent.split('')
+  // Pad to maintain consistent width during transitions
+  const maxLen = Math.max(formattedValue.length, prevLengthRef.current)
+  const paddedValue = formattedValue.padStart(maxLen, ' ')
+  const digits = paddedValue.split('')
 
   useEffect(() => {
-    prevValueRef.current = formattedValue
+    prevLengthRef.current = formattedValue.length
   }, [formattedValue])
 
   return (
     <span className={cn("inline-flex tabular-nums", className)}>
       {digits.map((digit, i) => (
         <FlipDigit
-          key={`${i}-${digits.length}`}
+          key={`${i}-${maxLen}`}
           digit={digit}
-          delay={i * 50} // Stagger animation
+          delay={i * 30}
         />
       ))}
     </span>

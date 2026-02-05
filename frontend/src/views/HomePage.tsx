@@ -509,6 +509,18 @@ export function HomePage() {
     const engineers = teamTimeSeries.engineers
     const cumulative: Record<string, number> = {}
 
+    // DEBUG: Log raw API response
+    console.log('[ChartDebug] Raw teamTimeSeries:', {
+      period: teamTimeSeries.period,
+      engineerCount: engineers?.length,
+      engineers: engineers?.map(e => ({ id: e.id, displayName: e.displayName })),
+      dataCount: teamTimeSeries.data?.length,
+      bucketsWithData: teamTimeSeries.data?.filter(b => b.engineers?.length > 0).map(b => ({
+        timestamp: b.timestamp,
+        engineerIds: b.engineers?.map(e => e.engineerId)
+      }))
+    })
+
     const data = teamTimeSeries.data.map((bucket) => {
       // Format label based on period
       let label: string
@@ -562,6 +574,18 @@ export function HomePage() {
         filteredData = data.slice(firstNonZeroIndex)
       }
     }
+
+    // DEBUG: Log transformed data
+    const nonZeroRows = filteredData.filter(row =>
+      engineers.some(eng => (row[eng.id] as number) > 0)
+    )
+    console.log('[ChartDebug] Transformed data:', {
+      totalRows: filteredData.length,
+      nonZeroRows: nonZeroRows.length,
+      sampleNonZeroRow: nonZeroRows[0],
+      sortedEngineers: sorted.map(e => ({ id: e.id, displayName: e.displayName })),
+      cumulative
+    })
 
     return { timeSeriesChartData: filteredData, sortedEngineers: sorted }
   })()

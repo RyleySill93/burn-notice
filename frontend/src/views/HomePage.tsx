@@ -915,11 +915,24 @@ export function HomePage() {
                     tickFormatter={(value) => formatValue(value, metric)}
                   />
                   <Tooltip
-                    formatter={(value: number, name: string) => {
-                      const engineer = sortedEngineers.find(e => e.id === name)
-                      return [formatValue(value, metric), engineer?.displayName || name]
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null
+                      // Sort by value descending (highest first)
+                      const sorted = [...payload].sort((a, b) => (b.value as number) - (a.value as number))
+                      return (
+                        <div className="bg-white border rounded-lg shadow-lg p-3">
+                          <p className="font-bold text-gray-900 mb-2">{label}</p>
+                          {sorted.map((entry) => {
+                            const engineer = sortedEngineers.find(e => e.id === entry.dataKey)
+                            return (
+                              <p key={entry.dataKey} style={{ color: entry.color }}>
+                                {engineer?.displayName || entry.dataKey} : {formatValue(entry.value as number, metric)}
+                              </p>
+                            )
+                          })}
+                        </div>
+                      )
                     }}
-                    labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
                   <Legend
                     content={() => (

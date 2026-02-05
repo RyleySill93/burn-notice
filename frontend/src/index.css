@@ -123,3 +123,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Flip number animation */
+@keyframes flip-in {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-flip-in {
+  animation: flip-in 0.3s ease-out forwards;
+}

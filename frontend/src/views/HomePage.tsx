@@ -23,6 +23,7 @@ import { useMetricToggle, type MetricType } from '@/hooks/useMetricToggle'
 import { useAuth } from '@/contexts/AuthContext'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
 import { MetricToggle } from '@/components/MetricToggle'
+import { FlipNumber } from '@/components/FlipNumber'
 
 interface PeriodStats {
   tokens: number
@@ -256,6 +257,7 @@ function StatCard({
   metric: MetricType
 }) {
   const delta = value - comparisonValue
+  const formatter = (n: number) => formatValue(n, metric)
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -263,7 +265,9 @@ function StatCard({
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{formatValue(value, metric)}</div>
+        <div className="text-2xl font-bold">
+          <FlipNumber value={value} formatter={formatter} />
+        </div>
         <div className="flex items-center justify-between mt-1">
           <ChangeIndicator change={change} delta={delta} metric={metric} />
           <span className="text-xs text-muted-foreground">{comparison}</span>
@@ -367,7 +371,13 @@ function LeaderboardTable({
               <p className={cn(
                 'text-xs',
                 index <= 2 ? 'text-gray-600' : 'text-muted-foreground'
-              )}>{formatValue(getMetricValue(entry, metric), metric)}{getMetricUnit(metric)}</p>
+              )}>
+                <FlipNumber
+                  value={getMetricValue(entry, metric)}
+                  formatter={(n) => formatValue(n, metric)}
+                />
+                {getMetricUnit(metric)}
+              </p>
             </div>
           </div>
           <RankChangeIndicator change={entry.rankChange} />
@@ -492,12 +502,15 @@ export function HomePage() {
       }
     })
 
-    // Filter out leading zeros (only for hourly view)
+    // Filter out leading zeros and trim last incomplete bucket (only for hourly view)
     if (aggPeriod === 'hourly') {
       const firstNonZeroIndex = allData.findIndex(d => d.value > 0)
-      if (firstNonZeroIndex > 0) {
-        return allData.slice(firstNonZeroIndex)
+      let filtered = firstNonZeroIndex > 0 ? allData.slice(firstNonZeroIndex) : allData
+      // Trim last bucket if it's incomplete (within last 10 minutes)
+      if (filtered.length > 1) {
+        filtered = filtered.slice(0, -1)
       }
+      return filtered
     }
     return allData
   })()
@@ -508,18 +521,6 @@ export function HomePage() {
 
     const engineers = teamTimeSeries.engineers
     const cumulative: Record<string, number> = {}
-
-    // DEBUG: Log raw API response
-    console.log('[ChartDebug] Raw teamTimeSeries:', {
-      period: teamTimeSeries.period,
-      engineerCount: engineers?.length,
-      engineers: engineers?.map(e => ({ id: e.id, displayName: e.displayName })),
-      dataCount: teamTimeSeries.data?.length,
-      bucketsWithData: teamTimeSeries.data?.filter(b => b.engineers?.length > 0).map(b => ({
-        timestamp: b.timestamp,
-        engineerIds: b.engineers?.map(e => e.engineerId)
-      }))
-    })
 
     const data = teamTimeSeries.data.map((bucket) => {
       // Format label based on period
@@ -573,29 +574,12 @@ export function HomePage() {
       if (firstNonZeroIndex > 0) {
         filteredData = data.slice(firstNonZeroIndex)
       }
+      // Also trim the last bucket if it's incomplete (within last 10 minutes)
+      // This prevents showing a misleading drop-off
+      if (filteredData.length > 1) {
+        filteredData = filteredData.slice(0, -1)
+      }
     }
-
-    // DEBUG: Log transformed data
-    const nonZeroRows = filteredData.filter(row =>
-      engineers.some(eng => (row[eng.id] as number) > 0)
-    )
-    const sampleRow = nonZeroRows[0] || filteredData[0]
-    const dataRowKeys = sampleRow ? Object.keys(sampleRow).filter(k => k !== 'label') : []
-    const engineerIds = sorted.map(e => e.id)
-    const idsMatch = dataRowKeys.length === engineerIds.length &&
-      dataRowKeys.every(k => engineerIds.includes(k))
-
-    console.log('[ChartDebug] Transformed data:', {
-      totalRows: filteredData.length,
-      nonZeroRows: nonZeroRows.length,
-      sampleRow,
-      dataRowKeys,
-      engineerIds,
-      idsMatch,
-      cumulative,
-      // Check actual values in sample row
-      valuesInSampleRow: engineerIds.map(id => ({ id, value: sampleRow?.[id], type: typeof sampleRow?.[id] }))
-    })
 
     return { timeSeriesChartData: filteredData, sortedEngineers: sorted }
   })()
@@ -953,17 +937,24 @@ export function HomePage() {
                       if (!active || !payload?.length) return null
                       // Sort by value descending (highest first)
                       const sorted = [...payload].sort((a, b) => (b.value as number) - (a.value as number))
+                      // Calculate total for percentage
+                      const total = sorted.reduce((sum, entry) => sum + (entry.value as number), 0)
                       return (
                         <div className="bg-white border rounded-lg shadow-lg p-3">
                           <p className="font-bold text-gray-900 mb-2">{label}</p>
                           {sorted.map((entry) => {
                             const engineer = sortedEngineers.find(e => e.id === entry.dataKey)
+                            const value = entry.value as number
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(0) : 0
                             return (
                               <p key={entry.dataKey} style={{ color: entry.color }}>
-                                {engineer?.displayName || entry.dataKey} : {formatValue(entry.value as number, metric)}
+                                {engineer?.displayName || entry.dataKey}: {formatValue(value, metric)} ({percentage}%)
                               </p>
                             )
                           })}
+                          <p className="font-medium text-gray-700 mt-2 pt-2 border-t">
+                            Total: {formatValue(total, metric)}
+                          </p>
                         </div>
                       )
                     }}
@@ -987,30 +978,18 @@ export function HomePage() {
                       </div>
                     )}
                   />
-                  {(() => {
-                    // DEBUG: Log right before rendering bars
-                    console.log('[ChartDebug] Rendering BarChart:', {
-                      period: timeSeriesPeriod,
-                      dataLength: timeSeriesChartData.length,
-                      engineerCount: sortedEngineers.length,
-                      barDataKeys: sortedEngineers.map(e => e.id),
-                      firstDataRow: timeSeriesChartData[0],
-                      sampleRowKeys: timeSeriesChartData[0] ? Object.keys(timeSeriesChartData[0]) : [],
-                      // Find row with data
-                      rowWithData: timeSeriesChartData.find(row =>
-                        sortedEngineers.some(e => (row[e.id] as number) > 0)
-                      )
-                    })
-                    return null
-                  })()}
-                  {sortedEngineers.map((eng, idx) => (
-                    <Bar
-                      key={eng.id}
-                      dataKey={eng.id}
-                      fill={lineColors[idx % lineColors.length]}
-                      stackId="engineers"
-                    />
-                  ))}
+                  {[...sortedEngineers].reverse().map((eng) => {
+                    const originalIdx = sortedEngineers.findIndex(e => e.id === eng.id)
+                    return (
+                      <Bar
+                        key={eng.id}
+                        dataKey={eng.id}
+                        fill={lineColors[originalIdx % lineColors.length]}
+                        stackId="engineers"
+                        radius={originalIdx === 0 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                      />
+                    )
+                  })}
                 </BarChart>
               </ResponsiveContainer>
             )}

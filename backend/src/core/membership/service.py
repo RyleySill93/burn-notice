@@ -102,6 +102,7 @@ class MembershipService:
 
     def list_memberships_with_users_for_customer(self, customer_id: NanoIdType) -> List[MembershipWithUser]:
         """List memberships with related user data for a customer (team members)"""
+        from src.app.engineers.models import Engineer
         from src.core.user import UserService
 
         memberships = self.list_memberships_for_customer(customer_id)
@@ -109,11 +110,15 @@ class MembershipService:
         user_service = UserService.factory()
 
         for membership in memberships:
-            membership_with_user = MembershipWithUser(**membership.model_dump(), user=None)
+            membership_with_user = MembershipWithUser(**membership.model_dump(), user=None, engineer_id=None)
             if membership.user_id:
                 user = user_service.get_user_for_id(membership.user_id)
                 if user:
                     membership_with_user.user = user
+                    # Look up engineer by user email (external_id)
+                    engineer = Engineer.get_or_none(customer_id=customer_id, external_id=user.email)
+                    if engineer:
+                        membership_with_user.engineer_id = engineer.id
             result.append(membership_with_user)
 
         return result

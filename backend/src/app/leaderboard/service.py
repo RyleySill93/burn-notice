@@ -2126,53 +2126,71 @@ class LeaderboardService:
                 current += timedelta(minutes=10)
 
         else:
-            # Use database truncation for hourly/daily buckets
-            results = (
-                db.session.query(
-                    func.date_trunc(trunc_interval, Usage.created_at).label('bucket'),
-                    func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
-                    func.sum(Usage.tokens_input).label('tokens_input'),
-                    func.sum(Usage.tokens_output).label('tokens_output'),
-                )
-                .filter(
-                    Usage.engineer_id == engineer_id,
-                    Usage.created_at >= start_utc,
-                    Usage.created_at <= end_utc,
-                )
-                .group_by(func.date_trunc(trunc_interval, Usage.created_at))
-                .order_by(func.date_trunc(trunc_interval, Usage.created_at))
-                .all()
-            )
+            # Use UsageDaily for daily/weekly/monthly views (rolled-up data)
+            start_date_only = start_time.date()
+            end_date_only = (end_time - timedelta(seconds=1)).date()  # end_time is exclusive
 
-            cost_results = (
-                db.session.query(
-                    func.date_trunc(trunc_interval, TelemetryEvent.created_at).label('bucket'),
-                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
-                )
-                .filter(
-                    TelemetryEvent.engineer_id == engineer_id,
-                    TelemetryEvent.created_at >= start_utc,
-                    TelemetryEvent.created_at <= end_utc,
-                )
-                .group_by(func.date_trunc(trunc_interval, TelemetryEvent.created_at))
-                .all()
-            )
+            data_by_bucket: dict[datetime, tuple[int, int, int]] = {}
+            cost_by_bucket: dict[datetime, float] = {}
 
-            # Build dicts keyed by UTC bucket time
-            data_by_bucket = {}
-            for r in results:
-                data_by_bucket[r.bucket] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0)
+            if period == 'daily':
+                # Query UsageDaily directly
+                results = (
+                    db.session.query(
+                        UsageDaily.date,
+                        UsageDaily.total_tokens.label('tokens'),
+                        UsageDaily.tokens_input,
+                        UsageDaily.tokens_output,
+                        UsageDaily.cost_usd,
+                    )
+                    .filter(
+                        UsageDaily.engineer_id == engineer_id,
+                        UsageDaily.date >= start_date_only,
+                        UsageDaily.date <= end_date_only,
+                    )
+                    .all()
+                )
 
-            cost_by_bucket = {r.bucket: r.cost_usd or 0.0 for r in cost_results}
+                for r in results:
+                    bucket_time = datetime(r.date.year, r.date.month, r.date.day, tzinfo=APP_TIMEZONE)
+                    data_by_bucket[bucket_time] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0)
+                    cost_by_bucket[bucket_time] = r.cost_usd or 0.0
+
+            else:
+                # Weekly/monthly: aggregate UsageDaily records
+                results = (
+                    db.session.query(
+                        func.date_trunc(trunc_interval, UsageDaily.date).label('bucket'),
+                        func.sum(UsageDaily.total_tokens).label('tokens'),
+                        func.sum(UsageDaily.tokens_input).label('tokens_input'),
+                        func.sum(UsageDaily.tokens_output).label('tokens_output'),
+                        func.sum(UsageDaily.cost_usd).label('cost_usd'),
+                    )
+                    .filter(
+                        UsageDaily.engineer_id == engineer_id,
+                        UsageDaily.date >= start_date_only,
+                        UsageDaily.date <= end_date_only,
+                    )
+                    .group_by(func.date_trunc(trunc_interval, UsageDaily.date))
+                    .order_by(func.date_trunc(trunc_interval, UsageDaily.date))
+                    .all()
+                )
+
+                for r in results:
+                    if isinstance(r.bucket, datetime):
+                        bucket_time = r.bucket.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                    else:
+                        bucket_time = datetime(r.bucket.year, r.bucket.month, r.bucket.day, tzinfo=APP_TIMEZONE)
+                    data_by_bucket[bucket_time] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0)
+                    cost_by_bucket[bucket_time] = r.cost_usd or 0.0
 
             # Build complete list with zeros for missing buckets
             data_points = []
             current = start_time
 
             while current < end_time:
-                current_utc = current.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
-                data = data_by_bucket.get(current_utc, (0, 0, 0))
-                cost = cost_by_bucket.get(current_utc, 0.0)
+                data = data_by_bucket.get(current, (0, 0, 0))
+                cost = cost_by_bucket.get(current, 0.0)
                 data_points.append(
                     TimeSeriesDataPoint(
                         timestamp=current.isoformat(),
@@ -2357,73 +2375,87 @@ class LeaderboardService:
                 current += timedelta(minutes=10)
 
         else:
-            # Use database truncation for daily/weekly/monthly
-            trunc_interval = 'day' if period == 'daily' else 'week' if period == 'weekly' else 'month'
+            # Use UsageDaily for daily/weekly/monthly views (rolled-up data)
+            start_date_only = start_time.date()
+            end_date_only = (end_time - timedelta(seconds=1)).date()  # end_time is exclusive
 
-            results = (
-                db.session.query(
-                    Usage.engineer_id,
-                    func.date_trunc(trunc_interval, Usage.created_at).label('bucket'),
-                    func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
-                    func.sum(Usage.tokens_input).label('tokens_input'),
-                    func.sum(Usage.tokens_output).label('tokens_output'),
+            if period == 'daily':
+                # Query UsageDaily directly - one record per engineer per day
+                results = (
+                    db.session.query(
+                        UsageDaily.engineer_id,
+                        UsageDaily.date,
+                        UsageDaily.total_tokens.label('tokens'),
+                        UsageDaily.tokens_input,
+                        UsageDaily.tokens_output,
+                        UsageDaily.cost_usd,
+                    )
+                    .join(Engineer, UsageDaily.engineer_id == Engineer.id)
+                    .filter(
+                        Engineer.customer_id == customer_id,
+                        UsageDaily.date >= start_date_only,
+                        UsageDaily.date <= end_date_only,
+                    )
+                    .all()
                 )
-                .join(Engineer, Usage.engineer_id == Engineer.id)
-                .filter(
-                    Engineer.customer_id == customer_id,
-                    Usage.created_at >= start_utc,
-                    Usage.created_at <= end_utc,
-                )
-                .group_by(Usage.engineer_id, func.date_trunc(trunc_interval, Usage.created_at))
-                .all()
-            )
 
-            cost_results = (
-                db.session.query(
-                    TelemetryEvent.engineer_id,
-                    func.date_trunc(trunc_interval, TelemetryEvent.created_at).label('bucket'),
-                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
-                )
-                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
-                .filter(
-                    Engineer.customer_id == customer_id,
-                    TelemetryEvent.created_at >= start_utc,
-                    TelemetryEvent.created_at <= end_utc,
-                )
-                .group_by(TelemetryEvent.engineer_id, func.date_trunc(trunc_interval, TelemetryEvent.created_at))
-                .all()
-            )
+                for r in results:
+                    bucket_time = datetime(r.date.year, r.date.month, r.date.day, tzinfo=APP_TIMEZONE)
+                    if bucket_time not in data_by_bucket:
+                        data_by_bucket[bucket_time] = {}
+                    data_by_bucket[bucket_time][r.engineer_id] = (
+                        r.tokens or 0,
+                        r.tokens_input or 0,
+                        r.tokens_output or 0,
+                        r.cost_usd or 0.0,
+                    )
+                    engineers_with_data.add(r.engineer_id)
 
-            # Build data structure keyed by UTC bucket time
-            for r in results:
-                if r.bucket not in data_by_bucket:
-                    data_by_bucket[r.bucket] = {}
-                data_by_bucket[r.bucket][r.engineer_id] = (
-                    r.tokens or 0,
-                    r.tokens_input or 0,
-                    r.tokens_output or 0,
-                    0.0,
-                )
-                engineers_with_data.add(r.engineer_id)
+            else:
+                # Weekly/monthly: aggregate UsageDaily records
+                trunc_interval = 'week' if period == 'weekly' else 'month'
 
-            for r in cost_results:
-                if r.bucket not in data_by_bucket:
-                    data_by_bucket[r.bucket] = {}
-                existing = data_by_bucket[r.bucket].get(r.engineer_id, (0, 0, 0, 0.0))
-                data_by_bucket[r.bucket][r.engineer_id] = (
-                    existing[0],
-                    existing[1],
-                    existing[2],
-                    r.cost_usd or 0.0,
+                results = (
+                    db.session.query(
+                        UsageDaily.engineer_id,
+                        func.date_trunc(trunc_interval, UsageDaily.date).label('bucket'),
+                        func.sum(UsageDaily.total_tokens).label('tokens'),
+                        func.sum(UsageDaily.tokens_input).label('tokens_input'),
+                        func.sum(UsageDaily.tokens_output).label('tokens_output'),
+                        func.sum(UsageDaily.cost_usd).label('cost_usd'),
+                    )
+                    .join(Engineer, UsageDaily.engineer_id == Engineer.id)
+                    .filter(
+                        Engineer.customer_id == customer_id,
+                        UsageDaily.date >= start_date_only,
+                        UsageDaily.date <= end_date_only,
+                    )
+                    .group_by(UsageDaily.engineer_id, func.date_trunc(trunc_interval, UsageDaily.date))
+                    .all()
                 )
+
+                for r in results:
+                    # Convert the truncated date back to local timezone datetime
+                    if isinstance(r.bucket, datetime):
+                        bucket_time = r.bucket.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                    else:
+                        bucket_time = datetime(r.bucket.year, r.bucket.month, r.bucket.day, tzinfo=APP_TIMEZONE)
+                    if bucket_time not in data_by_bucket:
+                        data_by_bucket[bucket_time] = {}
+                    data_by_bucket[bucket_time][r.engineer_id] = (
+                        r.tokens or 0,
+                        r.tokens_input or 0,
+                        r.tokens_output or 0,
+                        r.cost_usd or 0.0,
+                    )
+                    engineers_with_data.add(r.engineer_id)
 
             # Build complete list
             data_points = []
             current = start_time
 
             while current < end_time:
-                current_utc = current.astimezone(ZoneInfo('UTC')).replace(tzinfo=None)
-                bucket_data = data_by_bucket.get(current_utc, {})
+                bucket_data = data_by_bucket.get(current, {})
                 engineers_list = [
                     EngineerTimeSeriesData(
                         engineer_id=eng_id,

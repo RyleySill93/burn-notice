@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { UserPlus, Users, Mail, MoreHorizontal, Trash2, Send } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -144,12 +145,10 @@ export function ManageTeamPage() {
                   ? `${membership.user.firstName} ${membership.user.lastName}`
                   : null
                 const isCurrentUser = membership.userId === user?.id
+                const engineerId = (membership as MembershipWithUser & { engineerId?: string }).engineerId
 
-                return (
-                  <div
-                    key={membership.id}
-                    className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
-                  >
+                const content = (
+                  <>
                     <div className="flex items-center gap-3">
                       <Avatar>
                         <AvatarFallback>{getInitials(memberEmail)}</AvatarFallback>
@@ -171,14 +170,17 @@ export function ManageTeamPage() {
                       {!isCurrentUser && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="p-1 rounded hover:bg-muted">
+                            <button className="p-1 rounded hover:bg-muted" onClick={(e) => e.preventDefault()}>
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => handleRemoveMember(membership.id)}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleRemoveMember(membership.id)
+                              }}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Remove member
@@ -187,6 +189,23 @@ export function ManageTeamPage() {
                         </DropdownMenu>
                       )}
                     </div>
+                  </>
+                )
+
+                return engineerId ? (
+                  <Link
+                    key={membership.id}
+                    to={`/engineers/${engineerId}`}
+                    className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <div
+                    key={membership.id}
+                    className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
+                  >
+                    {content}
                   </div>
                 )
               })

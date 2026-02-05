@@ -30,11 +30,11 @@ interface PeriodStats {
   tokensInput: number
   tokensOutput: number
   costUsd: number
-  comparison_tokens: number
-  comparison_tokensInput: number
-  comparison_tokensOutput: number
-  comparison_costUsd: number
-  change_percent: number | null
+  comparisonTokens: number
+  comparisonTokensInput: number
+  comparisonTokensOutput: number
+  comparisonCostUsd: number
+  changePercent: number | null
   // GitHub metrics
   githubCommits: number
   githubAdditions: number
@@ -135,11 +135,11 @@ function getMetricValue(
 function getComparisonValue(data: PeriodStats, metric: MetricType): number {
   switch (metric) {
     case 'input':
-      return data.comparison_tokensInput
+      return data.comparisonTokensInput
     case 'output':
-      return data.comparison_tokensOutput
+      return data.comparisonTokensOutput
     case 'cost':
-      return data.comparison_costUsd || 0
+      return data.comparisonCostUsd || 0
     case 'commits':
       return data.comparisonGithubCommits ?? 0
     case 'additions':
@@ -151,7 +151,7 @@ function getComparisonValue(data: PeriodStats, metric: MetricType): number {
     case 'prs':
       return data.comparisonGithubPrsMerged ?? 0
     default:
-      return data.comparison_tokens
+      return data.comparisonTokens
   }
 }
 

@@ -39,3 +39,4 @@ class MembershipWithUser(MembershipRead):
     """Membership with associated user information"""
 
     user: UserRead | None = None
+    engineer_id: str | None = None

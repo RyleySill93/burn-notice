@@ -1,4 +1,4 @@
-import { useNavigate, useParams, Link } from 'react-router'
+import { useParams, Link } from 'react-router'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
@@ -23,7 +23,6 @@ const resetPasswordSchema = z.object({
 type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>
 
 export function ResetPasswordPage() {
-  const navigate = useNavigate()
   const { userId, token } = useParams<{ userId: string; token: string }>()
   const [passwordReset, setPasswordReset] = useState(false)
   const apiError = useApiError()
@@ -45,8 +44,8 @@ export function ResetPasswordPage() {
     // Check if we received auth tokens (auto-login after password reset)
     if (response && 'accessToken' in response && response.accessToken) {
       authService.handleAuthentication(response.accessToken, response.refreshToken)
-      navigate('/')
-      window.location.reload()
+      // Use direct navigation to avoid flash from navigate() + reload()
+      window.location.href = '/'
     } else {
       // Fallback: show success message if no tokens returned
       setPasswordReset(true)

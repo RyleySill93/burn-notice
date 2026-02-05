@@ -502,12 +502,12 @@ export function HomePage() {
       }
     })
 
-    // Filter out leading zeros and trim last incomplete bucket (only for hourly view)
-    if (aggPeriod === 'hourly') {
+    // Filter out leading zeros for hourly and daily views
+    if (aggPeriod === 'hourly' || aggPeriod === 'daily') {
       const firstNonZeroIndex = allData.findIndex(d => d.value > 0)
       let filtered = firstNonZeroIndex > 0 ? allData.slice(firstNonZeroIndex) : allData
-      // Trim last bucket if it's incomplete (within last 10 minutes)
-      if (filtered.length > 1) {
+      // Trim last bucket if it's incomplete (within last 10 minutes for hourly, or today for daily)
+      if (filtered.length > 1 && aggIsToday) {
         filtered = filtered.slice(0, -1)
       }
       return filtered
@@ -565,18 +565,17 @@ export function HomePage() {
       return bTotal - aTotal
     })
 
-    // Filter out leading zeros (only for hourly view)
+    // Filter out leading zeros for hourly and daily views
     let filteredData = data
-    if (timeSeriesPeriod === 'hourly') {
+    if (timeSeriesPeriod === 'hourly' || timeSeriesPeriod === 'daily') {
       const firstNonZeroIndex = data.findIndex(row => {
         return engineers.some(eng => (row[eng.id] as number) > 0)
       })
       if (firstNonZeroIndex > 0) {
         filteredData = data.slice(firstNonZeroIndex)
       }
-      // Also trim the last bucket if it's incomplete (within last 10 minutes)
-      // This prevents showing a misleading drop-off
-      if (filteredData.length > 1) {
+      // Trim last bucket if it's incomplete (within last 10 minutes for hourly, or today for daily)
+      if (filteredData.length > 1 && timeSeriesIsToday) {
         filteredData = filteredData.slice(0, -1)
       }
     }

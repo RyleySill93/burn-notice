@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func
@@ -779,7 +779,7 @@ class LeaderboardService:
     @staticmethod
     def _get_tokens_at_this_point_detailed(customer_id: str, for_date: date) -> tuple[int, int, int, float]:
         """Get token breakdown for a date up to the current time of day (for 'at this point' comparisons)."""
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.utcnow()
         start_utc, _ = get_day_bounds_utc(for_date)
 
         # Calculate the end time as: start of that day + time elapsed since start of today
@@ -1232,7 +1232,7 @@ class LeaderboardService:
     @staticmethod
     def _get_engineer_tokens_at_this_point_detailed(engineer_id: str, for_date: date) -> tuple[int, int, int, float]:
         """Get token breakdown for an engineer up to the current time of day (for 'at this point' comparisons)."""
-        now_utc = datetime.now(timezone.utc)
+        now_utc = datetime.utcnow()
         start_utc, _ = get_day_bounds_utc(for_date)
 
         # Calculate the end time as: start of that day + time elapsed since start of today

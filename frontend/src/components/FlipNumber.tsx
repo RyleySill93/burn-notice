@@ -41,14 +41,15 @@ function FlipDigit({ digit, delay }: FlipDigitProps) {
     }
   }, [digit, hasInitialized])
 
-  const isSymbol = digit === ',' || digit === '.' || digit === '$' || digit === 'K' || digit === 'M' || digit === '%'
+  // Narrow symbols get less width, letters like K/M need full width
+  const isNarrowSymbol = digit === ',' || digit === '.' || digit === '$'
 
   return (
     <span
       className={cn(
         "inline-block relative overflow-hidden",
         "h-[1.2em]",
-        isSymbol ? "w-[0.35em]" : "w-[0.6em]"
+        isNarrowSymbol ? "w-[0.35em]" : "w-[0.6em]"
       )}
     >
       {/* Current digit */}

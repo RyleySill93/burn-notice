@@ -2177,10 +2177,13 @@ class LeaderboardService:
                 )
 
                 for r in results:
+                    # Extract the date from the truncated timestamp and create midnight in APP_TIMEZONE
+                    # date_trunc on a date column returns a naive timestamp, not UTC
                     if isinstance(r.bucket, datetime):
-                        bucket_time = r.bucket.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                        bucket_date = r.bucket.date()
                     else:
-                        bucket_time = datetime(r.bucket.year, r.bucket.month, r.bucket.day, tzinfo=APP_TIMEZONE)
+                        bucket_date = r.bucket
+                    bucket_time = datetime(bucket_date.year, bucket_date.month, bucket_date.day, tzinfo=APP_TIMEZONE)
                     data_by_bucket[bucket_time] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0)
                     cost_by_bucket[bucket_time] = r.cost_usd or 0.0
 
@@ -2435,11 +2438,13 @@ class LeaderboardService:
                 )
 
                 for r in results:
-                    # Convert the truncated date back to local timezone datetime
+                    # Extract the date from the truncated timestamp and create midnight in APP_TIMEZONE
+                    # date_trunc on a date column returns a naive timestamp, not UTC
                     if isinstance(r.bucket, datetime):
-                        bucket_time = r.bucket.replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                        bucket_date = r.bucket.date()
                     else:
-                        bucket_time = datetime(r.bucket.year, r.bucket.month, r.bucket.day, tzinfo=APP_TIMEZONE)
+                        bucket_date = r.bucket
+                    bucket_time = datetime(bucket_date.year, bucket_date.month, bucket_date.day, tzinfo=APP_TIMEZONE)
                     if bucket_time not in data_by_bucket:
                         data_by_bucket[bucket_time] = {}
                     data_by_bucket[bucket_time][r.engineer_id] = (

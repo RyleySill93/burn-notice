@@ -815,8 +815,8 @@ class AuthenticationService:
                 token_content.jti, expiration_at=datetime.fromtimestamp(token_content.exp)
             )
             logger.info('Challenge token recorded as used', jti=str(token_content.jti))
-        except IntegrityError:
-            logger.warning('Challenge token already used', jti=str(token_content.jti))
+        except IntegrityError as e:
+            logger.warning('Challenge token already used', jti=str(token_content.jti), error=str(e))
             raise AuthChallengeTokenUsed
         return token_content
 

@@ -142,8 +142,9 @@ else:
     REDIS_PORT = config('REDIS_PORT', default=6379)
     REDIS_URL = f'redis://{REDIS_DOMAIN}:{REDIS_PORT}'
 
-FRONTEND_ORIGIN = config('FRONTEND_ORIGIN', default='http://localhost:5173')
-BACKEND_ORIGIN = config('BACKEND_ORIGIN', default='http://localhost:80')
+# Strip trailing slashes to prevent double-slash URLs in generated links
+FRONTEND_ORIGIN = config('FRONTEND_ORIGIN', default='http://localhost:5173').rstrip('/')
+BACKEND_ORIGIN = config('BACKEND_ORIGIN', default='http://localhost:80').rstrip('/')
 
 # Document Storage
 AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default='burn-notice-files')

@@ -6,6 +6,7 @@ from typing import List
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import Argon2Error
+from loguru import logger
 from sqlalchemy.exc import IntegrityError
 
 from src import settings
@@ -654,8 +655,16 @@ class AuthenticationService:
             route=authorization_route,
         )
 
+        # Use appropriate subject based on challenge type
+        subject_map = {
+            EmailChallengeTemplatesEnum.MAGIC_LINK: 'Log in to Burn Notice',
+            EmailChallengeTemplatesEnum.PASSWORD_CREATE: 'Set up your Burn Notice password',
+            EmailChallengeTemplatesEnum.PASSWORD_RESET: 'Reset your Burn Notice password',
+        }
+        subject = subject_map.get(challenge_type, 'Log in to Burn Notice')
+
         Email(
-            subject='Log in to Burn Notice',
+            subject=subject,
             recipients=[email],
             template_name=challenge_type.value,
             context={
@@ -799,12 +808,15 @@ class AuthenticationService:
             raise AuthChallengeFailed
 
         token_content = TokenContent(**decoded_token)
+        logger.info('Verifying challenge token', jti=str(token_content.jti), sub=token_content.sub)
         # Once token has been validated blacklist it
         try:
             self.challenge_token_service.record_used_challenge_token(
                 token_content.jti, expiration_at=datetime.fromtimestamp(token_content.exp)
             )
+            logger.info('Challenge token recorded as used', jti=str(token_content.jti))
         except IntegrityError:
+            logger.warning('Challenge token already used', jti=str(token_content.jti))
             raise AuthChallengeTokenUsed
         return token_content
 

@@ -10,7 +10,7 @@ Jobs:
 from apscheduler.schedulers.blocking import BlockingScheduler
 from loguru import logger
 
-from src.setup import setup
+from src.setup import run as setup
 
 
 def run_daily_rollup():

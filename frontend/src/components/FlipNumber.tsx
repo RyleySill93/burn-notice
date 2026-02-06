@@ -1,109 +1,69 @@
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
-interface FlipDigitProps {
-  digit: string
-  delay: number
-}
-
-function FlipDigit({ digit, delay }: FlipDigitProps) {
-  const [displayDigit, setDisplayDigit] = useState(digit)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [hasInitialized, setHasInitialized] = useState(false)
-  const prevDigitRef = useRef(digit)
-
-  // Handle initial mount animation
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setHasInitialized(true)
-    }, delay)
-    return () => clearTimeout(timer)
-  }, [delay])
-
-  // Handle digit changes after initialization
-  useEffect(() => {
-    if (hasInitialized && digit !== prevDigitRef.current) {
-      setIsAnimating(true)
-      const timer = setTimeout(() => {
-        setDisplayDigit(digit)
-        setIsAnimating(false)
-        prevDigitRef.current = digit
-      }, 150)
-      return () => clearTimeout(timer)
-    }
-  }, [digit, hasInitialized])
-
-  // Sync display digit when it changes externally during initial render
-  useEffect(() => {
-    if (!hasInitialized) {
-      setDisplayDigit(digit)
-      prevDigitRef.current = digit
-    }
-  }, [digit, hasInitialized])
-
-  // Narrow symbols get less width, letters like K/M need full width
-  const isNarrowSymbol = digit === ',' || digit === '.' || digit === '$'
-
-  return (
-    <span
-      className={cn(
-        "inline-block relative overflow-hidden",
-        "h-[1.2em]",
-        isNarrowSymbol ? "w-[0.35em]" : "w-[0.6em]"
-      )}
-    >
-      {/* Current digit */}
-      <span
-        className={cn(
-          "absolute inset-0 flex items-center justify-center text-inherit transition-all duration-150 ease-out",
-          !hasInitialized && "translate-y-full opacity-0",
-          hasInitialized && !isAnimating && "translate-y-0 opacity-100",
-          isAnimating && "-translate-y-full opacity-0"
-        )}
-      >
-        {displayDigit}
-      </span>
-
-      {/* New digit sliding in */}
-      {isAnimating && (
-        <span
-          className="absolute inset-0 flex items-center justify-center text-inherit animate-flip-in"
-        >
-          {digit}
-        </span>
-      )}
-    </span>
-  )
-}
-
 interface FlipNumberProps {
   value: number
   formatter?: (n: number) => string
   className?: string
+  duration?: number
 }
 
-export function FlipNumber({ value, formatter, className }: FlipNumberProps) {
-  const formattedValue = formatter ? formatter(value) : value.toString()
-  const prevLengthRef = useRef(formattedValue.length)
-
-  // Pad to maintain consistent width during transitions
-  const maxLen = Math.max(formattedValue.length, prevLengthRef.current)
-  const paddedValue = formattedValue.padStart(maxLen, ' ')
-  const digits = paddedValue.split('')
+export function FlipNumber({ value, formatter, className, duration = 500 }: FlipNumberProps) {
+  const [displayValue, setDisplayValue] = useState(value)
+  const prevValueRef = useRef(value)
+  const animationRef = useRef<number | null>(null)
 
   useEffect(() => {
-    prevLengthRef.current = formattedValue.length
-  }, [formattedValue])
+    const prevValue = prevValueRef.current
+
+    // Skip animation if value hasn't changed
+    if (prevValue === value) return
+
+    // Cancel any existing animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current)
+    }
+
+    const startTime = performance.now()
+    const startValue = prevValue
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+
+      // Ease-out cubic for smooth deceleration
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const current = startValue + (value - startValue) * eased
+
+      setDisplayValue(current)
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate)
+      } else {
+        setDisplayValue(value)
+        prevValueRef.current = value
+      }
+    }
+
+    animationRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
+    }
+  }, [value, duration])
+
+  // Update ref when animation completes or on initial render
+  useEffect(() => {
+    prevValueRef.current = value
+  }, [value])
+
+  const formattedValue = formatter ? formatter(displayValue) : Math.round(displayValue).toString()
 
   return (
-    <span className={cn("inline-flex tabular-nums", className)}>
-      {digits.map((digit, i) => (
-        <FlipDigit
-          key={`${i}-${maxLen}`}
-          digit={digit}
-          delay={i * 30}
-        />
-      ))}
+    <span className={cn("tabular-nums", className)}>
+      {formattedValue}
     </span>
   )
 }

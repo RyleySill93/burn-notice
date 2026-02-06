@@ -14,6 +14,7 @@ from sqlalchemy import func
 
 from src.app.usage.models import Usage
 from src.app.usage.service import UsageService
+from src.common import context
 from src.network.database import db
 from src.setup import run as setup
 
@@ -61,4 +62,9 @@ def backfill_all():
 
 if __name__ == "__main__":
     setup()
+    context.initialize(
+        user_type=context.AppContextUserType.MANUAL.value,
+        user_id='backfill-script',
+        breadcrumb='backfill_usage_daily',
+    )
     backfill_all()

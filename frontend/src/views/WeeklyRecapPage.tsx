@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
+import { hasFlameWarAccess } from '@/lib/flame-war-access'
 import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Crown, Medal, Award, Calendar, TrendingUp, TrendingDown, Star } from 'lucide-react'
 import { addDays, subDays, startOfWeek } from 'date-fns'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -65,8 +66,6 @@ interface WeeklyRecapData {
   prevWeekTokens: number
   prevWeekMinutes: number
 }
-
-const FLAME_WAR_USER_IDS = ['user-6yckeUKu1M9nH', 'user-pxSgASZi41Zq']
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -951,7 +950,7 @@ function WeeklyRecapContent() {
 export function WeeklyRecapPage() {
   const { user } = useAuth()
 
-  if (!user?.id || !FLAME_WAR_USER_IDS.includes(user.id)) {
+  if (!hasFlameWarAccess(user?.id)) {
     return <Navigate to="/dashboard" replace />
   }
 

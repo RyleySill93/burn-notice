@@ -27,6 +27,8 @@ import axios from '@/lib/axios-instance'
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { format, isSameDay } from 'date-fns'
 import { useMetricToggle, type MetricType } from '@/hooks/useMetricToggle'
+import { useAuth } from '@/contexts/AuthContext'
+import { hasFlameWarAccess } from '@/lib/flame-war-access'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
 import { MetricToggle } from '@/components/MetricToggle'
 
@@ -548,6 +550,8 @@ type RankingsPeriod = 'daily' | 'weekly' | 'monthly'
 
 export function EngineerPage() {
   const { engineerId } = useParams<{ engineerId: string }>()
+  const { user } = useAuth()
+  const showFlameWar = hasFlameWarAccess(user?.id)
   const [rankingsPeriod, setRankingsPeriod] = useState<RankingsPeriod>('daily')
   const [rankingsDate, setRankingsDate] = useState<Date>(new Date())
   const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('hourly')
@@ -612,7 +616,7 @@ export function EngineerPage() {
       const response = await axios.get<EngineerMedalsData>(`/api/leaderboard/engineers/${engineerId}/medals`)
       return response.data
     },
-    enabled: !!engineerId,
+    enabled: !!engineerId && showFlameWar,
   })
 
   // Build time series chart data
@@ -722,8 +726,8 @@ export function EngineerPage() {
         />
       </div>
 
-      {/* Medals & Crowns */}
-      {medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
+      {/* Medals & Crowns (Flame War users only) */}
+      {showFlameWar && medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
         <MedalsSection medalsData={medalsData} />
       )}
 

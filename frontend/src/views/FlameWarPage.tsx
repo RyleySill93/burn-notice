@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
+import { hasFlameWarAccess } from '@/lib/flame-war-access'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -325,12 +326,10 @@ function EngineerSelector({
   )
 }
 
-const FLAME_WAR_USER_IDS = ['user-6yckeUKu1M9nH', 'user-pxSgASZi41Zq']
-
 export function FlameWarPage() {
   const { user } = useAuth()
 
-  if (!user?.id || !FLAME_WAR_USER_IDS.includes(user.id)) {
+  if (!hasFlameWarAccess(user?.id)) {
     return <Navigate to="/dashboard" replace />
   }
 

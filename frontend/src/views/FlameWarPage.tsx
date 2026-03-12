@@ -15,7 +15,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Flame, Zap, Activity, BarChart3, Swords, Presentation } from 'lucide-react'
+import { Flame, Zap, Activity, BarChart3, Swords, Presentation, Award } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
@@ -487,6 +487,13 @@ function FlameWarContent() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            to="/badges"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border hover:bg-accent text-sm font-medium transition-colors"
+          >
+            <Award className="h-4 w-4" />
+            Badges
+          </Link>
           <Link
             to="/weekly-recap"
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors"

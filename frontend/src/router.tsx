@@ -16,6 +16,7 @@ import { CreateTeamPage } from "@/views/CreateTeamPage"
 import { AcceptInvitationPage } from "@/views/AcceptInvitationPage"
 import { FlameWarPage } from "@/views/FlameWarPage"
 import { WeeklyRecapPage } from "@/views/WeeklyRecapPage"
+import { BadgeDirectoryPage } from "@/views/BadgeDirectoryPage"
 
 export const router = createBrowserRouter([
   {
@@ -91,6 +92,10 @@ export const router = createBrowserRouter([
           {
             path: "weekly-recap",
             element: <WeeklyRecapPage />,
+          },
+          {
+            path: "badges",
+            element: <BadgeDirectoryPage />,
           },
         ],
       },

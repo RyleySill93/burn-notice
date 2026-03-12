@@ -44,6 +44,9 @@ interface PeriodStats {
   comparisonGithubAdditions: number
   comparisonGithubDeletions: number
   comparisonGithubPrsMerged: number
+  // Activity metrics
+  activeMinutes: number
+  comparisonActiveMinutes: number
 }
 
 interface UsageStats {
@@ -68,6 +71,8 @@ interface LeaderboardEntry {
   githubAdditions: number | null
   githubDeletions: number | null
   githubPrsMerged: number | null
+  // Activity metrics
+  activeMinutes: number
 }
 
 interface Leaderboard {
@@ -94,6 +99,8 @@ interface EngineerTimeSeriesData {
   githubAdditions: number
   githubDeletions: number
   githubPrsMerged: number
+  // Activity metrics
+  activeMinutes: number
 }
 
 interface TeamTimeSeriesBucket {
@@ -119,6 +126,7 @@ function getMetricValue(
     githubAdditions?: number | null
     githubDeletions?: number | null
     githubPrsMerged?: number | null
+    activeMinutes?: number
   },
   metric: MetricType
 ): number {
@@ -139,6 +147,8 @@ function getMetricValue(
       return (data.githubAdditions ?? 0) + (data.githubDeletions ?? 0)
     case 'prs':
       return data.githubPrsMerged ?? 0
+    case 'time':
+      return data.activeMinutes ?? 0
     default:
       return data.tokens
   }
@@ -162,6 +172,8 @@ function getComparisonValue(data: PeriodStats, metric: MetricType): number {
       return (data.comparisonGithubAdditions ?? 0) + (data.comparisonGithubDeletions ?? 0)
     case 'prs':
       return data.comparisonGithubPrsMerged ?? 0
+    case 'time':
+      return data.comparisonActiveMinutes ?? 0
     default:
       return data.comparisonTokens
   }
@@ -186,9 +198,21 @@ function formatCost(n: number): string {
   return `$${n.toFixed(2)}`
 }
 
+function formatMinutes(n: number): string {
+  if (n >= 60) {
+    const hours = Math.floor(n / 60)
+    const mins = n % 60
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  }
+  return `${n}m`
+}
+
 function formatValue(n: number, metric: MetricType): string {
   if (metric === 'cost') {
     return formatCost(n)
+  }
+  if (metric === 'time') {
+    return formatMinutes(n)
   }
   return formatTokens(n)
 }
@@ -196,6 +220,8 @@ function formatValue(n: number, metric: MetricType): string {
 function getMetricUnit(metric: MetricType): string {
   switch (metric) {
     case 'cost':
+      return ''
+    case 'time':
       return ''
     case 'commits':
       return ' commits'
@@ -649,7 +675,7 @@ export function HomePage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">
-              {metric === 'cost' ? 'Team Costs' : 'Team Token Usage'}
+              {metric === 'cost' ? 'Team Costs' : metric === 'time' ? 'Time Burning' : 'Team Token Usage'}
               {aggIsCumulative && ' (Cumulative)'}
             </CardTitle>
             <div className="flex items-center gap-4">
@@ -709,7 +735,9 @@ export function HomePage() {
                         formatValue(value, metric),
                         metric === 'cost'
                           ? (aggIsCumulative ? 'Cumulative Cost' : 'Cost')
-                          : (aggIsCumulative ? 'Cumulative Tokens' : 'Tokens')
+                          : metric === 'time'
+                            ? (aggIsCumulative ? 'Cumulative Time' : 'Time Burning')
+                            : (aggIsCumulative ? 'Cumulative Tokens' : 'Tokens')
                       ]}
                       labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                     />
@@ -746,7 +774,7 @@ export function HomePage() {
                       }}
                       labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                     />
-                    {metric === 'cost' || aggIsCumulative ? (
+                    {metric === 'cost' || metric === 'time' || aggIsCumulative ? (
                       <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />
                     ) : (
                       <>
@@ -821,7 +849,7 @@ export function HomePage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">
-            {metric === 'cost' ? 'Team Costs by Engineer' : 'Team Token Usage by Engineer'}
+            {metric === 'cost' ? 'Team Costs by Engineer' : metric === 'time' ? 'Time Burning by Engineer' : 'Team Token Usage by Engineer'}
             {isCumulative && ' (Cumulative)'}
           </CardTitle>
           <div className="flex items-center gap-4">

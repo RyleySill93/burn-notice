@@ -17,6 +17,7 @@ import {
   Minus,
   Code,
   GitPullRequest,
+  Timer,
 } from 'lucide-react'
 import { type MetricType } from '@/hooks/useMetricToggle'
 
@@ -46,7 +47,11 @@ const githubMetrics: MetricOption[] = [
   { value: 'prs', label: 'PRs Merged', icon: GitPullRequest },
 ]
 
-const allMetrics = [...tokenMetrics, ...githubMetrics]
+const activityMetrics: MetricOption[] = [
+  { value: 'time', label: 'Time Burning', icon: Timer },
+]
+
+const allMetrics = [...tokenMetrics, ...githubMetrics, ...activityMetrics]
 
 export function MetricToggle({ metric, setMetric }: MetricToggleProps) {
   const selected = allMetrics.find((o) => o.value === metric) || tokenMetrics[0]
@@ -80,6 +85,20 @@ export function MetricToggle({ metric, setMetric }: MetricToggleProps) {
         <SelectGroup>
           <SelectLabel className="text-xs text-muted-foreground px-2">GitHub Metrics</SelectLabel>
           {githubMetrics.map((option) => {
+            const OptionIcon = option.icon
+            return (
+              <SelectItem key={option.value} value={option.value}>
+                <span className="flex items-center gap-2">
+                  <OptionIcon className="h-4 w-4" />
+                  {option.label}
+                </span>
+              </SelectItem>
+            )
+          })}
+        </SelectGroup>
+        <SelectGroup>
+          <SelectLabel className="text-xs text-muted-foreground px-2">Activity Metrics</SelectLabel>
+          {activityMetrics.map((option) => {
             const OptionIcon = option.icon
             return (
               <SelectItem key={option.value} value={option.value}>

@@ -44,6 +44,9 @@ interface PeriodStats {
   comparisonGithubAdditions: number
   comparisonGithubDeletions: number
   comparisonGithubPrsMerged: number
+  // Activity metrics
+  activeMinutes: number
+  comparisonActiveMinutes: number
 }
 
 interface EngineerStats {
@@ -68,6 +71,8 @@ interface HistoricalRank {
   githubAdditions: number
   githubDeletions: number
   githubPrsMerged: number
+  // Activity metrics
+  activeMinutes: number
 }
 
 interface HistoricalRankingsResponse {
@@ -87,6 +92,8 @@ interface TimeSeriesDataPoint {
   githubAdditions: number
   githubDeletions: number
   githubPrsMerged: number
+  // Activity metrics
+  activeMinutes: number
 }
 
 interface TimeSeriesResponse {
@@ -107,6 +114,7 @@ function getMetricValue(
     githubAdditions?: number
     githubDeletions?: number
     githubPrsMerged?: number
+    activeMinutes?: number
   },
   metric: MetricType
 ): number {
@@ -127,6 +135,8 @@ function getMetricValue(
       return (data.githubAdditions ?? 0) + (data.githubDeletions ?? 0)
     case 'prs':
       return data.githubPrsMerged ?? 0
+    case 'time':
+      return data.activeMinutes ?? 0
     default:
       return data.tokens
   }
@@ -150,6 +160,8 @@ function getComparisonValue(data: PeriodStats, metric: MetricType): number {
       return (data.comparisonGithubAdditions ?? 0) + (data.comparisonGithubDeletions ?? 0)
     case 'prs':
       return data.comparisonGithubPrsMerged ?? 0
+    case 'time':
+      return data.comparisonActiveMinutes ?? 0
     default:
       return data.comparisonTokens
   }
@@ -174,9 +186,21 @@ function formatCost(n: number): string {
   return `$${n.toFixed(2)}`
 }
 
+function formatMinutes(n: number): string {
+  if (n >= 60) {
+    const hours = Math.floor(n / 60)
+    const mins = n % 60
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
+  }
+  return `${n}m`
+}
+
 function formatValue(n: number, metric: MetricType): string {
   if (metric === 'cost') {
     return formatCost(n)
+  }
+  if (metric === 'time') {
+    return formatMinutes(n)
   }
   return formatTokens(n)
 }
@@ -184,6 +208,8 @@ function formatValue(n: number, metric: MetricType): string {
 function getMetricUnit(metric: MetricType): string {
   switch (metric) {
     case 'cost':
+      return ''
+    case 'time':
       return ''
     case 'commits':
       return ' commits'
@@ -539,7 +565,7 @@ export function EngineerPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">
-            {metric === 'cost' ? 'Cost Over Time' : 'Token Usage Over Time'}
+            {metric === 'cost' ? 'Cost Over Time' : metric === 'time' ? 'Time Burning' : 'Token Usage Over Time'}
             {isCumulative && ' (Cumulative)'}
           </CardTitle>
           <div className="flex items-center gap-4">
@@ -601,7 +627,9 @@ export function EngineerPage() {
                       formatValue(value, metric),
                       metric === 'cost'
                         ? (isCumulative ? 'Cumulative Cost' : 'Cost')
-                        : (isCumulative ? 'Cumulative Tokens' : 'Tokens')
+                        : metric === 'time'
+                          ? (isCumulative ? 'Cumulative Time' : 'Time Burning')
+                          : (isCumulative ? 'Cumulative Tokens' : 'Tokens')
                     ]}
                     labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
@@ -638,7 +666,7 @@ export function EngineerPage() {
                     }}
                     labelStyle={{ fontWeight: 'bold', color: '#111827' }}
                   />
-                  {metric === 'cost' || isCumulative ? (
+                  {metric === 'cost' || metric === 'time' || isCumulative ? (
                     <Bar dataKey="value" fill="#f97316" radius={[4, 4, 0, 0]} />
                   ) : (
                     <>

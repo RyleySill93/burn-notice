@@ -3,12 +3,16 @@ import { useSearchParams } from 'react-router'
 export type MetricType =
   | 'total' | 'input' | 'output' | 'cost'  // Token metrics
   | 'commits' | 'additions' | 'deletions' | 'lines' | 'prs'  // GitHub metrics
+  | 'time'  // Activity metrics
 
-export type MetricCategory = 'tokens' | 'github'
+export type MetricCategory = 'tokens' | 'github' | 'activity'
 
 export function getMetricCategory(metric: MetricType): MetricCategory {
   if (metric === 'commits' || metric === 'additions' || metric === 'deletions' || metric === 'lines' || metric === 'prs') {
     return 'github'
+  }
+  if (metric === 'time') {
+    return 'activity'
   }
   return 'tokens'
 }

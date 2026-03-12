@@ -12,6 +12,7 @@ from src.app.leaderboard.domains import (
     TeamTimeSeriesResponse,
     TimeSeriesResponse,
     UsageStats,
+    WeeklyRecapResponse,
 )
 from src.app.leaderboard.service import LeaderboardService
 from src.core.authentication.dependencies import get_current_membership
@@ -134,6 +135,15 @@ def get_engineer_time_series(
     - monthly: 30 days ending on as_of, daily buckets
     """
     return LeaderboardService.get_engineer_time_series(engineer_id, period, as_of)
+
+
+@router.get('/weekly-recap')
+def get_weekly_recap(
+    as_of: date | None = None,
+    membership: MembershipRead = Depends(get_current_membership),
+) -> WeeklyRecapResponse:
+    """Get weekly recap data for presentation mode."""
+    return LeaderboardService.get_weekly_recap(membership.customer_id, as_of)
 
 
 @router.post('/post', response_model=PostResponse)

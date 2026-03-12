@@ -47,11 +47,14 @@ from src.app.leaderboard.domains import (
     LeaderboardEntry,
     PeriodStats,
     PostResponse,
+    RecapPodiumEntry,
+    RecapRecord,
     TeamTimeSeriesBucket,
     TeamTimeSeriesResponse,
     TimeSeriesDataPoint,
     TimeSeriesResponse,
     UsageStats,
+    WeeklyRecapResponse,
 )
 from src.app.usage.models import TelemetryEvent, Usage, UsageDaily
 from src.network.database import db
@@ -2989,3 +2992,84 @@ class LeaderboardService:
         leaderboard = LeaderboardService.get_leaderboard(customer_id, as_of)
         success = SlackService.post_leaderboard(leaderboard)
         return PostResponse(success=success, date=leaderboard.date)
+
+    @staticmethod
+    def get_weekly_recap(customer_id: str, as_of: date | None = None) -> 'WeeklyRecapResponse':
+        """Build weekly recap data for presentation mode."""
+        from src.app.records.models import Record
+
+        today = as_of or get_today()
+        # Current week Mon-Sun
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+
+        # Get weekly leaderboard entries (already sorted by tokens desc)
+        weekly_entries = LeaderboardService._get_weekly_leaderboard(customer_id, today)
+
+        # Build tokens podium (top 3)
+        tokens_podium = [
+            RecapPodiumEntry(
+                engineer_id=e.engineer_id,
+                display_name=e.display_name,
+                rank=e.rank,
+                value=float(e.tokens),
+            )
+            for e in weekly_entries[:3]
+        ]
+
+        # Build time podium (sort by active_minutes desc, take top 3)
+        time_sorted = sorted(weekly_entries, key=lambda e: e.active_minutes, reverse=True)
+        time_podium = [
+            RecapPodiumEntry(
+                engineer_id=e.engineer_id,
+                display_name=e.display_name,
+                rank=i + 1,
+                value=float(e.active_minutes),
+            )
+            for i, e in enumerate(time_sorted[:3])
+        ]
+
+        # Get records set during this week
+        week_records = (
+            db.session.query(Record)
+            .join(Engineer, Record.engineer_id == Engineer.id)
+            .filter(
+                Record.customer_id == customer_id,
+                Record.record_date >= week_start,
+                Record.record_date <= week_end,
+            )
+            .all()
+        )
+
+        # Get engineer names for records
+        engineer_names = {
+            e.id: e.display_name for e in db.session.query(Engineer).filter(Engineer.customer_id == customer_id).all()
+        }
+
+        records = [
+            RecapRecord(
+                engineer_id=r.engineer_id,
+                display_name=engineer_names.get(r.engineer_id, 'Unknown'),
+                record_type=r.record_type,
+                record_period=r.record_period,
+                record_scope=r.record_scope,
+                value=r.value,
+                previous_value=r.previous_value,
+                record_date=r.record_date,
+            )
+            for r in week_records
+        ]
+
+        # Team totals
+        team_total_tokens = sum(e.tokens for e in weekly_entries)
+        team_total_minutes = sum(e.active_minutes for e in weekly_entries)
+
+        return WeeklyRecapResponse(
+            week_start=week_start,
+            week_end=week_end,
+            tokens_podium=tokens_podium,
+            time_podium=time_podium,
+            records=records,
+            team_total_tokens=team_total_tokens,
+            team_total_minutes=team_total_minutes,
+        )

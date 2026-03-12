@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router'
+import { Navigate, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,7 +14,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Flame, Zap, Activity, BarChart3, Swords } from 'lucide-react'
+import { Flame, Zap, Activity, BarChart3, Swords, Presentation } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
@@ -487,7 +487,16 @@ function FlameWarContent() {
             <p className="text-muted-foreground text-sm">Head-to-head engineer comparison</p>
           </div>
         </div>
-        <MetricToggle metric={metric} setMetric={setMetric} />
+        <div className="flex items-center gap-3">
+          <Link
+            to="/weekly-recap"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors"
+          >
+            <Presentation className="h-4 w-4" />
+            Weekly Recap
+          </Link>
+          <MetricToggle metric={metric} setMetric={setMetric} />
+        </div>
       </div>
 
       {/* Engineer Selectors */}

@@ -15,6 +15,7 @@ import { ResetPasswordPage } from "@/views/ResetPasswordPage"
 import { CreateTeamPage } from "@/views/CreateTeamPage"
 import { AcceptInvitationPage } from "@/views/AcceptInvitationPage"
 import { FlameWarPage } from "@/views/FlameWarPage"
+import { WeeklyRecapPage } from "@/views/WeeklyRecapPage"
 
 export const router = createBrowserRouter([
   {
@@ -86,6 +87,10 @@ export const router = createBrowserRouter([
           {
             path: "flame-war",
             element: <FlameWarPage />,
+          },
+          {
+            path: "weekly-recap",
+            element: <WeeklyRecapPage />,
           },
         ],
       },

@@ -247,3 +247,37 @@ class PostResponse(BaseDomain):
 
     success: bool
     date: date
+
+
+class RecapPodiumEntry(BaseDomain):
+    """A single podium entry for the weekly recap."""
+
+    engineer_id: str
+    display_name: str
+    rank: int
+    value: float  # tokens or minutes
+
+
+class RecapRecord(BaseDomain):
+    """A record that was set during the recap period."""
+
+    engineer_id: str
+    display_name: str
+    record_type: str  # tokens, time
+    record_period: str  # daily, weekly
+    record_scope: str  # personal, company
+    value: float
+    previous_value: float | None
+    record_date: date
+
+
+class WeeklyRecapResponse(BaseDomain):
+    """Response for weekly recap presentation."""
+
+    week_start: date
+    week_end: date
+    tokens_podium: list[RecapPodiumEntry]
+    time_podium: list[RecapPodiumEntry]
+    records: list[RecapRecord]
+    team_total_tokens: int
+    team_total_minutes: int

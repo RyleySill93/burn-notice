@@ -59,6 +59,29 @@ def run_github_rollup():
     logger.info(f'GitHub rollup complete: {count} engineers processed')
 
 
+def run_record_check():
+    """Check for new records after daily rollup."""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import func
+
+    from src.app.engineers.models import Engineer
+    from src.app.records.service import RecordService
+    from src.network.database import db
+
+    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+    logger.info('Checking for new records', for_date=str(yesterday))
+
+    customer_ids = [row[0] for row in db.session.query(func.distinct(Engineer.customer_id)).all()]
+
+    total_records = 0
+    for customer_id in customer_ids:
+        new_records = RecordService.process_records_for_date(customer_id, yesterday)
+        total_records += len(new_records)
+
+    logger.info(f'Record check complete: {total_records} new records set')
+
+
 if __name__ == '__main__':
     # Initialize application (DB, etc.)
     setup()
@@ -105,11 +128,22 @@ if __name__ == '__main__':
         name='GitHub Daily Rollup',
     )
 
+    # Record check at 8:15 AM UTC (12:15 AM PST) - after daily rollup
+    scheduler.add_job(
+        run_record_check,
+        'cron',
+        hour=8,
+        minute=15,
+        id='record_check',
+        name='Record Check',
+    )
+
     logger.info('Scheduler starting with jobs:')
     logger.info('  - Daily rollup: 08:05 UTC (00:05 PST)')
     logger.info('  - Leaderboard post: 17:00 UTC (09:00 PST)')
     logger.info('  - GitHub sync: Every 2 hours')
     logger.info('  - GitHub rollup: 08:10 UTC (00:10 PST)')
+    logger.info('  - Record check: 08:15 UTC (00:15 PST)')
 
     try:
         scheduler.start()

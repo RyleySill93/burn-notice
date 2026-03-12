@@ -1,0 +1,1 @@
+RECORD_PK_ABBREV = 'rec'

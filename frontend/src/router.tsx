@@ -14,6 +14,7 @@ import { ForgotPasswordPage } from "@/views/ForgotPasswordPage"
 import { ResetPasswordPage } from "@/views/ResetPasswordPage"
 import { CreateTeamPage } from "@/views/CreateTeamPage"
 import { AcceptInvitationPage } from "@/views/AcceptInvitationPage"
+import { FlameWarPage } from "@/views/FlameWarPage"
 
 export const router = createBrowserRouter([
   {
@@ -81,6 +82,10 @@ export const router = createBrowserRouter([
           {
             path: "setup",
             element: <SetupPage />,
+          },
+          {
+            path: "flame-war",
+            element: <FlameWarPage />,
           },
         ],
       },

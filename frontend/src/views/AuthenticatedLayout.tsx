@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useNavigate, Link, useLocation } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
-import { Flame, LogOut, Check, Building2, Users, Settings, LayoutDashboard, Moon, Sun, Monitor } from 'lucide-react'
+import { Flame, LogOut, Check, Building2, Users, Settings, LayoutDashboard, Moon, Sun, Monitor, Swords } from 'lucide-react'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -49,9 +49,14 @@ export function AuthenticatedLayout() {
     ? user.email.slice(0, 2).toUpperCase()
     : 'U'
 
+  const FLAME_WAR_USER_ID = 'user-6yckeUKu1M9nH'
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/team', label: 'Team', icon: Users },
+    ...(user?.id === FLAME_WAR_USER_ID
+      ? [{ path: '/flame-war', label: 'Flame War', icon: Swords }]
+      : []),
   ]
 
   return (

@@ -110,35 +110,6 @@ def run_weekly_medals():
     logger.info(f'Weekly medals complete: {total_medals} medals awarded')
 
 
-def run_monthly_medals():
-    """Award monthly ranking medals. Runs 1st of month for previous month."""
-    from datetime import datetime, timedelta, timezone
-
-    from sqlalchemy import func
-
-    from src.app.engineers.models import Engineer
-    from src.app.medals.enums import PeriodType
-    from src.app.medals.service import MedalService
-    from src.network.database import db
-
-    yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date()
-    today = yesterday + timedelta(days=1)
-    # Only run if today is the 1st (yesterday was last day of month)
-    if today.day != 1:
-        logger.info('Skipping monthly medals - today is not the 1st')
-        return
-
-    logger.info('Awarding monthly medals', for_date=str(yesterday))
-    customer_ids = [row[0] for row in db.session.query(func.distinct(Engineer.customer_id)).all()]
-
-    total_medals = 0
-    for customer_id in customer_ids:
-        new_medals = MedalService.process_medals_for_period(customer_id, PeriodType.MONTHLY, yesterday)
-        total_medals += len(new_medals)
-
-    logger.info(f'Monthly medals complete: {total_medals} medals awarded')
-
-
 def run_milestone_check():
     """Check all engineers for milestone medals. Runs daily after rollup."""
     from sqlalchemy import func
@@ -224,22 +195,12 @@ if __name__ == '__main__':
         name='Weekly Medal Awards',
     )
 
-    # Monthly medals at 8:25 AM UTC (12:25 AM PST) - runs daily but only acts on 1st of month
-    scheduler.add_job(
-        run_monthly_medals,
-        'cron',
-        hour=8,
-        minute=25,
-        id='monthly_medals',
-        name='Monthly Medal Awards',
-    )
-
-    # Milestone check at 8:30 AM UTC (12:30 AM PST) - after daily rollup
+    # Milestone check at 8:25 AM UTC (12:25 AM PST) - after daily rollup
     scheduler.add_job(
         run_milestone_check,
         'cron',
         hour=8,
-        minute=30,
+        minute=25,
         id='milestone_check',
         name='Milestone Medal Check',
     )
@@ -251,8 +212,7 @@ if __name__ == '__main__':
     logger.info('  - GitHub rollup: 08:10 UTC (00:10 PST)')
     logger.info('  - Record check: 08:15 UTC (00:15 PST)')
     logger.info('  - Weekly medals: 08:20 UTC (00:20 PST)')
-    logger.info('  - Monthly medals: 08:25 UTC (00:25 PST)')
-    logger.info('  - Milestone check: 08:30 UTC (00:30 PST)')
+    logger.info('  - Milestone check: 08:25 UTC (00:25 PST)')
 
     try:
         scheduler.start()

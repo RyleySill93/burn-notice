@@ -3065,8 +3065,6 @@ class LeaderboardService:
 
         # Check which crowns this engineer holds
         crown_combos = [
-            ('daily_tokens', RecordType.TOKENS, RecordPeriod.DAILY),
-            ('daily_time', RecordType.TIME, RecordPeriod.DAILY),
             ('weekly_tokens', RecordType.TOKENS, RecordPeriod.WEEKLY),
             ('weekly_time', RecordType.TIME, RecordPeriod.WEEKLY),
         ]
@@ -3175,8 +3173,6 @@ class LeaderboardService:
 
         # --- Crowns: only NEW company records set during this week ---
         crown_combos = [
-            ('daily_tokens', RecordType.TOKENS, RecordPeriod.DAILY),
-            ('daily_time', RecordType.TIME, RecordPeriod.DAILY),
             ('weekly_tokens', RecordType.TOKENS, RecordPeriod.WEEKLY),
             ('weekly_time', RecordType.TIME, RecordPeriod.WEEKLY),
         ]

@@ -185,8 +185,6 @@ class MedalService:
         if period_type == PeriodType.WEEKLY:
             # Week is Mon-Sun, period_end is Sunday
             period_start = period_end - timedelta(days=6)
-        elif period_type == PeriodType.MONTHLY:
-            period_start = period_end.replace(day=1)
         else:
             return []
 
@@ -280,7 +278,7 @@ class MedalService:
 
     @staticmethod
     def backfill_medals(customer_id: str) -> dict:
-        """Iterate historical weeks/months, award ranking medals; check milestones for all engineers."""
+        """Iterate historical weeks, award ranking medals; check milestones for all engineers."""
         engineers = db.session.query(Engineer).filter(Engineer.customer_id == customer_id).all()
 
         # Find date range from UsageDaily
@@ -298,11 +296,10 @@ class MedalService:
         )
 
         if not min_date or not max_date:
-            return {'weeks_processed': 0, 'months_processed': 0, 'medals_created': 0}
+            return {'weeks_processed': 0, 'medals_created': 0}
 
         medals_created = 0
         weeks_processed = 0
-        months_processed = 0
 
         # Find first Monday on or before min_date
         first_monday = min_date - timedelta(days=min_date.weekday())
@@ -318,25 +315,6 @@ class MedalService:
             weeks_processed += 1
             current_monday += timedelta(days=7)
 
-        # Process complete months
-        current_month_start = min_date.replace(day=1)
-        while current_month_start <= max_date:
-            # Find last day of month
-            if current_month_start.month == 12:
-                next_month = current_month_start.replace(year=current_month_start.year + 1, month=1)
-            else:
-                next_month = current_month_start.replace(month=current_month_start.month + 1)
-            month_end = next_month - timedelta(days=1)
-
-            if month_end <= max_date:
-                new_medals = MedalService.award_ranking_medals(
-                    customer_id, PeriodType.MONTHLY, current_month_start, month_end
-                )
-                medals_created += len(new_medals)
-                months_processed += 1
-
-            current_month_start = next_month
-
         # Check milestones for all engineers
         for engineer in engineers:
             new_medals = MedalService.check_milestone_medals(customer_id, engineer.id)
@@ -346,11 +324,9 @@ class MedalService:
             'Medal backfill complete',
             customer_id=customer_id,
             weeks_processed=weeks_processed,
-            months_processed=months_processed,
             medals_created=medals_created,
         )
         return {
             'weeks_processed': weeks_processed,
-            'months_processed': months_processed,
             'medals_created': medals_created,
         }

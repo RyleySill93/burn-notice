@@ -278,20 +278,14 @@ function CrownsSlide({ crowns }: { crowns: CrownHolder[] }) {
   }, [])
 
   const crownLabels: Record<string, string> = {
-    daily_tokens: 'Daily Tokens',
-    daily_time: 'Daily Time',
-    weekly_tokens: 'Weekly Tokens',
-    weekly_time: 'Weekly Time',
+    weekly_tokens: 'Tokens',
+    weekly_time: 'Time',
   }
   const crownIcons: Record<string, typeof Zap> = {
-    daily_tokens: Zap,
-    daily_time: Clock,
     weekly_tokens: Zap,
     weekly_time: Clock,
   }
   const crownFormatters: Record<string, (v: number) => string> = {
-    daily_tokens: formatNumber,
-    daily_time: formatMinutes,
     weekly_tokens: formatNumber,
     weekly_time: formatMinutes,
   }

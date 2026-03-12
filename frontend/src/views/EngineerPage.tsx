@@ -38,6 +38,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { hasFlameWarAccess } from '@/lib/flame-war-access'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
 import { MetricToggle } from '@/components/MetricToggle'
+import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
+import type { Rank, Metric as BadgeMetric, MilestoneKind, CrownKind } from '@/components/badges'
 
 interface PeriodStats {
   tokens: number
@@ -328,537 +330,30 @@ function StatCard({
   )
 }
 
-// --- Skeuomorphic Medal Ribbon Bar ---
-
-// SVG icon paths (inline, no emoji)
-const BOLT_PATH = 'M13 2L3 14h9l-1 10 10-12h-9l1-10z'
-const CLOCK_PATH = 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 18a8 8 0 110-16 8 8 0 010 16zm.5-13H11v6l5.2 3.1.8-1.3-4.5-2.7V7z'
-const CROWN_PATH = 'M2 20h20l-2-8-4 4-4-6-4 6-4-4-2 8zm3-10l1-4 4 3 2-5 2 5 4-3 1 4'
-const HEART_PATH = 'M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z'
-const FIRE_PATH = 'M12 23c-3.6 0-8-2.4-8-8.5C4 9.3 9.6 1 12 1c0 4 4 6 4 6s-1.2 2-1.2 3c0 1 .8 2 2.2 2 2.7 0 3-2.5 3-4 0 0 2 2.2 2 6.5 0 6.1-4.4 8.5-10 8.5z'
-
-// Metallic color palettes for ranking medals
-const MEDAL_PALETTES = {
-  gold: {
-    face: ['#fde047', '#f59e0b', '#d97706'],
-    ring: ['#fbbf24', '#b45309', '#fbbf24'],
-    shine: '#fef9c3',
-    shadow: 'rgba(217, 119, 6, 0.5)',
-    text: '#78350f',
-  },
-  silver: {
-    face: ['#e2e8f0', '#94a3b8', '#64748b'],
-    ring: ['#cbd5e1', '#475569', '#cbd5e1'],
-    shine: '#f1f5f9',
-    shadow: 'rgba(100, 116, 139, 0.5)',
-    text: '#1e293b',
-  },
-  bronze: {
-    face: ['#fdba74', '#c2410c', '#9a3412'],
-    ring: ['#fb923c', '#7c2d12', '#fb923c'],
-    shine: '#fed7aa',
-    shadow: 'rgba(194, 65, 12, 0.5)',
-    text: '#431407',
-  },
-} as const
-
-type RankColor = keyof typeof MEDAL_PALETTES
-
-// Shared shimmer keyframes (injected once via style tag)
-const shimmerStyle = `
-@keyframes badge-shimmer {
-  0%, 40% { opacity: 0; }
-  50% { opacity: 0.35; }
-  60%, 100% { opacity: 0; }
-}
-@keyframes badge-pulse {
-  0%, 100% { filter: drop-shadow(0 0 3px var(--badge-glow)); }
-  50% { filter: drop-shadow(0 0 8px var(--badge-glow)); }
-}
-`
-
-function ShimmerStyles() {
-  return <style dangerouslySetInnerHTML={{ __html: shimmerStyle }} />
-}
-
-// --- Ranking Medal: circular coin with embossed ring, metric icon, count ---
-function RankingMedalBadge({
-  color,
-  metricType,
-  periodType,
-  count,
-  description,
-  index,
-}: {
-  color: RankColor
-  metricType: string
-  periodType: string
-  count: number
-  description: string
-  index: number
-}) {
-  const p = MEDAL_PALETTES[color]
-  const isTokens = metricType === 'tokens'
-  const isMonthly = periodType === 'monthly'
-  const id = `rank-${color}-${metricType}-${periodType}-${index}`
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <motion.div
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 20, delay: index * 0.05 }}
-          whileHover={{ scale: 1.2, transition: { type: 'spring', stiffness: 400, damping: 12 } }}
-          whileTap={{ scale: 0.9 }}
-          className="relative cursor-pointer select-none"
-          style={{ '--badge-glow': p.shadow } as React.CSSProperties}
-        >
-          <svg width="60" height="60" viewBox="0 0 60 60" className="drop-shadow-lg" style={{ animation: 'badge-pulse 3s ease-in-out infinite' }}>
-            <defs>
-              <radialGradient id={`${id}-face`} cx="40%" cy="35%" r="60%">
-                <stop offset="0%" stopColor={p.face[0]} />
-                <stop offset="60%" stopColor={p.face[1]} />
-                <stop offset="100%" stopColor={p.face[2]} />
-              </radialGradient>
-              <linearGradient id={`${id}-ring`} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor={p.ring[0]} />
-                <stop offset="50%" stopColor={p.ring[1]} />
-                <stop offset="100%" stopColor={p.ring[2]} />
-              </linearGradient>
-              <radialGradient id={`${id}-inner`} cx="35%" cy="30%" r="50%">
-                <stop offset="0%" stopColor={p.shine} stopOpacity="0.4" />
-                <stop offset="100%" stopColor={p.face[1]} stopOpacity="0" />
-              </radialGradient>
-              <clipPath id={`${id}-clip`}><circle cx="30" cy="30" r="27" /></clipPath>
-            </defs>
-            {/* Outer ring */}
-            <circle cx="30" cy="30" r="28" fill={`url(#${id}-ring)`} />
-            {/* Face */}
-            <circle cx="30" cy="30" r="24" fill={`url(#${id}-face)`} />
-            {/* Inner highlight */}
-            <circle cx="30" cy="30" r="24" fill={`url(#${id}-inner)`} />
-            {/* Inner bevel ring */}
-            <circle cx="30" cy="30" r="21" fill="none" stroke={p.ring[0]} strokeWidth="0.5" strokeOpacity="0.5" />
-            {/* Metric icon (small, top-right) */}
-            <g transform="translate(38, 8) scale(0.55)" fill={p.text} opacity="0.7">
-              <path d={isTokens ? BOLT_PATH : CLOCK_PATH} />
-            </g>
-            {/* Period dot: monthly = double ring at bottom */}
-            {isMonthly && (
-              <circle cx="30" cy="51" r="2.5" fill={p.ring[0]} stroke={p.ring[1]} strokeWidth="0.8" />
-            )}
-            {/* Count */}
-            <text
-              x="30"
-              y="34"
-              textAnchor="middle"
-              fontFamily="Bangers, cursive"
-              fontSize={count >= 10 ? '18' : '22'}
-              fill={p.text}
-              style={{ paintOrder: 'stroke', stroke: p.shine, strokeWidth: 1, strokeLinecap: 'round', strokeLinejoin: 'round' }}
-            >
-              {count}
-            </text>
-            {/* Shimmer overlay */}
-            <line x1="15" y1="-5" x2="45" y2="65" stroke="white" strokeWidth="8" strokeOpacity="0" clipPath={`url(#${id}-clip)`} style={{ animation: 'badge-shimmer 4s ease-in-out infinite', animationDelay: `${index * 0.3}s` }} />
-          </svg>
-        </motion.div>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-72 text-center">
-        <p className="text-sm font-medium">{description}</p>
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-// --- Crown Badge: shield shape with crown icon ---
-function CrownBadge({
-  crownType,
-  value,
-  index,
-}: {
-  crownType: string
-  value: number
-  index: number
-}) {
-  const isTokens = crownType.includes('tokens')
-  const isDaily = crownType.includes('daily')
-  const periodLabel = isDaily ? 'Daily' : 'Weekly'
-  const metricLabel = isTokens ? 'Tokens' : 'Time'
-  const valueStr = isTokens ? formatTokens(value) : formatMinutes(value)
-  const id = `crown-${crownType}-${index}`
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <motion.div
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 20, delay: index * 0.05 }}
-          whileHover={{ scale: 1.2, transition: { type: 'spring', stiffness: 400, damping: 12 } }}
-          whileTap={{ scale: 0.9 }}
-          className="relative cursor-pointer select-none"
-          style={{ '--badge-glow': 'rgba(250, 204, 21, 0.6)' } as React.CSSProperties}
-        >
-          <svg width="60" height="60" viewBox="0 0 60 60" className="drop-shadow-lg" style={{ animation: 'badge-pulse 2.5s ease-in-out infinite' }}>
-            <defs>
-              <linearGradient id={`${id}-bg`} x1="0" y1="0" x2="0.3" y2="1">
-                <stop offset="0%" stopColor="#fde047" />
-                <stop offset="40%" stopColor="#f59e0b" />
-                <stop offset="100%" stopColor="#b45309" />
-              </linearGradient>
-              <radialGradient id={`${id}-shine`} cx="35%" cy="25%" r="50%">
-                <stop offset="0%" stopColor="#fef9c3" stopOpacity="0.5" />
-                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
-              </radialGradient>
-              <clipPath id={`${id}-clip`}>
-                <path d="M30 2 L55 15 L55 40 Q55 55 30 58 Q5 55 5 40 L5 15 Z" />
-              </clipPath>
-            </defs>
-            {/* Shield shape */}
-            <path d="M30 2 L55 15 L55 40 Q55 55 30 58 Q5 55 5 40 L5 15 Z" fill={`url(#${id}-bg)`} stroke="#b45309" strokeWidth="1.5" />
-            <path d="M30 2 L55 15 L55 40 Q55 55 30 58 Q5 55 5 40 L5 15 Z" fill={`url(#${id}-shine)`} />
-            {/* Inner border */}
-            <path d="M30 6 L51 17 L51 39 Q51 51 30 54 Q9 51 9 39 L9 17 Z" fill="none" stroke="#fde047" strokeWidth="0.5" strokeOpacity="0.4" />
-            {/* Crown icon */}
-            <g transform="translate(17, 14) scale(1.1)" fill="#78350f" opacity="0.8">
-              <path d={CROWN_PATH} />
-            </g>
-            {/* Label */}
-            <text x="30" y="46" textAnchor="middle" fontFamily="Bangers, cursive" fontSize="7" fill="#78350f" letterSpacing="0.5">
-              {periodLabel.toUpperCase()}
-            </text>
-            {/* Metric icon (tiny, bottom corner) */}
-            <g transform="translate(40, 36) scale(0.4)" fill="#78350f" opacity="0.6">
-              <path d={isTokens ? BOLT_PATH : CLOCK_PATH} />
-            </g>
-            {/* Shimmer */}
-            <line x1="15" y1="-5" x2="45" y2="65" stroke="white" strokeWidth="8" strokeOpacity="0" clipPath={`url(#${id}-clip)`} style={{ animation: 'badge-shimmer 3.5s ease-in-out infinite', animationDelay: `${index * 0.2}s` }} />
-          </svg>
-        </motion.div>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-72 text-center">
-        <p className="text-sm font-medium">Company Record — {periodLabel} {metricLabel} ({valueStr})</p>
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-// --- Milestone Badge: circular badge with unique gradient per tier + icon ---
-const MILESTONE_CONFIGS: Record<string, {
-  colors: [string, string, string]
-  ring: [string, string]
-  icon: string
-  label: string
-  name: string
-  glow: string
-  descFn: (d: string) => string
-}> = {
-  // --- Token milestones (escalating warm → hot → cosmic) ---
-  token_1m: {
-    colors: ['#fde68a', '#f59e0b', '#b45309'],
-    ring: ['#fef3c7', '#92400e'],
-    icon: BOLT_PATH,
-    label: '1M',
-    name: 'Spark',
-    glow: 'rgba(245, 158, 11, 0.4)',
-    descFn: (d) => `Spark — Burned 1 million tokens — ${d}`,
-  },
-  token_10m: {
-    colors: ['#fb923c', '#ea580c', '#9a3412'],
-    ring: ['#fdba74', '#7c2d12'],
-    icon: BOLT_PATH,
-    label: '10M',
-    name: 'Ember',
-    glow: 'rgba(234, 88, 12, 0.5)',
-    descFn: (d) => `Ember — Burned 10 million tokens — ${d}`,
-  },
-  token_50m: {
-    colors: ['#f97316', '#dc2626', '#991b1b'],
-    ring: ['#fb923c', '#7f1d1d'],
-    icon: FIRE_PATH,
-    label: '50M',
-    name: 'Blaze',
-    glow: 'rgba(220, 38, 38, 0.5)',
-    descFn: (d) => `Blaze — Burned 50 million tokens — ${d}`,
-  },
-  token_100m: {
-    colors: ['#f87171', '#dc2626', '#7f1d1d'],
-    ring: ['#fca5a5', '#991b1b'],
-    icon: FIRE_PATH,
-    label: '100M',
-    name: 'Inferno',
-    glow: 'rgba(220, 38, 38, 0.6)',
-    descFn: (d) => `Inferno — Burned 100 million tokens — ${d}`,
-  },
-  token_250m: {
-    colors: ['#fb7185', '#e11d48', '#881337'],
-    ring: ['#fda4af', '#9f1239'],
-    icon: FIRE_PATH,
-    label: '250M',
-    name: 'Firestorm',
-    glow: 'rgba(225, 29, 72, 0.6)',
-    descFn: (d) => `Firestorm — Burned 250 million tokens — ${d}`,
-  },
-  token_500m: {
-    colors: ['#f472b6', '#db2777', '#831843'],
-    ring: ['#f9a8d4', '#9d174d'],
-    icon: FIRE_PATH,
-    label: '500M',
-    name: 'Supernova',
-    glow: 'rgba(219, 39, 119, 0.6)',
-    descFn: (d) => `Supernova — Burned 500 million tokens — ${d}`,
-  },
-  token_1b: {
-    colors: ['#c084fc', '#7c3aed', '#3b0764'],
-    ring: ['#d8b4fe', '#581c87'],
-    icon: FIRE_PATH,
-    label: '1B',
-    name: 'Solar Flare',
-    glow: 'rgba(124, 58, 237, 0.7)',
-    descFn: (d) => `Solar Flare — Burned ONE BILLION tokens — ${d}`,
-  },
-  token_10b: {
-    colors: ['#e879f9', '#a21caf', '#3b0764'],
-    ring: ['#f0abfc', '#581c87'],
-    icon: FIRE_PATH,
-    label: '10B',
-    name: 'Big Bang',
-    glow: 'rgba(162, 28, 175, 0.8)',
-    descFn: (d) => `Big Bang — Burned TEN BILLION tokens — ${d}`,
-  },
-  // --- Time milestones (escalating cool → deep → cosmic) ---
-  time_10h: {
-    colors: ['#a5f3fc', '#06b6d4', '#0e7490'],
-    ring: ['#cffafe', '#155e75'],
-    icon: CLOCK_PATH,
-    label: '10h',
-    name: 'Clocked In',
-    glow: 'rgba(6, 182, 212, 0.4)',
-    descFn: (d) => `Clocked In — 10 hours of active coding time — ${d}`,
-  },
-  time_100h: {
-    colors: ['#22d3ee', '#0891b2', '#164e63'],
-    ring: ['#67e8f9', '#155e75'],
-    icon: CLOCK_PATH,
-    label: '100h',
-    name: 'Grinder',
-    glow: 'rgba(8, 145, 178, 0.5)',
-    descFn: (d) => `Grinder — 100 hours of active coding time — ${d}`,
-  },
-  time_500h: {
-    colors: ['#38bdf8', '#0284c7', '#0c4a6e'],
-    ring: ['#7dd3fc', '#075985'],
-    icon: CLOCK_PATH,
-    label: '500h',
-    name: 'Marathoner',
-    glow: 'rgba(2, 132, 199, 0.5)',
-    descFn: (d) => `Marathoner — 500 hours of active coding time — ${d}`,
-  },
-  time_1000h: {
-    colors: ['#818cf8', '#4338ca', '#1e1b4b'],
-    ring: ['#a5b4fc', '#312e81'],
-    icon: CLOCK_PATH,
-    label: '1Kh',
-    name: 'Ironman',
-    glow: 'rgba(67, 56, 202, 0.5)',
-    descFn: (d) => `Ironman — 1,000 hours of active coding time — ${d}`,
-  },
-  time_2500h: {
-    colors: ['#a78bfa', '#6d28d9', '#2e1065'],
-    ring: ['#c4b5fd', '#4c1d95'],
-    icon: CLOCK_PATH,
-    label: '2.5K',
-    name: 'Centurion',
-    glow: 'rgba(109, 40, 217, 0.6)',
-    descFn: (d) => `Centurion — 2,500 hours of active coding time — ${d}`,
-  },
-  time_5000h: {
-    colors: ['#c084fc', '#9333ea', '#3b0764'],
-    ring: ['#d8b4fe', '#581c87'],
-    icon: CLOCK_PATH,
-    label: '5Kh',
-    name: 'Titan',
-    glow: 'rgba(147, 51, 234, 0.6)',
-    descFn: (d) => `Titan — 5,000 hours of active coding time — ${d}`,
-  },
-  time_10000h: {
-    colors: ['#e879f9', '#a21caf', '#4a044e'],
-    ring: ['#f0abfc', '#701a75'],
-    icon: CLOCK_PATH,
-    label: '10K',
-    name: 'Eternal',
-    glow: 'rgba(162, 28, 175, 0.7)',
-    descFn: (d) => `Eternal — 10,000 hours of active coding time — ${d}`,
-  },
-  time_25000h: {
-    colors: ['#f0abfc', '#c026d3', '#4a044e'],
-    ring: ['#f5d0fe', '#86198f'],
-    icon: CLOCK_PATH,
-    label: '25K',
-    name: 'Transcendent',
-    glow: 'rgba(192, 38, 211, 0.8)',
-    descFn: (d) => `Transcendent — 25,000 hours — You have ascended — ${d}`,
-  },
-}
-
-function MilestoneBadge({
-  medalType,
-  createdAt,
-  index,
-}: {
-  medalType: string
-  createdAt: string
-  index: number
-}) {
-  const dateStr = format(new Date(createdAt), 'MMM d, yyyy')
-  const cfg = MILESTONE_CONFIGS[medalType]
-  if (!cfg) return null
-  const id = `ms-${medalType}-${index}`
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <motion.div
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 20, delay: index * 0.05 }}
-          whileHover={{ scale: 1.2, transition: { type: 'spring', stiffness: 400, damping: 12 } }}
-          whileTap={{ scale: 0.9 }}
-          className="relative cursor-pointer select-none"
-          style={{ '--badge-glow': cfg.glow } as React.CSSProperties}
-        >
-          <svg width="60" height="60" viewBox="0 0 60 60" className="drop-shadow-lg" style={{ animation: 'badge-pulse 3s ease-in-out infinite', animationDelay: `${index * 0.4}s` }}>
-            <defs>
-              <radialGradient id={`${id}-face`} cx="40%" cy="30%" r="65%">
-                <stop offset="0%" stopColor={cfg.colors[0]} />
-                <stop offset="60%" stopColor={cfg.colors[1]} />
-                <stop offset="100%" stopColor={cfg.colors[2]} />
-              </radialGradient>
-              <linearGradient id={`${id}-ring`} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor={cfg.ring[0]} />
-                <stop offset="100%" stopColor={cfg.ring[1]} />
-              </linearGradient>
-              <radialGradient id={`${id}-shine`} cx="30%" cy="25%" r="40%">
-                <stop offset="0%" stopColor="white" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="white" stopOpacity="0" />
-              </radialGradient>
-              <clipPath id={`${id}-clip`}><circle cx="30" cy="30" r="27" /></clipPath>
-            </defs>
-            {/* Outer ring */}
-            <circle cx="30" cy="30" r="28" fill={`url(#${id}-ring)`} />
-            {/* Face */}
-            <circle cx="30" cy="30" r="24" fill={`url(#${id}-face)`} />
-            <circle cx="30" cy="30" r="24" fill={`url(#${id}-shine)`} />
-            {/* Inner bevel */}
-            <circle cx="30" cy="30" r="21" fill="none" stroke={cfg.ring[0]} strokeWidth="0.5" strokeOpacity="0.3" />
-            {/* Icon */}
-            <g transform="translate(18, 14) scale(1)" fill="white" opacity="0.9">
-              <path d={cfg.icon} />
-            </g>
-            {/* Label */}
-            <text x="30" y="48" textAnchor="middle" fontFamily="Bangers, cursive" fontSize="10" fill="white" style={{ paintOrder: 'stroke', stroke: cfg.colors[2], strokeWidth: 1.5 }}>
-              {cfg.label}
-            </text>
-            {/* Shimmer */}
-            <line x1="15" y1="-5" x2="45" y2="65" stroke="white" strokeWidth="8" strokeOpacity="0" clipPath={`url(#${id}-clip)`} style={{ animation: 'badge-shimmer 5s ease-in-out infinite', animationDelay: `${index * 0.5}s` }} />
-          </svg>
-        </motion.div>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-72 text-center">
-        <p className="text-sm font-medium">{cfg.descFn(dateStr)}</p>
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-// --- Purple Heart Badge ---
-function PurpleHeartBadge({
-  citation,
-  awardedBy,
-  createdAt,
-  index,
-}: {
-  citation: string | null
-  awardedBy: string | null
-  createdAt: string
-  index: number
-}) {
-  const dateStr = format(new Date(createdAt), 'MMM d, yyyy')
-  const id = `ph-${index}`
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <motion.div
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 500, damping: 20, delay: index * 0.05 }}
-          whileHover={{ scale: 1.2, transition: { type: 'spring', stiffness: 400, damping: 12 } }}
-          whileTap={{ scale: 0.9 }}
-          className="relative cursor-pointer select-none"
-          style={{ '--badge-glow': 'rgba(147, 51, 234, 0.6)' } as React.CSSProperties}
-        >
-          <svg width="60" height="60" viewBox="0 0 60 60" className="drop-shadow-lg" style={{ animation: 'badge-pulse 3s ease-in-out infinite', animationDelay: `${index * 0.3}s` }}>
-            <defs>
-              <radialGradient id={`${id}-face`} cx="40%" cy="30%" r="65%">
-                <stop offset="0%" stopColor="#c084fc" />
-                <stop offset="50%" stopColor="#7c3aed" />
-                <stop offset="100%" stopColor="#3b0764" />
-              </radialGradient>
-              <linearGradient id={`${id}-ring`} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#d8b4fe" />
-                <stop offset="100%" stopColor="#581c87" />
-              </linearGradient>
-              <radialGradient id={`${id}-shine`} cx="30%" cy="25%" r="40%">
-                <stop offset="0%" stopColor="white" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="white" stopOpacity="0" />
-              </radialGradient>
-              <clipPath id={`${id}-clip`}><circle cx="30" cy="30" r="27" /></clipPath>
-            </defs>
-            <circle cx="30" cy="30" r="28" fill={`url(#${id}-ring)`} />
-            <circle cx="30" cy="30" r="24" fill={`url(#${id}-face)`} />
-            <circle cx="30" cy="30" r="24" fill={`url(#${id}-shine)`} />
-            <circle cx="30" cy="30" r="21" fill="none" stroke="#d8b4fe" strokeWidth="0.5" strokeOpacity="0.3" />
-            {/* Heart */}
-            <g transform="translate(17.5, 16) scale(1.05)" fill="#e9d5ff" opacity="0.95">
-              <path d={HEART_PATH} />
-            </g>
-            {/* Shimmer */}
-            <line x1="15" y1="-5" x2="45" y2="65" stroke="white" strokeWidth="8" strokeOpacity="0" clipPath={`url(#${id}-clip)`} style={{ animation: 'badge-shimmer 4.5s ease-in-out infinite', animationDelay: `${index * 0.3}s` }} />
-          </svg>
-        </motion.div>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-72 text-center">
-        <p className="text-sm font-medium">Purple Heart — Awarded {dateStr}</p>
-        {citation && (
-          <p className="text-xs italic text-muted-foreground mt-1">"{citation}"</p>
-        )}
-        {awardedBy && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">— awarded by {awardedBy}</p>
-        )}
-      </TooltipContent>
-    </Tooltip>
-  )
-}
-
-// --- Ribbon: composes all badge types ---
+// --- Medal Ribbon Bar ---
 
 interface RankingGroup {
-  color: RankColor
-  metricType: string
-  periodType: string
+  rank: Rank
+  metric: BadgeMetric
   count: number
   description: string
+}
+
+// Milestone tooltip text builder
+function buildMilestoneTooltip(medalType: string, dateStr: string): string {
+  const cfg = MILESTONE_CONFIGS[medalType as MilestoneKind]
+  if (!cfg) return 'Achievement Unlocked'
+  const isToken = medalType.startsWith('token_')
+  const metricLabel = isToken ? 'tokens burned' : 'coding hours'
+  return `${cfg.name} — ${cfg.label} ${metricLabel} — ${dateStr}`
 }
 
 function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
   const { crowns, medals } = medalsData
 
-  // Group ranking medals by (medalType, metricType, periodType) → count
+  // Group ranking medals by (medalType, metricType) → count
   const rankingMedals = medals.filter((m) => m.medalCategory === 'ranking')
-  const groupKey = (m: EngineerMedalEntry) => `${m.medalType}|${m.metricType}|${m.periodType}`
+  const groupKey = (m: EngineerMedalEntry) => `${m.medalType}|${m.metricType}`
   const groupMap = new Map<string, EngineerMedalEntry[]>()
   for (const m of rankingMedals) {
     const key = groupKey(m)
@@ -868,29 +363,24 @@ function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
 
   const rankOrder: Record<string, number> = { gold: 0, silver: 1, bronze: 2 }
   const metricOrder: Record<string, number> = { tokens: 0, time: 1 }
-  const periodOrder: Record<string, number> = { weekly: 0, monthly: 1 }
 
   const rankingGroups: RankingGroup[] = Array.from(groupMap.entries())
     .map(([, group]) => {
       const first = group[0]
       const isTokens = first.metricType === 'tokens'
-      const periodLabel = first.periodType === 'weekly' ? 'Weekly' : 'Monthly'
-      const metricLabel = isTokens ? 'Tokens' : 'Time'
-      const rankLabel = first.medalType === 'gold' ? '1st' : first.medalType === 'silver' ? '2nd' : '3rd'
+      const metricLabel = isTokens ? 'Tokens Burned' : 'Coding Time'
+      const rankLabel = first.medalType === 'gold' ? 'Gold' : first.medalType === 'silver' ? 'Silver' : 'Bronze'
       return {
-        color: first.medalType as RankColor,
-        metricType: first.metricType,
-        periodType: first.periodType ?? 'weekly',
+        rank: first.medalType as Rank,
+        metric: first.metricType as BadgeMetric,
         count: group.length,
-        description: `${rankLabel} Place ${periodLabel} ${metricLabel} — Won ${group.length}×`,
+        description: `Weekly ${rankLabel} · ${metricLabel} · Won ${group.length} ${group.length === 1 ? 'time' : 'times'}`,
       }
     })
     .sort((a, b) => {
-      const r = (rankOrder[a.color] ?? 9) - (rankOrder[b.color] ?? 9)
+      const r = (rankOrder[a.rank] ?? 9) - (rankOrder[b.rank] ?? 9)
       if (r !== 0) return r
-      const m = (metricOrder[a.metricType] ?? 9) - (metricOrder[b.metricType] ?? 9)
-      if (m !== 0) return m
-      return (periodOrder[a.periodType] ?? 9) - (periodOrder[b.periodType] ?? 9)
+      return (metricOrder[a.metric] ?? 9) - (metricOrder[b.metric] ?? 9)
     })
 
   const actionMedals = medals.filter((m) => m.medalCategory === 'action')
@@ -899,50 +389,68 @@ function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
   const totalBadges = crowns.length + rankingGroups.length + actionMedals.length + milestoneMedals.length
   if (totalBadges === 0) return null
 
-  let badgeIndex = 0
-
   return (
-    <>
-      <ShimmerStyles />
-      <div className="flex flex-wrap gap-2 items-center">
-        {crowns.map((crown) => (
-          <CrownBadge
-            key={`crown-${crown.crownType}`}
-            crownType={crown.crownType}
-            value={crown.value}
-            index={badgeIndex++}
-          />
-        ))}
-        {rankingGroups.map((g) => (
-          <RankingMedalBadge
-            key={`rank-${g.color}-${g.metricType}-${g.periodType}`}
-            color={g.color}
-            metricType={g.metricType}
-            periodType={g.periodType}
-            count={g.count}
-            description={g.description}
-            index={badgeIndex++}
-          />
-        ))}
-        {actionMedals.map((m, i) => (
-          <PurpleHeartBadge
-            key={`action-${i}`}
-            citation={m.citation}
-            awardedBy={m.awardedByDisplayName}
-            createdAt={m.createdAt}
-            index={badgeIndex++}
-          />
-        ))}
-        {milestoneMedals.map((m, i) => (
-          <MilestoneBadge
-            key={`ms-${m.medalType}-${i}`}
-            medalType={m.medalType}
-            createdAt={m.createdAt}
-            index={badgeIndex++}
-          />
-        ))}
-      </div>
-    </>
+    <div className="flex flex-wrap gap-2 items-center">
+      {crowns.map((crown) => {
+        const crownKind = crown.crownType.replace('weekly_', '') as CrownKind
+        const isTokens = crownKind === 'tokens'
+        const valueStr = isTokens ? formatTokens(crown.value) : formatMinutes(crown.value)
+        return (
+          <Tooltip key={`crown-${crown.crownType}`}>
+            <TooltipTrigger asChild>
+              <div><CrownBadgeComponent kind={crownKind} /></div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-72 text-center">
+              <p className="text-sm font-medium">
+                Company Record · {isTokens ? 'Most Tokens Burned' : 'Most Coding Time'} ({valueStr})
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        )
+      })}
+      {rankingGroups.map((g) => (
+        <Tooltip key={`rank-${g.rank}-${g.metric}`}>
+          <TooltipTrigger asChild>
+            <div><RankingMedal rank={g.rank} metric={g.metric} count={g.count} /></div>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="max-w-72 text-center">
+            <p className="text-sm font-medium">{g.description}</p>
+          </TooltipContent>
+        </Tooltip>
+      ))}
+      {actionMedals.map((m, i) => {
+        const dateStr = format(new Date(m.createdAt), 'MMM d, yyyy')
+        return (
+          <Tooltip key={`action-${i}`}>
+            <TooltipTrigger asChild>
+              <div><PurpleHeartBadge /></div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-72 text-center">
+              <p className="text-sm font-medium">Purple Heart — Awarded {dateStr}</p>
+              {m.citation && (
+                <p className="text-xs italic text-muted-foreground mt-1">"{m.citation}"</p>
+              )}
+              {m.awardedByDisplayName && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">— awarded by {m.awardedByDisplayName}</p>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        )
+      })}
+      {milestoneMedals.map((m, i) => {
+        const dateStr = format(new Date(m.createdAt), 'MMM d, yyyy')
+        return (
+          <Tooltip key={`ms-${m.medalType}-${i}`}>
+            <TooltipTrigger asChild>
+              <div><MilestoneBadge kind={m.medalType as MilestoneKind} /></div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-72 text-center">
+              <p className="text-sm font-medium">{buildMilestoneTooltip(m.medalType, dateStr)}</p>
+            </TooltipContent>
+          </Tooltip>
+        )
+      })}
+    </div>
   )
 }
 

@@ -31,13 +31,14 @@ class RecordService:
         if record_scope == RecordScope.PERSONAL and engineer_id:
             query = query.filter(Record.engineer_id == engineer_id)
 
-        return query.order_by(Record.value.desc()).first()
+        result = query.order_by(Record.value.desc()).first()
+        return Record._to_domain(result) if result else None
 
     @staticmethod
     def get_records_for_customer(customer_id: str) -> list[RecordRead]:
         """Get all records for a customer."""
         records = db.session.query(Record).filter(Record.customer_id == customer_id).all()
-        return [r.to_domain() for r in records]
+        return [Record._to_domain(r) for r in records]
 
     @staticmethod
     def check_and_store_record(
@@ -140,7 +141,7 @@ class RecordService:
                 value=value,
                 previous_value=current_value,
             )
-            return record.to_domain()
+            return record
 
         return None
 

@@ -152,6 +152,8 @@ const FLAME_STYLES = `
     pointer-events: none;
     z-index: 0;
     overflow: hidden;
+    filter: blur(6px);
+    opacity: 0.45;
   }
 
   .af-strip {

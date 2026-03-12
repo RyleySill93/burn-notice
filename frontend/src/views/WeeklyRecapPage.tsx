@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
-import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Crown, Medal, Award } from 'lucide-react'
+import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Crown, Medal, Award, Calendar } from 'lucide-react'
+import { addDays, subDays, startOfWeek } from 'date-fns'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import axios from '@/lib/axios-instance'
@@ -437,11 +438,32 @@ function CountUp({
 function WeeklyRecapContent() {
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
+  const [asOfDate, setAsOfDate] = useState<Date>(new Date())
 
-  const { data } = useQuery<WeeklyRecapData>({
-    queryKey: ['weekly-recap'],
+  const isCurrentWeek = startOfWeek(asOfDate, { weekStartsOn: 1 }).getTime() ===
+    startOfWeek(new Date(), { weekStartsOn: 1 }).getTime()
+
+  const goToPrevWeek = useCallback(() => {
+    setAsOfDate((prev) => subDays(prev, 7))
+    setCurrentSlide(0)
+  }, [])
+
+  const goToNextWeek = useCallback(() => {
+    setAsOfDate((prev) => {
+      const next = addDays(prev, 7)
+      return next > new Date() ? new Date() : next
+    })
+    setCurrentSlide(0)
+  }, [])
+
+  const asOfStr = format(asOfDate, 'yyyy-MM-dd')
+
+  const { data, isFetching } = useQuery<WeeklyRecapData>({
+    queryKey: ['weekly-recap', asOfStr],
     queryFn: async () => {
-      const response = await axios.get<WeeklyRecapData>('/api/leaderboard/weekly-recap')
+      const response = await axios.get<WeeklyRecapData>('/api/leaderboard/weekly-recap', {
+        params: { as_of: asOfStr },
+      })
       return response.data
     },
   })
@@ -474,7 +496,7 @@ function WeeklyRecapContent() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [goNext, goPrev, navigate])
 
-  if (!data) {
+  if (!data && isFetching) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
         <div className="flex flex-col items-center gap-4">
@@ -484,6 +506,8 @@ function WeeklyRecapContent() {
       </div>
     )
   }
+
+  if (!data) return null
 
   const slides = [
     <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} />,
@@ -573,6 +597,36 @@ function WeeklyRecapContent() {
           {slides[currentSlide]}
         </motion.div>
       </AnimatePresence>
+
+      {/* Week selector */}
+      <div className="absolute top-6 left-6 z-10 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={goToPrevWeek}
+          className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground px-2">
+          <Calendar className="h-3.5 w-3.5" />
+          {data ? (
+            <span>
+              {format(new Date(data.weekStart), 'MMM d')} - {format(new Date(data.weekEnd), 'MMM d')}
+            </span>
+          ) : (
+            <span>Loading...</span>
+          )}
+        </div>
+        <button
+          onClick={goToNextWeek}
+          disabled={isCurrentWeek}
+          className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+        {isFetching && (
+          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-orange-500" />
+        )}
+      </div>
 
       {/* ESC hint */}
       <div className="absolute top-6 right-6 z-10 text-xs text-muted-foreground">

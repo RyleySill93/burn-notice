@@ -48,7 +48,7 @@ const githubMetrics: MetricOption[] = [
 ]
 
 const activityMetrics: MetricOption[] = [
-  { value: 'time', label: 'Time Burning', icon: Timer },
+  { value: 'time', label: 'Time Burned', icon: Timer },
 ]
 
 const allMetrics = [...tokenMetrics, ...githubMetrics, ...activityMetrics]

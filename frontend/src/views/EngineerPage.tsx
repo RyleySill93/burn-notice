@@ -187,12 +187,13 @@ function formatCost(n: number): string {
 }
 
 function formatMinutes(n: number): string {
-  if (n >= 60) {
-    const hours = Math.floor(n / 60)
-    const mins = n % 60
+  const rounded = Math.round(n)
+  if (rounded >= 60) {
+    const hours = Math.floor(rounded / 60)
+    const mins = rounded % 60
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
   }
-  return `${n}m`
+  return `${rounded}m`
 }
 
 function formatValue(n: number, metric: MetricType): string {
@@ -565,7 +566,7 @@ export function EngineerPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">
-            {metric === 'cost' ? 'Cost Over Time' : metric === 'time' ? 'Time Burning' : 'Token Usage Over Time'}
+            {metric === 'cost' ? 'Cost Over Time' : metric === 'time' ? 'Time Burned' : 'Token Usage Over Time'}
             {isCumulative && ' (Cumulative)'}
           </CardTitle>
           <div className="flex items-center gap-4">
@@ -628,7 +629,7 @@ export function EngineerPage() {
                       metric === 'cost'
                         ? (isCumulative ? 'Cumulative Cost' : 'Cost')
                         : metric === 'time'
-                          ? (isCumulative ? 'Cumulative Time' : 'Time Burning')
+                          ? (isCumulative ? 'Cumulative Time' : 'Time Burned')
                           : (isCumulative ? 'Cumulative Tokens' : 'Tokens')
                     ]}
                     labelStyle={{ fontWeight: 'bold', color: '#111827' }}

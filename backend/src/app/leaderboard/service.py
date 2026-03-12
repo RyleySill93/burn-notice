@@ -1,3 +1,4 @@
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -2390,6 +2391,16 @@ class LeaderboardService:
                 bucket_time = local_time.replace(minute=(local_time.minute // 10) * 10, second=0, microsecond=0)
                 cost_by_bucket[bucket_time] = cost_by_bucket.get(bucket_time, 0.0) + (r.cost_usd or 0.0)
 
+            # Compute active minutes per 10-minute bucket from TelemetryEvent gaps
+            active_minutes_by_bucket: dict[datetime, float] = {}
+            telemetry_timestamps = sorted([r.created_at for r in cost_results])
+            for i in range(1, len(telemetry_timestamps)):
+                gap = (telemetry_timestamps[i] - telemetry_timestamps[i - 1]).total_seconds()
+                if gap <= ACTIVE_MINUTES_GAP_SECONDS:
+                    local_time = telemetry_timestamps[i].replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                    bucket_time = local_time.replace(minute=(local_time.minute // 10) * 10, second=0, microsecond=0)
+                    active_minutes_by_bucket[bucket_time] = active_minutes_by_bucket.get(bucket_time, 0.0) + gap / 60
+
             # Build complete list with zeros for missing buckets
             data_points = []
             current = start_time
@@ -2403,7 +2414,7 @@ class LeaderboardService:
                         tokens_input=data[1],
                         tokens_output=data[2],
                         cost_usd=cost,
-                        active_minutes=0,
+                        active_minutes=min(10, round(active_minutes_by_bucket.get(current, 0.0))),
                     )
                 )
                 current += timedelta(minutes=10)
@@ -2661,6 +2672,21 @@ class LeaderboardService:
                     existing[3] + (r.cost_usd or 0.0),
                 )
 
+            # Compute active minutes per 10-minute bucket per engineer from TelemetryEvent gaps
+            telemetry_by_engineer: dict[str, list[datetime]] = defaultdict(list)
+            for r in cost_results:
+                telemetry_by_engineer[r.engineer_id].append(r.created_at)
+
+            active_minutes_by_bucket_eng: dict[datetime, dict[str, float]] = defaultdict(lambda: defaultdict(float))
+            for eng_id, timestamps in telemetry_by_engineer.items():
+                timestamps.sort()
+                for i in range(1, len(timestamps)):
+                    gap = (timestamps[i] - timestamps[i - 1]).total_seconds()
+                    if gap <= ACTIVE_MINUTES_GAP_SECONDS:
+                        local_time = timestamps[i].replace(tzinfo=ZoneInfo('UTC')).astimezone(APP_TIMEZONE)
+                        bucket_time = local_time.replace(minute=(local_time.minute // 10) * 10, second=0, microsecond=0)
+                        active_minutes_by_bucket_eng[bucket_time][eng_id] += gap / 60
+
             # Build complete list with zeros for missing buckets
             data_points = []
             current = start_time
@@ -2673,7 +2699,7 @@ class LeaderboardService:
                         tokens_input=data[1],
                         tokens_output=data[2],
                         cost_usd=data[3],
-                        active_minutes=0,
+                        active_minutes=min(10, round(active_minutes_by_bucket_eng.get(current, {}).get(eng_id, 0.0))),
                     )
                     for eng_id, data in bucket_data.items()
                 ]

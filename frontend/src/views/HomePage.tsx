@@ -24,6 +24,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
 import { MetricToggle } from '@/components/MetricToggle'
 import { FlipNumber } from '@/components/FlipNumber'
+import { ProductUpdateBanner } from '@/components/ProductUpdateBanner'
 
 interface PeriodStats {
   tokens: number
@@ -199,12 +200,13 @@ function formatCost(n: number): string {
 }
 
 function formatMinutes(n: number): string {
-  if (n >= 60) {
-    const hours = Math.floor(n / 60)
-    const mins = n % 60
+  const rounded = Math.round(n)
+  if (rounded >= 60) {
+    const hours = Math.floor(rounded / 60)
+    const mins = rounded % 60
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`
   }
-  return `${n}m`
+  return `${rounded}m`
 }
 
 function formatValue(n: number, metric: MetricType): string {
@@ -633,6 +635,8 @@ export function HomePage() {
 
   return (
     <div className="space-y-6">
+      <ProductUpdateBanner onFirstShow={() => setMetric('time')} />
+
       {/* Header with Team Name and Metric Toggle */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{customer?.name} Team</h1>
@@ -676,7 +680,7 @@ export function HomePage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">
-              {metric === 'cost' ? 'Team Costs' : metric === 'time' ? 'Time Burning' : 'Team Token Usage'}
+              {metric === 'cost' ? 'Team Costs' : metric === 'time' ? 'Time Burned' : 'Team Token Usage'}
               {aggIsCumulative && ' (Cumulative)'}
             </CardTitle>
             <div className="flex items-center gap-4">
@@ -737,7 +741,7 @@ export function HomePage() {
                         metric === 'cost'
                           ? (aggIsCumulative ? 'Cumulative Cost' : 'Cost')
                           : metric === 'time'
-                            ? (aggIsCumulative ? 'Cumulative Time' : 'Time Burning')
+                            ? (aggIsCumulative ? 'Cumulative Time' : 'Time Burned')
                             : (aggIsCumulative ? 'Cumulative Tokens' : 'Tokens')
                       ]}
                       labelStyle={{ fontWeight: 'bold', color: '#111827' }}
@@ -850,7 +854,7 @@ export function HomePage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-base">
-            {metric === 'cost' ? 'Team Costs by Engineer' : metric === 'time' ? 'Time Burning by Engineer' : 'Team Token Usage by Engineer'}
+            {metric === 'cost' ? 'Team Costs by Engineer' : metric === 'time' ? 'Time Burned by Engineer' : 'Team Token Usage by Engineer'}
             {isCumulative && ' (Cumulative)'}
           </CardTitle>
           <div className="flex items-center gap-4">

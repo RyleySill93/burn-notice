@@ -6,12 +6,26 @@ interface FlipNumberProps {
   formatter?: (n: number) => string
   className?: string
   duration?: number
+  resetKey?: string | number
 }
 
-export function FlipNumber({ value, formatter, className, duration = 500 }: FlipNumberProps) {
+export function FlipNumber({ value, formatter, className, duration = 500, resetKey }: FlipNumberProps) {
   const [displayValue, setDisplayValue] = useState(value)
   const prevValueRef = useRef(value)
   const animationRef = useRef<number | null>(null)
+  const prevResetKeyRef = useRef(resetKey)
+
+  // When resetKey changes, reset to 0 so the next animation counts up from zero
+  useEffect(() => {
+    if (prevResetKeyRef.current !== resetKey) {
+      prevResetKeyRef.current = resetKey
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current)
+      }
+      prevValueRef.current = 0
+      setDisplayValue(0)
+    }
+  }, [resetKey])
 
   useEffect(() => {
     const prevValue = prevValueRef.current

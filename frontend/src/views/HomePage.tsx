@@ -292,7 +292,7 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">
-          <FlipNumber value={value} formatter={formatter} />
+          <FlipNumber value={value} formatter={formatter} resetKey={metric} />
         </div>
         <div className="flex items-center justify-between mt-1">
           <ChangeIndicator change={change} delta={delta} metric={metric} />
@@ -401,6 +401,7 @@ function LeaderboardTable({
                 <FlipNumber
                   value={getMetricValue(entry, metric)}
                   formatter={(n) => formatValue(n, metric)}
+                  resetKey={metric}
                 />
                 {getMetricUnit(metric)}
               </p>

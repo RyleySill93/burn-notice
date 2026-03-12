@@ -40,7 +40,6 @@ import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
 import { MetricToggle } from '@/components/MetricToggle'
 import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
 import type { Rank, Metric as BadgeMetric, MilestoneKind, CrownKind } from '@/components/badges'
-import { AnimatedFlames } from '@/components/AnimatedFlames'
 
 interface PeriodStats {
   tokens: number
@@ -783,8 +782,7 @@ export function EngineerPage() {
   const monthComparison = stats ? getComparisonValue(stats.thisMonth, metric) : 0
 
   return (
-    <div className="space-y-6 relative">
-      <AnimatedFlames intensity="medium" />
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">

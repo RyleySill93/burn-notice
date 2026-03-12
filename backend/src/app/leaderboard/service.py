@@ -3000,6 +3000,27 @@ class LeaderboardService:
         return PostResponse(success=success, date=leaderboard.date)
 
     @staticmethod
+    @staticmethod
+    def award_action_medal(
+        customer_id: str,
+        engineer_id: str,
+        medal_type: str,
+        citation: str,
+        awarded_by_user_id: str,
+    ) -> 'EngineerMedalsResponse':
+        """Award an action medal and return the updated medals response."""
+        from src.app.medals.service import MedalService
+
+        MedalService.award_action_medal(
+            customer_id=customer_id,
+            engineer_id=engineer_id,
+            medal_type=medal_type,
+            citation=citation,
+            awarded_by_user_id=awarded_by_user_id,
+        )
+        return LeaderboardService.get_engineer_medals(customer_id, engineer_id)
+
+    @staticmethod
     def get_engineer_medals(customer_id: str, engineer_id: str) -> 'EngineerMedalsResponse':
         """Get all medals and crowns for an engineer."""
         from collections import Counter
@@ -3007,6 +3028,7 @@ class LeaderboardService:
         from src.app.medals.models import Medal
         from src.app.records.enums import RecordPeriod, RecordScope, RecordType
         from src.app.records.models import Record
+        from src.core.user.models import User
 
         # Get all medals for this engineer
         medal_rows = (
@@ -3015,6 +3037,13 @@ class LeaderboardService:
             .order_by(Medal.created_at.desc())
             .all()
         )
+
+        # Resolve display names for action medal awarders
+        awarder_user_ids = {m.awarded_by_user_id for m in medal_rows if m.awarded_by_user_id}
+        awarder_names: dict[str, str] = {}
+        if awarder_user_ids:
+            users = db.session.query(User).filter(User.id.in_(awarder_user_ids)).all()
+            awarder_names = {u.id: u.email.split('@')[0] for u in users}
 
         medals = [
             EngineerMedalEntry(
@@ -3025,6 +3054,8 @@ class LeaderboardService:
                 period_start=m.period_start,
                 value=m.value,
                 created_at=m.created_at.date() if m.created_at else date.today(),
+                citation=m.citation,
+                awarded_by_display_name=awarder_names.get(m.awarded_by_user_id) if m.awarded_by_user_id else None,
             )
             for m in medal_rows
         ]

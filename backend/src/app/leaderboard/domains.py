@@ -301,16 +301,26 @@ class MilestoneAwarded(BaseDomain):
     value: float
 
 
+class AwardActionMedalRequest(BaseDomain):
+    """Request payload for awarding an action medal."""
+
+    engineer_id: str
+    medal_type: str  # purple_heart, etc.
+    citation: str
+
+
 class EngineerMedalEntry(BaseDomain):
     """A single medal for the engineer medals endpoint."""
 
-    medal_category: str  # ranking, milestone
-    medal_type: str  # gold, silver, bronze, token_10m, etc.
+    medal_category: str  # ranking, milestone, action
+    medal_type: str  # gold, silver, bronze, token_10m, purple_heart, etc.
     metric_type: str  # tokens, time
-    period_type: str | None  # weekly, monthly (null for milestones)
+    period_type: str | None  # weekly, monthly (null for milestones/action)
     period_start: date | None
     value: float
     created_at: date
+    citation: str | None = None  # text citation for action medals
+    awarded_by_display_name: str | None = None  # who awarded it
 
 
 class EngineerCrown(BaseDomain):

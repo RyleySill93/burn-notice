@@ -1,4 +1,5 @@
 from src.app.leaderboard.domains import (
+    AwardActionMedalRequest,
     CrownHolder,
     DailyTotal,
     DailyTotalsByEngineerResponse,
@@ -29,6 +30,7 @@ from src.app.leaderboard.service import LeaderboardService
 
 __all__ = [
     # Domains
+    'AwardActionMedalRequest',
     'CrownHolder',
     'DailyTotal',
     'DailyTotalsByEngineerResponse',

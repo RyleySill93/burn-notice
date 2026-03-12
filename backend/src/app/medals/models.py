@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, Index, String
+from sqlalchemy import Date, Float, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.app.medals.constants import MEDAL_PK_ABBREV
@@ -19,9 +19,12 @@ class Medal(BaseModel[MedalRead, MedalCreate]):
     period_type: Mapped[str | None] = mapped_column(String(20), nullable=True)  # weekly, monthly
     period_start: Mapped[date | None] = mapped_column(Date, nullable=True)
     value: Mapped[float] = mapped_column(Float, nullable=False)
+    citation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    awarded_by_user_id: Mapped[str | None] = mapped_column(ForeignKey('user.id'), nullable=True)
 
     engineer = relationship('Engineer')
     customer = relationship('Customer')
+    awarded_by_user = relationship('User', foreign_keys=[awarded_by_user_id])
 
     __pk_abbrev__ = MEDAL_PK_ABBREV
     __read_domain__ = MedalRead

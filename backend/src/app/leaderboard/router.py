@@ -1,8 +1,9 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from src.app.leaderboard.domains import (
+    AwardActionMedalRequest,
     DailyTotalsByEngineerResponse,
     DailyTotalsResponse,
     EngineerMedalsResponse,
@@ -16,6 +17,7 @@ from src.app.leaderboard.domains import (
     WeeklyRecapResponse,
 )
 from src.app.leaderboard.service import LeaderboardService
+from src.common.exceptions import APIException
 from src.core.authentication.dependencies import get_current_membership
 from src.core.membership.domains import MembershipRead
 
@@ -145,6 +147,29 @@ def get_engineer_medals(
 ) -> EngineerMedalsResponse:
     """Get all medals and crowns for a specific engineer."""
     return LeaderboardService.get_engineer_medals(membership.customer_id, engineer_id)
+
+
+MEDAL_ADMIN_USER_IDS = {'user-6yckeUKu1M9nH', 'user-pxSgASZi41Zq'}
+
+
+@router.post('/medals/award')
+def award_action_medal(
+    payload: AwardActionMedalRequest,
+    membership: MembershipRead = Depends(get_current_membership),
+) -> EngineerMedalsResponse:
+    """Award an action medal to an engineer. Restricted to admin users."""
+    if membership.user_id not in MEDAL_ADMIN_USER_IDS:
+        raise APIException(
+            code=status.HTTP_403_FORBIDDEN,
+            message='You do not have permission to award medals.',
+        )
+    return LeaderboardService.award_action_medal(
+        customer_id=membership.customer_id,
+        engineer_id=payload.engineer_id,
+        medal_type=payload.medal_type,
+        citation=payload.citation,
+        awarded_by_user_id=membership.user_id,
+    )
 
 
 @router.get('/weekly-recap')

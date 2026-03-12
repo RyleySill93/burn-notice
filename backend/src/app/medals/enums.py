@@ -4,6 +4,7 @@ from src.common.enum import BaseEnum
 class MedalCategory(BaseEnum):
     RANKING = 'ranking'
     MILESTONE = 'milestone'
+    ACTION = 'action'
 
 
 class MedalType(BaseEnum):
@@ -19,6 +20,8 @@ class MedalType(BaseEnum):
     TIME_100H = 'time_100h'
     TIME_1000H = 'time_1000h'
     TIME_10000H = 'time_10000h'
+    # Action medals
+    PURPLE_HEART = 'purple_heart'
 
 
 class MetricType(BaseEnum):

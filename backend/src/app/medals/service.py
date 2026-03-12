@@ -193,6 +193,36 @@ class MedalService:
         return new_medals
 
     @staticmethod
+    def award_action_medal(
+        customer_id: str,
+        engineer_id: str,
+        medal_type: str,
+        citation: str,
+        awarded_by_user_id: str,
+    ) -> MedalRead:
+        """Award an action medal (e.g. Purple Heart) to an engineer with a citation."""
+        medal = Medal.create(
+            MedalCreate(
+                engineer_id=engineer_id,
+                customer_id=customer_id,
+                medal_category=MedalCategory.ACTION,
+                medal_type=medal_type,
+                metric_type=MetricType.TOKENS,  # not meaningful for action medals
+                citation=citation,
+                awarded_by_user_id=awarded_by_user_id,
+                value=0,
+            )
+        )
+        db.session.commit()
+        logger.info(
+            'Action medal awarded',
+            engineer_id=engineer_id,
+            medal_type=medal_type,
+            awarded_by_user_id=awarded_by_user_id,
+        )
+        return medal
+
+    @staticmethod
     def get_medals_for_engineer(engineer_id: str) -> list[MedalRead]:
         """Get all medals for an engineer."""
         medals = db.session.query(Medal).filter(Medal.engineer_id == engineer_id).all()

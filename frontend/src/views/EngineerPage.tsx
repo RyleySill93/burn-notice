@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
@@ -8,6 +8,14 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Textarea } from '@/components/ui/textarea'
 import {
   TrendingUp,
   TrendingDown,
@@ -22,6 +30,7 @@ import {
   Award,
   Clock,
   Star,
+  Heart,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
@@ -119,6 +128,8 @@ interface EngineerMedalEntry {
   periodStart: string | null
   value: number
   createdAt: string
+  citation: string | null
+  awardedByDisplayName: string | null
 }
 
 interface EngineerCrown {
@@ -331,6 +342,8 @@ interface MedalBadgeConfig {
   border: string
   glow: string
   textColor: string
+  citation?: string
+  awardedBy?: string
 }
 
 function getRankingBadgeConfig(medal: EngineerMedalEntry): MedalBadgeConfig {
@@ -464,6 +477,35 @@ function getCrownBadgeConfig(crown: EngineerCrown): MedalBadgeConfig {
   }
 }
 
+function getActionBadgeConfig(medal: EngineerMedalEntry): MedalBadgeConfig {
+  const dateStr = format(new Date(medal.createdAt), 'MMM d, yyyy')
+  const configs: Record<string, Omit<MedalBadgeConfig, 'citation' | 'awardedBy'>> = {
+    purple_heart: {
+      emoji: '💜',
+      label: 'Purple Heart',
+      description: `Purple Heart — Awarded ${dateStr}`,
+      bg: 'bg-gradient-to-br from-purple-600 via-violet-700 to-purple-900',
+      border: 'border-purple-400/60',
+      glow: 'shadow-purple-500/50',
+      textColor: 'text-purple-100',
+    },
+  }
+  const base = configs[medal.medalType] || {
+    emoji: '🎖️',
+    label: medal.medalType,
+    description: `Action Medal — ${dateStr}`,
+    bg: 'bg-gradient-to-br from-gray-500 to-gray-700',
+    border: 'border-gray-400/50',
+    glow: 'shadow-gray-400/40',
+    textColor: 'text-white',
+  }
+  return {
+    ...base,
+    citation: medal.citation ?? undefined,
+    awardedBy: medal.awardedByDisplayName ?? undefined,
+  }
+}
+
 function MedalBadge({ config, index }: { config: MedalBadgeConfig; index: number }) {
   return (
     <Tooltip>
@@ -498,8 +540,14 @@ function MedalBadge({ config, index }: { config: MedalBadgeConfig; index: number
           </span>
         </motion.div>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-64 text-center text-sm font-medium">
-        {config.description}
+      <TooltipContent side="bottom" className="max-w-72 text-center">
+        <p className="text-sm font-medium">{config.description}</p>
+        {config.citation && (
+          <p className="text-xs italic text-muted-foreground mt-1">"{config.citation}"</p>
+        )}
+        {config.awardedBy && (
+          <p className="text-[10px] text-muted-foreground mt-0.5">— awarded by {config.awardedBy}</p>
+        )}
       </TooltipContent>
     </Tooltip>
   )
@@ -532,6 +580,12 @@ function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
     badges.push(getRankingBadgeConfig(medal))
   }
 
+  // Action medals (Purple Hearts, etc.)
+  const actionMedals = medals.filter((m) => m.medalCategory === 'action')
+  for (const medal of actionMedals) {
+    badges.push(getActionBadgeConfig(medal))
+  }
+
   // Milestones
   const milestoneMedals = medals.filter((m) => m.medalCategory === 'milestone')
   for (const medal of milestoneMedals) {
@@ -546,6 +600,80 @@ function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
         <MedalBadge key={i} config={config} index={i} />
       ))}
     </div>
+  )
+}
+
+function AwardMedalButton({ engineerId }: { engineerId: string }) {
+  const [open, setOpen] = useState(false)
+  const [citation, setCitation] = useState('')
+  const [isAwarding, setIsAwarding] = useState(false)
+  const queryClient = useQueryClient()
+
+  const handleAward = async () => {
+    if (!citation.trim()) return
+    setIsAwarding(true)
+    try {
+      await axios.post('/api/leaderboard/medals/award', {
+        engineer_id: engineerId,
+        medal_type: 'purple_heart',
+        citation: citation.trim(),
+      })
+      queryClient.invalidateQueries({ queryKey: ['engineer-medals', engineerId] })
+      setCitation('')
+      setOpen(false)
+    } finally {
+      setIsAwarding(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
+          className={cn(
+            'flex flex-col items-center justify-center',
+            'w-14 h-14 rounded-2xl border-2 border-dashed cursor-pointer select-none',
+            'border-purple-400/40 hover:border-purple-400/80',
+            'bg-purple-500/5 hover:bg-purple-500/10',
+            'transition-colors duration-200',
+          )}
+        >
+          <Heart className="h-4 w-4 text-purple-400" />
+          <span className="text-[7px] font-bold text-purple-400 mt-0.5">Award</span>
+        </motion.button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <span className="text-2xl">💜</span>
+            Award Purple Heart
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div>
+            <Label className="text-sm font-medium">Citation</Label>
+            <Textarea
+              value={citation}
+              onChange={(e) => setCitation(e.target.value)}
+              placeholder="For extraordinary valor in the face of impossible deadlines..."
+              className="mt-1.5 min-h-[100px]"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Describe the heroic act that earned this medal.
+            </p>
+          </div>
+          <Button
+            onClick={handleAward}
+            disabled={!citation.trim() || isAwarding}
+            className="w-full bg-purple-600 hover:bg-purple-700"
+          >
+            {isAwarding ? 'Awarding...' : 'Award Purple Heart'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -802,8 +930,13 @@ export function EngineerPage() {
       </div>
 
       {/* Medals Ribbon (Flame War users only) */}
-      {showFlameWar && medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
-        <MedalsRibbon medalsData={medalsData} />
+      {showFlameWar && (
+        <div className="flex flex-wrap gap-2 items-center">
+          {medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
+            <MedalsRibbon medalsData={medalsData} />
+          )}
+          {engineerId && <AwardMedalButton engineerId={engineerId} />}
+        </div>
       )}
 
       {/* Stats Cards */}

@@ -190,7 +190,7 @@ export function MilestoneBadge({
 
         {/* Shimmer */}
         <g clipPath={`url(#${id}-clip)`}>
-          <ShineSweep id={id} delay={0.8} />
+          <ShineSweep id={id} />
         </g>
       </svg>
     </BadgeFrame>

@@ -115,7 +115,7 @@ export function RankingMedal({
           </g>
         </motion.g>
 
-        <ShineSweep id={id} delay={0.5} />
+        <ShineSweep id={id} />
       </svg>
     </BadgeFrame>
   )

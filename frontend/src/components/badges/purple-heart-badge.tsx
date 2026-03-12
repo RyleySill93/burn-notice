@@ -54,7 +54,7 @@ export function PurpleHeartBadge({
 
         {/* Shimmer */}
         <g clipPath={`url(#${id}-clip)`}>
-          <ShineSweep id={id} delay={0.3} />
+          <ShineSweep id={id} />
         </g>
       </svg>
     </BadgeFrame>

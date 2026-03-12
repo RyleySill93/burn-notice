@@ -384,10 +384,26 @@ function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
     })
 
   const actionMedals = medals.filter((m) => m.medalCategory === 'action')
-  const milestoneMedals = medals.filter((m) => m.medalCategory === 'milestone')
 
+  // Only show the highest milestone per metric type (tokens / time)
+  const TOKEN_MILESTONE_ORDER: string[] = ['token_10b', 'token_1b', 'token_500m', 'token_250m', 'token_100m', 'token_50m', 'token_10m', 'token_1m']
+  const TIME_MILESTONE_ORDER: string[] = ['time_25000h', 'time_10000h', 'time_5000h', 'time_2500h', 'time_1000h', 'time_500h', 'time_100h', 'time_10h']
+  const allMilestones = medals.filter((m) => m.medalCategory === 'milestone')
+  const milestoneTypes = new Set(allMilestones.map((m) => m.medalType))
+  const highestToken = TOKEN_MILESTONE_ORDER.find((t) => milestoneTypes.has(t))
+  const highestTime = TIME_MILESTONE_ORDER.find((t) => milestoneTypes.has(t))
+  const milestoneMedals = allMilestones.filter(
+    (m) => m.medalType === highestToken || m.medalType === highestTime
+  )
+
+  const hasCrowns = crowns.length > 0
+  const hasRanking = rankingGroups.length > 0
+  const hasAction = actionMedals.length > 0
+  const hasMilestones = milestoneMedals.length > 0
   const totalBadges = crowns.length + rankingGroups.length + actionMedals.length + milestoneMedals.length
   if (totalBadges === 0) return null
+
+  const separator = <div className="w-px h-8 bg-border/60 mx-1" />
 
   return (
     <div className="flex flex-wrap gap-2 items-center">
@@ -408,6 +424,7 @@ function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
           </Tooltip>
         )
       })}
+      {hasCrowns && hasRanking && separator}
       {rankingGroups.map((g) => (
         <Tooltip key={`rank-${g.rank}-${g.metric}`}>
           <TooltipTrigger asChild>
@@ -418,6 +435,7 @@ function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
           </TooltipContent>
         </Tooltip>
       ))}
+      {(hasCrowns || hasRanking) && hasAction && separator}
       {actionMedals.map((m, i) => {
         const dateStr = format(new Date(m.createdAt), 'MMM d, yyyy')
         return (
@@ -437,6 +455,7 @@ function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
           </Tooltip>
         )
       })}
+      {(hasCrowns || hasRanking || hasAction) && hasMilestones && separator}
       {milestoneMedals.map((m, i) => {
         const dateStr = format(new Date(m.createdAt), 'MMM d, yyyy')
         return (
@@ -776,19 +795,14 @@ export function EngineerPage() {
             <h1 className="text-2xl font-bold">{stats?.displayName}</h1>
             <p className="text-muted-foreground text-sm">Individual token usage</p>
           </div>
+          {/* Medals Ribbon inline with name (Flame War users only) */}
+          {showFlameWar && medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
+            <MedalsRibbon medalsData={medalsData} />
+          )}
+          {showFlameWar && engineerId && <AwardMedalButton engineerId={engineerId} />}
         </div>
         <MetricToggle metric={metric} setMetric={setMetric} />
       </div>
-
-      {/* Medals Ribbon (Flame War users only) */}
-      {showFlameWar && (
-        <div className="flex flex-wrap gap-2 items-center">
-          {medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
-            <MedalsRibbon medalsData={medalsData} />
-          )}
-          {engineerId && <AwardMedalButton engineerId={engineerId} />}
-        </div>
-      )}
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">

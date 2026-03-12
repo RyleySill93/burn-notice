@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
@@ -56,11 +56,16 @@ export function TimeGlyph() {
 
 // --- Shared Primitives ---
 
-export function ShineSweep({ id, delay = 0 }: { id: string; delay?: number }) {
+export function ShineSweep({ id }: { id: string }) {
+  const timing = useMemo(() => ({
+    delay: 1 + Math.random() * 4,
+    repeatDelay: 2 + Math.random() * 5,
+  }), [])
+
   return (
     <motion.g
       animate={{ x: [-36, 72], opacity: [0, 0.26, 0] }}
-      transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay, repeatDelay: 1.2 }}
+      transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut', delay: timing.delay, repeatDelay: timing.repeatDelay }}
     >
       <defs>
         <linearGradient id={`${id}-sweep`} x1="0%" y1="0%" x2="100%" y2="0%">

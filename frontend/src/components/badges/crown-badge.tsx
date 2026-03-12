@@ -77,7 +77,7 @@ export function CrownBadge({
 
         {/* Shimmer */}
         <g clipPath={`url(#${id}-clip)`}>
-          <ShineSweep id={id} delay={0.4} />
+          <ShineSweep id={id} />
         </g>
       </svg>
     </BadgeFrame>

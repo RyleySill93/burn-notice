@@ -38,8 +38,11 @@ from src.app.leaderboard.domains import (
     DailyTotalsByEngineerResponse,
     DailyTotalsResponse,
     DayWithEngineers,
+    EngineerCrown,
     EngineerDailyTotal,
     EngineerInfo,
+    EngineerMedalEntry,
+    EngineerMedalsResponse,
     EngineerStatsResponse,
     EngineerTimeSeriesData,
     HistoricalRank,
@@ -2995,6 +2998,75 @@ class LeaderboardService:
         leaderboard = LeaderboardService.get_leaderboard(customer_id, as_of)
         success = SlackService.post_leaderboard(leaderboard)
         return PostResponse(success=success, date=leaderboard.date)
+
+    @staticmethod
+    def get_engineer_medals(customer_id: str, engineer_id: str) -> 'EngineerMedalsResponse':
+        """Get all medals and crowns for an engineer."""
+        from collections import Counter
+
+        from src.app.medals.models import Medal
+        from src.app.records.enums import RecordPeriod, RecordScope, RecordType
+        from src.app.records.models import Record
+
+        # Get all medals for this engineer
+        medal_rows = (
+            db.session.query(Medal)
+            .filter(Medal.engineer_id == engineer_id, Medal.customer_id == customer_id)
+            .order_by(Medal.created_at.desc())
+            .all()
+        )
+
+        medals = [
+            EngineerMedalEntry(
+                medal_category=m.medal_category,
+                medal_type=m.medal_type,
+                metric_type=m.metric_type,
+                period_type=m.period_type,
+                period_start=m.period_start,
+                value=m.value,
+                created_at=m.created_at.date() if m.created_at else date.today(),
+            )
+            for m in medal_rows
+        ]
+
+        # Count medals by type
+        medal_counts = dict(Counter(m.medal_type for m in medal_rows))
+
+        # Check which crowns this engineer holds
+        crown_combos = [
+            ('daily_tokens', RecordType.TOKENS, RecordPeriod.DAILY),
+            ('daily_time', RecordType.TIME, RecordPeriod.DAILY),
+            ('weekly_tokens', RecordType.TOKENS, RecordPeriod.WEEKLY),
+            ('weekly_time', RecordType.TIME, RecordPeriod.WEEKLY),
+        ]
+        crowns: list[EngineerCrown] = []
+        for crown_type, record_type, record_period in crown_combos:
+            top_record = (
+                db.session.query(Record)
+                .filter(
+                    Record.customer_id == customer_id,
+                    Record.record_type == record_type,
+                    Record.record_period == record_period,
+                    Record.record_scope == RecordScope.COMPANY,
+                )
+                .order_by(Record.value.desc())
+                .first()
+            )
+            if top_record and top_record.engineer_id == engineer_id:
+                crowns.append(
+                    EngineerCrown(
+                        crown_type=crown_type,
+                        value=top_record.value,
+                        record_date=top_record.record_date,
+                    )
+                )
+
+        return EngineerMedalsResponse(
+            engineer_id=engineer_id,
+            medals=medals,
+            crowns=crowns,
+            medal_counts=medal_counts,
+        )
 
     @staticmethod
     def get_weekly_recap(customer_id: str, as_of: date | None = None) -> 'WeeklyRecapResponse':

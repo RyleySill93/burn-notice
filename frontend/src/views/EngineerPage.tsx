@@ -16,6 +16,11 @@ import {
   BarChart3,
   ArrowLeft,
   Trophy,
+  Crown,
+  Medal,
+  Award,
+  Clock,
+  Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
@@ -100,6 +105,29 @@ interface TimeSeriesResponse {
   engineerId: string
   period: string
   data: TimeSeriesDataPoint[]
+}
+
+interface EngineerMedalEntry {
+  medalCategory: string
+  medalType: string
+  metricType: string
+  periodType: string | null
+  periodStart: string | null
+  value: number
+  createdAt: string
+}
+
+interface EngineerCrown {
+  crownType: string
+  value: number
+  recordDate: string
+}
+
+interface EngineerMedalsData {
+  engineerId: string
+  medals: EngineerMedalEntry[]
+  crowns: EngineerCrown[]
+  medalCounts: Record<string, number>
 }
 
 type TimeSeriesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly'
@@ -289,6 +317,130 @@ function StatCard({
   )
 }
 
+const CROWN_LABELS: Record<string, string> = {
+  daily_tokens: 'Daily Tokens',
+  daily_time: 'Daily Time',
+  weekly_tokens: 'Weekly Tokens',
+  weekly_time: 'Weekly Time',
+}
+
+const MEDAL_TYPE_LABELS: Record<string, string> = {
+  gold: 'Gold',
+  silver: 'Silver',
+  bronze: 'Bronze',
+  token_10m: '10M Tokens',
+  token_100m: '100M Tokens',
+  token_1b: '1B Tokens',
+  time_100h: '100 Hours',
+  time_1000h: '1,000 Hours',
+  time_10000h: '10,000 Hours',
+}
+
+const MEDAL_COLORS: Record<string, string> = {
+  gold: 'text-yellow-500',
+  silver: 'text-gray-400',
+  bronze: 'text-amber-700',
+}
+
+function MedalsSection({ medalsData }: { medalsData: EngineerMedalsData }) {
+  const { crowns, medalCounts, medals } = medalsData
+  const hasCrowns = crowns.length > 0
+  const rankingMedals = medals.filter((m) => m.medalCategory === 'ranking')
+  const milestoneMedals = medals.filter((m) => m.medalCategory === 'milestone')
+  const hasRankings = rankingMedals.length > 0
+  const hasMilestones = milestoneMedals.length > 0
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Medal Counts Summary */}
+      {hasRankings && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Medal className="h-4 w-4 text-yellow-500" />
+              Medals
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              {(['gold', 'silver', 'bronze'] as const).map((type) => {
+                const count = medalCounts[type] || 0
+                if (count === 0) return null
+                const Icon = type === 'gold' ? Crown : type === 'silver' ? Medal : Award
+                return (
+                  <div key={type} className="flex items-center gap-1.5">
+                    <Icon className={cn('h-5 w-5', MEDAL_COLORS[type])} />
+                    <span className="text-lg font-bold">{count}</span>
+                    <span className="text-xs text-muted-foreground">{MEDAL_TYPE_LABELS[type]}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Crowns */}
+      {hasCrowns && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Crown className="h-4 w-4 text-yellow-500" />
+              Crowns Held
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {crowns.map((crown) => {
+                const isTokens = crown.crownType.includes('tokens')
+                const CrownIcon = isTokens ? Zap : Clock
+                return (
+                  <div key={crown.crownType} className="flex items-center gap-2">
+                    <CrownIcon className={cn('h-4 w-4', isTokens ? 'text-orange-400' : 'text-red-400')} />
+                    <span className="text-sm font-medium">{CROWN_LABELS[crown.crownType]}</span>
+                    <span className="text-sm text-muted-foreground ml-auto">
+                      {isTokens ? formatTokens(crown.value) : formatMinutes(crown.value)}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Milestones */}
+      {hasMilestones && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Star className="h-4 w-4 text-purple-500" />
+              Milestones
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {milestoneMedals.map((m, i) => {
+                const isTokens = m.metricType === 'tokens'
+                const MIcon = isTokens ? Zap : Clock
+                return (
+                  <div key={i} className="flex items-center gap-2">
+                    <MIcon className={cn('h-4 w-4', isTokens ? 'text-orange-400' : 'text-red-400')} />
+                    <span className="text-sm font-medium">{MEDAL_TYPE_LABELS[m.medalType] || m.medalType}</span>
+                    <Badge variant="outline" className="ml-auto text-xs text-purple-600 border-purple-200">
+                      {format(new Date(m.createdAt), 'MMM d')}
+                    </Badge>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
 function RankBadge({ rank }: { rank: number | null }) {
   if (rank === null) {
     return (
@@ -454,6 +606,15 @@ export function EngineerPage() {
     refetchInterval: timeSeriesIsToday ? 10_000 : false,
   })
 
+  const { data: medalsData } = useQuery<EngineerMedalsData>({
+    queryKey: ['engineer-medals', engineerId],
+    queryFn: async () => {
+      const response = await axios.get<EngineerMedalsData>(`/api/leaderboard/engineers/${engineerId}/medals`)
+      return response.data
+    },
+    enabled: !!engineerId,
+  })
+
   // Build time series chart data
   const timeSeriesChartData = (() => {
     if (!timeSeries) return []
@@ -560,6 +721,11 @@ export function EngineerPage() {
           metric={metric}
         />
       </div>
+
+      {/* Medals & Crowns */}
+      {medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
+        <MedalsSection medalsData={medalsData} />
+      )}
 
       {/* Time Series Chart and Historical Rankings */}
       <div className="grid gap-6 lg:grid-cols-2 items-start">

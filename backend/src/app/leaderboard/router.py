@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from src.app.leaderboard.domains import (
     DailyTotalsByEngineerResponse,
     DailyTotalsResponse,
+    EngineerMedalsResponse,
     EngineerStatsResponse,
     HistoricalRankingsResponse,
     Leaderboard,
@@ -135,6 +136,15 @@ def get_engineer_time_series(
     - monthly: 30 days ending on as_of, daily buckets
     """
     return LeaderboardService.get_engineer_time_series(engineer_id, period, as_of)
+
+
+@router.get('/engineers/{engineer_id}/medals')
+def get_engineer_medals(
+    engineer_id: str,
+    membership: MembershipRead = Depends(get_current_membership),
+) -> EngineerMedalsResponse:
+    """Get all medals and crowns for a specific engineer."""
+    return LeaderboardService.get_engineer_medals(membership.customer_id, engineer_id)
 
 
 @router.get('/weekly-recap')

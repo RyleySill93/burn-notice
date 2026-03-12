@@ -301,6 +301,35 @@ class MilestoneAwarded(BaseDomain):
     value: float
 
 
+class EngineerMedalEntry(BaseDomain):
+    """A single medal for the engineer medals endpoint."""
+
+    medal_category: str  # ranking, milestone
+    medal_type: str  # gold, silver, bronze, token_10m, etc.
+    metric_type: str  # tokens, time
+    period_type: str | None  # weekly, monthly (null for milestones)
+    period_start: date | None
+    value: float
+    created_at: date
+
+
+class EngineerCrown(BaseDomain):
+    """A crown currently held by an engineer."""
+
+    crown_type: str  # daily_tokens, daily_time, weekly_tokens, weekly_time
+    value: float
+    record_date: date
+
+
+class EngineerMedalsResponse(BaseDomain):
+    """Response for engineer medals and crowns endpoint."""
+
+    engineer_id: str
+    medals: list[EngineerMedalEntry]
+    crowns: list[EngineerCrown]
+    medal_counts: dict[str, int]  # gold: 3, silver: 2, bronze: 1, etc.
+
+
 class WeeklyRecapResponse(BaseDomain):
     """Response for weekly recap presentation."""
 

@@ -571,20 +571,40 @@ function MilestonesSlide({ milestones }: { milestones: MilestoneAwarded[] }) {
   }, [])
 
   const milestoneLabels: Record<string, string> = {
-    token_10m: '10M Tokens Burned',
-    token_100m: '100M Tokens Burned',
-    token_1b: '1 BILLION Tokens',
-    time_100h: '100 Hours Burned',
-    time_1000h: '1,000 Hours Burned',
-    time_10000h: '10,000 Hours Burned',
+    token_1m: 'Spark — 1M Tokens',
+    token_10m: 'Ember — 10M Tokens',
+    token_50m: 'Blaze — 50M Tokens',
+    token_100m: 'Inferno — 100M Tokens',
+    token_250m: 'Firestorm — 250M Tokens',
+    token_500m: 'Supernova — 500M Tokens',
+    token_1b: 'Solar Flare — 1 BILLION Tokens',
+    token_10b: 'Big Bang — 10 BILLION Tokens',
+    time_10h: 'Clocked In — 10 Hours',
+    time_100h: 'Grinder — 100 Hours',
+    time_500h: 'Marathoner — 500 Hours',
+    time_1000h: 'Ironman — 1,000 Hours',
+    time_2500h: 'Centurion — 2,500 Hours',
+    time_5000h: 'Titan — 5,000 Hours',
+    time_10000h: 'Eternal — 10,000 Hours',
+    time_25000h: 'Transcendent — 25,000 Hours',
   }
   const milestoneIcons: Record<string, typeof Zap> = {
+    token_1m: Zap,
     token_10m: Zap,
+    token_50m: Zap,
     token_100m: Zap,
+    token_250m: Zap,
+    token_500m: Zap,
     token_1b: Zap,
+    token_10b: Zap,
+    time_10h: Clock,
     time_100h: Clock,
+    time_500h: Clock,
     time_1000h: Clock,
+    time_2500h: Clock,
+    time_5000h: Clock,
     time_10000h: Clock,
+    time_25000h: Clock,
   }
 
   return (

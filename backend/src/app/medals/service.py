@@ -13,12 +13,24 @@ from src.network.database import db
 
 # Milestone thresholds: (medal_type, metric_type, threshold_value)
 MILESTONE_THRESHOLDS = [
-    (MedalType.TOKEN_10M, MetricType.TOKENS, 10_000_000),
-    (MedalType.TOKEN_100M, MetricType.TOKENS, 100_000_000),
-    (MedalType.TOKEN_1B, MetricType.TOKENS, 1_000_000_000),
-    (MedalType.TIME_100H, MetricType.TIME, 6_000),       # 100h in minutes
-    (MedalType.TIME_1000H, MetricType.TIME, 60_000),     # 1000h in minutes
-    (MedalType.TIME_10000H, MetricType.TIME, 600_000),   # 10000h in minutes
+    # Tokens
+    (MedalType.TOKEN_1M, MetricType.TOKENS, 1_000_000),          # Spark
+    (MedalType.TOKEN_10M, MetricType.TOKENS, 10_000_000),        # Ember
+    (MedalType.TOKEN_50M, MetricType.TOKENS, 50_000_000),        # Blaze
+    (MedalType.TOKEN_100M, MetricType.TOKENS, 100_000_000),      # Inferno
+    (MedalType.TOKEN_250M, MetricType.TOKENS, 250_000_000),      # Firestorm
+    (MedalType.TOKEN_500M, MetricType.TOKENS, 500_000_000),      # Supernova
+    (MedalType.TOKEN_1B, MetricType.TOKENS, 1_000_000_000),      # Solar Flare
+    (MedalType.TOKEN_10B, MetricType.TOKENS, 10_000_000_000),    # Big Bang
+    # Time (in minutes)
+    (MedalType.TIME_10H, MetricType.TIME, 600),           # Clocked In
+    (MedalType.TIME_100H, MetricType.TIME, 6_000),        # Grinder
+    (MedalType.TIME_500H, MetricType.TIME, 30_000),       # Marathoner
+    (MedalType.TIME_1000H, MetricType.TIME, 60_000),      # Ironman
+    (MedalType.TIME_2500H, MetricType.TIME, 150_000),     # Centurion
+    (MedalType.TIME_5000H, MetricType.TIME, 300_000),     # Titan
+    (MedalType.TIME_10000H, MetricType.TIME, 600_000),    # Eternal
+    (MedalType.TIME_25000H, MetricType.TIME, 1_500_000),  # Transcendent
 ]
 
 RANKING_MEDALS = [MedalType.GOLD, MedalType.SILVER, MedalType.BRONZE]

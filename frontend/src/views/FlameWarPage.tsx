@@ -372,12 +372,12 @@ function EngineerSelector({
   )
 }
 
-const FLAME_WAR_USER_ID = 'user-6yckeUKu1M9nH'
+const FLAME_WAR_USER_IDS = ['user-6yckeUKu1M9nH', 'user-pxSgASZi41Zq']
 
 export function FlameWarPage() {
   const { user } = useAuth()
 
-  if (user?.id !== FLAME_WAR_USER_ID) {
+  if (!user?.id || !FLAME_WAR_USER_IDS.includes(user.id)) {
     return <Navigate to="/dashboard" replace />
   }
 

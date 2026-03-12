@@ -49,12 +49,12 @@ export function AuthenticatedLayout() {
     ? user.email.slice(0, 2).toUpperCase()
     : 'U'
 
-  const FLAME_WAR_USER_ID = 'user-6yckeUKu1M9nH'
+  const FLAME_WAR_USER_IDS = ['user-6yckeUKu1M9nH', 'user-pxSgASZi41Zq']
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/team', label: 'Team', icon: Users },
-    ...(user?.id === FLAME_WAR_USER_ID
+    ...(user?.id && FLAME_WAR_USER_IDS.includes(user.id)
       ? [{ path: '/flame-war', label: 'Flame War', icon: Swords }]
       : []),
   ]

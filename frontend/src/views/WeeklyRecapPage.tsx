@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
-import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Crown, Medal, Award, Calendar } from 'lucide-react'
+import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Crown, Medal, Award, Calendar, TrendingUp, TrendingDown, Star } from 'lucide-react'
 import { addDays, subDays, startOfWeek } from 'date-fns'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
@@ -27,6 +27,30 @@ interface RecapRecord {
   recordDate: string
 }
 
+interface CrownHolder {
+  engineerId: string
+  displayName: string
+  crownType: string
+  value: number
+  recordDate: string
+}
+
+interface MedalAwarded {
+  engineerId: string
+  displayName: string
+  medalType: string
+  metricType: string
+  periodType: string
+  value: number
+}
+
+interface MilestoneAwarded {
+  engineerId: string
+  displayName: string
+  medalType: string
+  value: number
+}
+
 interface WeeklyRecapData {
   weekStart: string
   weekEnd: string
@@ -35,6 +59,11 @@ interface WeeklyRecapData {
   records: RecapRecord[]
   teamTotalTokens: number
   teamTotalMinutes: number
+  crowns: CrownHolder[]
+  medalsAwarded: MedalAwarded[]
+  milestonesAwarded: MilestoneAwarded[]
+  prevWeekTokens: number
+  prevWeekMinutes: number
 }
 
 const FLAME_WAR_USER_IDS = ['user-6yckeUKu1M9nH', 'user-pxSgASZi41Zq']
@@ -88,11 +117,54 @@ function fireBigConfetti() {
   })
 }
 
+function fireFlames() {
+  confetti({
+    particleCount: 50,
+    angle: 90,
+    spread: 60,
+    origin: { x: 0.5, y: 1.0 },
+    colors: ['#ff4500', '#ff6a00', '#ff8c00', '#ffa500'],
+    gravity: 0.8,
+    ticks: 100,
+  })
+  confetti({
+    particleCount: 30,
+    angle: 80,
+    spread: 40,
+    origin: { x: 0.3, y: 1.0 },
+    colors: ['#ff4500', '#ff6a00', '#ff8c00', '#ffa500'],
+    gravity: 0.8,
+    ticks: 80,
+  })
+  confetti({
+    particleCount: 30,
+    angle: 100,
+    spread: 40,
+    origin: { x: 0.7, y: 1.0 },
+    colors: ['#ff4500', '#ff6a00', '#ff8c00', '#ffa500'],
+    gravity: 0.8,
+    ticks: 80,
+  })
+}
+
+function fireConfettiThenFlames() {
+  fireBigConfetti()
+  setTimeout(fireFlames, 800)
+}
+
+function getWoWPercent(current: number, previous: number): number | null {
+  if (previous === 0) return null
+  return ((current - previous) / previous) * 100
+}
+
 // --- Slide Components ---
 
 function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string }) {
   useEffect(() => {
-    const timer = setTimeout(fireConfetti, 500)
+    const timer = setTimeout(() => {
+      fireConfetti()
+      setTimeout(fireFlames, 2000)
+    }, 500)
     return () => clearTimeout(timer)
   }, [])
 
@@ -112,7 +184,7 @@ function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string
         className="text-7xl font-bold text-center"
         style={{ fontFamily: 'Bangers, cursive' }}
       >
-        Weekly Burn Report
+        The Burndown
       </motion.h1>
       <motion.p
         initial={{ opacity: 0 }}
@@ -122,11 +194,45 @@ function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string
       >
         {format(new Date(weekStart), 'MMM d')} - {format(new Date(weekEnd), 'MMM d, yyyy')}
       </motion.p>
+      {/* Flame gradient at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-orange-500/20 via-orange-500/5 to-transparent pointer-events-none" />
     </div>
   )
 }
 
-function TeamTotalsSlide({ tokens, minutes }: { tokens: number; minutes: number }) {
+function WoWDelta({ current, previous, format: fmt }: { current: number; previous: number; format: (n: number) => string }) {
+  const pct = getWoWPercent(current, previous)
+  if (pct === null) return null
+
+  const isUp = pct >= 0
+  const Icon = isUp ? TrendingUp : TrendingDown
+  const color = isUp ? 'text-green-400' : 'text-red-400'
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 2.5 }}
+      className={`flex items-center gap-1.5 text-sm ${color}`}
+    >
+      <Icon className="h-4 w-4" />
+      <span>{isUp ? '+' : ''}{pct.toFixed(0)}% vs last week</span>
+      <span className="text-muted-foreground">({fmt(previous)})</span>
+    </motion.div>
+  )
+}
+
+function TeamTotalsSlide({
+  tokens,
+  minutes,
+  prevTokens,
+  prevMinutes,
+}: {
+  tokens: number
+  minutes: number
+  prevTokens: number
+  prevMinutes: number
+}) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-12">
       <motion.h2
@@ -148,6 +254,7 @@ function TeamTotalsSlide({ tokens, minutes }: { tokens: number; minutes: number 
           <Zap className="h-16 w-16 text-orange-400" />
           <CountUp end={tokens} duration={2000} className="text-6xl font-bold text-orange-400" format={formatNumber} />
           <span className="text-xl text-muted-foreground">tokens burned</span>
+          <WoWDelta current={tokens} previous={prevTokens} format={formatNumber} />
         </motion.div>
         <motion.div
           initial={{ opacity: 0, x: 100 }}
@@ -158,7 +265,76 @@ function TeamTotalsSlide({ tokens, minutes }: { tokens: number; minutes: number 
           <Clock className="h-16 w-16 text-red-400" />
           <CountUp end={minutes} duration={2000} className="text-6xl font-bold text-red-400" format={formatMinutes} />
           <span className="text-xl text-muted-foreground">time burned</span>
+          <WoWDelta current={minutes} previous={prevMinutes} format={formatMinutes} />
         </motion.div>
+      </div>
+    </div>
+  )
+}
+
+function CrownsSlide({ crowns }: { crowns: CrownHolder[] }) {
+  useEffect(() => {
+    const timer = setTimeout(fireConfettiThenFlames, 600)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const crownLabels: Record<string, string> = {
+    daily_tokens: 'Daily Tokens',
+    daily_time: 'Daily Time',
+    weekly_tokens: 'Weekly Tokens',
+    weekly_time: 'Weekly Time',
+  }
+  const crownIcons: Record<string, typeof Zap> = {
+    daily_tokens: Zap,
+    daily_time: Clock,
+    weekly_tokens: Zap,
+    weekly_time: Clock,
+  }
+  const crownFormatters: Record<string, (v: number) => string> = {
+    daily_tokens: formatNumber,
+    daily_time: formatMinutes,
+    weekly_tokens: formatNumber,
+    weekly_time: formatMinutes,
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-8">
+      <motion.div
+        initial={{ opacity: 0, y: -30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-4"
+      >
+        <Crown className="h-12 w-12 text-yellow-400" />
+        <h2 className="text-5xl font-bold" style={{ fontFamily: 'Bangers, cursive' }}>
+          Crown Holders
+        </h2>
+      </motion.div>
+      <div className="grid grid-cols-2 gap-6 max-w-3xl w-full px-8">
+        {crowns.map((crown, i) => {
+          const CrownIcon = crownIcons[crown.crownType] || Zap
+          const formatter = crownFormatters[crown.crownType] || formatNumber
+          return (
+            <motion.div
+              key={crown.crownType}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 + i * 0.15, type: 'spring' }}
+              className="flex items-center gap-4 bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/30 rounded-xl p-5"
+            >
+              <div className="relative">
+                <CrownIcon className="h-8 w-8 text-yellow-400/50" />
+                <Crown className="h-5 w-5 text-yellow-400 absolute -top-2 -right-2" />
+              </div>
+              <div className="flex-1">
+                <div className="text-xs text-yellow-400/70 uppercase tracking-wider font-semibold">
+                  {crownLabels[crown.crownType] || crown.crownType}
+                </div>
+                <div className="font-bold text-lg">{crown.displayName}</div>
+                <div className="text-sm text-muted-foreground">{formatter(crown.value)}</div>
+              </div>
+            </motion.div>
+          )
+        })}
       </div>
     </div>
   )
@@ -170,15 +346,17 @@ function PodiumSlide({
   podium,
   formatValue,
   color,
+  medals,
 }: {
   title: string
   icon: typeof Trophy
   podium: PodiumEntry[]
   formatValue: (v: number) => string
   color: string
+  medals?: MedalAwarded[]
 }) {
   useEffect(() => {
-    const timer = setTimeout(fireBigConfetti, 1200)
+    const timer = setTimeout(fireConfettiThenFlames, 1200)
     return () => clearTimeout(timer)
   }, [])
 
@@ -194,7 +372,20 @@ function PodiumSlide({
     <Crown key="gold" className="h-12 w-12 text-yellow-400" />,
     <Award key="bronze" className="h-8 w-8 text-amber-700" />,
   ]
+  const medalColors: Record<string, string> = {
+    gold: 'text-yellow-400',
+    silver: 'text-gray-400',
+    bronze: 'text-amber-700',
+  }
   const delays = [0.6, 0.3, 0.9]
+
+  // Map engineer medals by rank
+  const medalByEngineer = new Map<string, string>()
+  if (medals) {
+    for (const m of medals) {
+      medalByEngineer.set(m.engineerId, m.medalType)
+    }
+  }
 
   return (
     <div className="flex flex-col items-center justify-center h-full gap-8">
@@ -212,6 +403,7 @@ function PodiumSlide({
         {podiumOrder.map((idx, visualIdx) => {
           const entry = podium[idx]
           if (!entry) return null
+          const engineerMedal = medalByEngineer.get(entry.engineerId)
           return (
             <motion.div
               key={entry.engineerId}
@@ -224,8 +416,12 @@ function PodiumSlide({
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: delays[visualIdx] + 0.3, type: 'spring' }}
+                className="flex items-center gap-1"
               >
                 {rankIcons[visualIdx]}
+                {engineerMedal && (
+                  <Medal className={`h-5 w-5 ${medalColors[engineerMedal] || 'text-yellow-400'}`} />
+                )}
               </motion.div>
               <span className="text-xl font-semibold truncate max-w-[180px]">{entry.displayName}</span>
               <span className={`text-2xl font-bold ${color}`}>{formatValue(entry.value)}</span>
@@ -240,6 +436,8 @@ function PodiumSlide({
           )
         })}
       </div>
+      {/* Flame gradient at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-orange-500/10 to-transparent pointer-events-none" />
     </div>
   )
 }
@@ -367,9 +565,83 @@ function RecordCard({ record, delay }: { record: RecapRecord; delay: number }) {
   )
 }
 
+function MilestonesSlide({ milestones }: { milestones: MilestoneAwarded[] }) {
+  useEffect(() => {
+    const timer = setTimeout(fireConfettiThenFlames, 500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const milestoneLabels: Record<string, string> = {
+    token_10m: '10M Tokens Burned',
+    token_100m: '100M Tokens Burned',
+    token_1b: '1 BILLION Tokens',
+    time_100h: '100 Hours Burned',
+    time_1000h: '1,000 Hours Burned',
+    time_10000h: '10,000 Hours Burned',
+  }
+  const milestoneIcons: Record<string, typeof Zap> = {
+    token_10m: Zap,
+    token_100m: Zap,
+    token_1b: Zap,
+    time_100h: Clock,
+    time_1000h: Clock,
+    time_10000h: Clock,
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-8">
+      <motion.div
+        initial={{ opacity: 0, y: -30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-4"
+      >
+        <Star className="h-12 w-12 text-purple-400" />
+        <h2 className="text-5xl font-bold" style={{ fontFamily: 'Bangers, cursive' }}>
+          Milestones Unlocked!
+        </h2>
+      </motion.div>
+      <div className="grid grid-cols-1 gap-4 max-w-2xl w-full px-8">
+        {milestones.map((m, i) => {
+          const MIcon = milestoneIcons[m.medalType] || Star
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 + i * 0.2, type: 'spring' }}
+              className="flex items-center gap-5 bg-gradient-to-r from-purple-500/10 to-transparent border border-purple-500/30 rounded-xl p-6"
+            >
+              <div className="relative">
+                <MIcon className="h-10 w-10 text-purple-400" />
+                <Star className="h-4 w-4 text-yellow-400 absolute -top-1 -right-1 fill-yellow-400" />
+              </div>
+              <div className="flex-1">
+                <div className="font-bold text-xl">{m.displayName}</div>
+                <div className="text-purple-300 font-semibold" style={{ fontFamily: 'Bangers, cursive' }}>
+                  {milestoneLabels[m.medalType] || m.medalType}
+                </div>
+              </div>
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.6 + i * 0.2, type: 'spring', bounce: 0.5 }}
+              >
+                <Medal className="h-8 w-8 text-purple-400" />
+              </motion.div>
+            </motion.div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function OutroSlide() {
   useEffect(() => {
-    const timer = setTimeout(fireConfetti, 300)
+    const timer = setTimeout(() => {
+      fireConfetti()
+      setTimeout(fireFlames, 2000)
+    }, 300)
     return () => clearTimeout(timer)
   }, [])
 
@@ -399,6 +671,8 @@ function OutroSlide() {
       >
         See you next week.
       </motion.p>
+      {/* Flame gradient at bottom */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-orange-500/20 via-orange-500/5 to-transparent pointer-events-none" />
     </div>
   )
 }
@@ -468,7 +742,68 @@ function WeeklyRecapContent() {
     },
   })
 
-  const totalSlides = 6 // title, totals, tokens podium, time podium, records, outro
+  // Build dynamic slides based on data
+  const slides = useMemo(() => {
+    if (!data) return []
+
+    const hasCrowns = data.crowns.length > 0
+    const hasRecords = data.records.length > 0
+    const hasMilestones = data.milestonesAwarded.length > 0
+
+    // Map medals by metric type for podium slides
+    const tokenMedals = data.medalsAwarded.filter((m) => m.metricType === 'tokens')
+    const timeMedals = data.medalsAwarded.filter((m) => m.metricType === 'time')
+
+    const slideList: React.ReactElement[] = [
+      <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} />,
+      <TeamTotalsSlide
+        key="totals"
+        tokens={data.teamTotalTokens}
+        minutes={data.teamTotalMinutes}
+        prevTokens={data.prevWeekTokens}
+        prevMinutes={data.prevWeekMinutes}
+      />,
+    ]
+
+    if (hasCrowns) {
+      slideList.push(<CrownsSlide key="crowns" crowns={data.crowns} />)
+    }
+
+    slideList.push(
+      <PodiumSlide
+        key="tokens-podium"
+        title="Top Token Burners"
+        icon={Zap}
+        podium={data.tokensPodium}
+        formatValue={formatNumber}
+        color="text-orange-400"
+        medals={tokenMedals}
+      />,
+      <PodiumSlide
+        key="time-podium"
+        title="Most Time Burned"
+        icon={Clock}
+        podium={data.timePodium}
+        formatValue={formatMinutes}
+        color="text-red-400"
+        medals={timeMedals}
+      />,
+    )
+
+    if (hasRecords) {
+      slideList.push(<RecordsSlide key="records" records={data.records} />)
+    }
+
+    if (hasMilestones) {
+      slideList.push(<MilestonesSlide key="milestones" milestones={data.milestonesAwarded} />)
+    }
+
+    slideList.push(<OutroSlide key="outro" />)
+
+    return slideList
+  }, [data])
+
+  const totalSlides = slides.length
 
   const goNext = useCallback(() => {
     setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1))
@@ -508,29 +843,6 @@ function WeeklyRecapContent() {
   }
 
   if (!data) return null
-
-  const slides = [
-    <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} />,
-    <TeamTotalsSlide key="totals" tokens={data.teamTotalTokens} minutes={data.teamTotalMinutes} />,
-    <PodiumSlide
-      key="tokens-podium"
-      title="Top Token Burners"
-      icon={Zap}
-      podium={data.tokensPodium}
-      formatValue={formatNumber}
-      color="text-orange-400"
-    />,
-    <PodiumSlide
-      key="time-podium"
-      title="Most Time Burned"
-      icon={Clock}
-      podium={data.timePodium}
-      formatValue={formatMinutes}
-      color="text-red-400"
-    />,
-    <RecordsSlide key="records" records={data.records} />,
-    <OutroSlide key="outro" />,
-  ]
 
   return (
     <div

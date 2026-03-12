@@ -271,6 +271,36 @@ class RecapRecord(BaseDomain):
     record_date: date
 
 
+class CrownHolder(BaseDomain):
+    """Current holder of a company record (crown)."""
+
+    engineer_id: str
+    display_name: str
+    crown_type: str  # daily_tokens, daily_time, weekly_tokens, weekly_time
+    value: float
+    record_date: date
+
+
+class MedalAwarded(BaseDomain):
+    """A ranking medal awarded during the recap period."""
+
+    engineer_id: str
+    display_name: str
+    medal_type: str  # gold, silver, bronze
+    metric_type: str  # tokens, time
+    period_type: str  # weekly, monthly
+    value: float
+
+
+class MilestoneAwarded(BaseDomain):
+    """A milestone medal awarded during the recap period."""
+
+    engineer_id: str
+    display_name: str
+    medal_type: str  # token_10m, time_100h, etc.
+    value: float
+
+
 class WeeklyRecapResponse(BaseDomain):
     """Response for weekly recap presentation."""
 
@@ -281,3 +311,8 @@ class WeeklyRecapResponse(BaseDomain):
     records: list[RecapRecord]
     team_total_tokens: int
     team_total_minutes: int
+    crowns: list[CrownHolder]
+    medals_awarded: list[MedalAwarded]
+    milestones_awarded: list[MilestoneAwarded]
+    prev_week_tokens: int
+    prev_week_minutes: int

@@ -33,6 +33,7 @@ def get_day_bounds_utc(for_date: date) -> tuple[datetime, datetime]:
 
 from src.app.github.models import GitHubDaily
 from src.app.leaderboard.domains import (
+    CrownHolder,
     DailyTotal,
     DailyTotalsByEngineerResponse,
     DailyTotalsResponse,
@@ -45,6 +46,8 @@ from src.app.leaderboard.domains import (
     HistoricalRankingsResponse,
     Leaderboard,
     LeaderboardEntry,
+    MedalAwarded,
+    MilestoneAwarded,
     PeriodStats,
     PostResponse,
     RecapPodiumEntry,
@@ -2996,6 +2999,9 @@ class LeaderboardService:
     @staticmethod
     def get_weekly_recap(customer_id: str, as_of: date | None = None) -> 'WeeklyRecapResponse':
         """Build weekly recap data for presentation mode."""
+        from src.app.medals.enums import MedalCategory
+        from src.app.medals.models import Medal
+        from src.app.records.enums import RecordPeriod, RecordScope, RecordType
         from src.app.records.models import Record
 
         today = as_of or get_today()
@@ -3041,7 +3047,7 @@ class LeaderboardService:
             .all()
         )
 
-        # Get engineer names for records
+        # Get engineer names for records/crowns/medals
         engineer_names = {
             e.id: e.display_name for e in db.session.query(Engineer).filter(Engineer.customer_id == customer_id).all()
         }
@@ -3064,6 +3070,93 @@ class LeaderboardService:
         team_total_tokens = sum(e.tokens for e in weekly_entries)
         team_total_minutes = sum(e.active_minutes for e in weekly_entries)
 
+        # --- Crowns: derived from Record table (company scope, max value per type/period) ---
+        crown_combos = [
+            ('daily_tokens', RecordType.TOKENS, RecordPeriod.DAILY),
+            ('daily_time', RecordType.TIME, RecordPeriod.DAILY),
+            ('weekly_tokens', RecordType.TOKENS, RecordPeriod.WEEKLY),
+            ('weekly_time', RecordType.TIME, RecordPeriod.WEEKLY),
+        ]
+        crowns: list[CrownHolder] = []
+        for crown_type, record_type, record_period in crown_combos:
+            top_record = (
+                db.session.query(Record)
+                .filter(
+                    Record.customer_id == customer_id,
+                    Record.record_type == record_type,
+                    Record.record_period == record_period,
+                    Record.record_scope == RecordScope.COMPANY,
+                )
+                .order_by(Record.value.desc())
+                .first()
+            )
+            if top_record:
+                crowns.append(
+                    CrownHolder(
+                        engineer_id=top_record.engineer_id,
+                        display_name=engineer_names.get(top_record.engineer_id, 'Unknown'),
+                        crown_type=crown_type,
+                        value=top_record.value,
+                        record_date=top_record.record_date,
+                    )
+                )
+
+        # --- Medals: ranking medals with period_start in this week ---
+        ranking_medal_rows = (
+            db.session.query(Medal)
+            .filter(
+                Medal.customer_id == customer_id,
+                Medal.medal_category == MedalCategory.RANKING,
+                Medal.period_start >= week_start,
+                Medal.period_start <= week_end,
+            )
+            .all()
+        )
+        medals_awarded = [
+            MedalAwarded(
+                engineer_id=m.engineer_id,
+                display_name=engineer_names.get(m.engineer_id, 'Unknown'),
+                medal_type=m.medal_type,
+                metric_type=m.metric_type,
+                period_type=m.period_type,
+                value=m.value,
+            )
+            for m in ranking_medal_rows
+        ]
+
+        # --- Milestones: milestone medals created during this week ---
+        week_start_utc, _ = get_day_bounds_utc(week_start)
+        _, week_end_utc = get_day_bounds_utc(week_end)
+        milestone_medal_rows = (
+            db.session.query(Medal)
+            .filter(
+                Medal.customer_id == customer_id,
+                Medal.medal_category == MedalCategory.MILESTONE,
+                Medal.created_at >= week_start_utc,
+                Medal.created_at < week_end_utc,
+            )
+            .all()
+        )
+        milestones_awarded = [
+            MilestoneAwarded(
+                engineer_id=m.engineer_id,
+                display_name=engineer_names.get(m.engineer_id, 'Unknown'),
+                medal_type=m.medal_type,
+                value=m.value,
+            )
+            for m in milestone_medal_rows
+        ]
+
+        # --- Previous week totals for WoW comparison ---
+        prev_week_start = week_start - timedelta(days=7)
+        prev_week_end = week_start - timedelta(days=1)
+        prev_week_tokens = LeaderboardService._get_tokens_for_range_full(
+            customer_id, prev_week_start, prev_week_end
+        )
+        prev_week_minutes = LeaderboardService._get_active_minutes_for_range(
+            customer_id, prev_week_start, prev_week_end
+        )
+
         return WeeklyRecapResponse(
             week_start=week_start,
             week_end=week_end,
@@ -3072,4 +3165,9 @@ class LeaderboardService:
             records=records,
             team_total_tokens=team_total_tokens,
             team_total_minutes=team_total_minutes,
+            crowns=crowns,
+            medals_awarded=medals_awarded,
+            milestones_awarded=milestones_awarded,
+            prev_week_tokens=prev_week_tokens,
+            prev_week_minutes=prev_week_minutes,
         )

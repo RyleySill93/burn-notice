@@ -128,6 +128,7 @@ BOUNDARIES = [
     'app.leaderboard',
     'app.github',
     'app.records',
+    'app.medals',
 ]
 
 # Support REDIS_URL (Railway) or individual vars (local)

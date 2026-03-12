@@ -1,0 +1,1 @@
+MEDAL_PK_ABBREV = 'mdl'

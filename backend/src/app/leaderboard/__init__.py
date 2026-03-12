@@ -1,4 +1,5 @@
 from src.app.leaderboard.domains import (
+    CrownHolder,
     DailyTotal,
     DailyTotalsByEngineerResponse,
     DailyTotalsResponse,
@@ -11,6 +12,8 @@ from src.app.leaderboard.domains import (
     HistoricalRankingsResponse,
     Leaderboard,
     LeaderboardEntry,
+    MedalAwarded,
+    MilestoneAwarded,
     PeriodStats,
     PostResponse,
     TeamTimeSeriesBucket,
@@ -23,6 +26,7 @@ from src.app.leaderboard.service import LeaderboardService
 
 __all__ = [
     # Domains
+    'CrownHolder',
     'DailyTotal',
     'DailyTotalsByEngineerResponse',
     'DailyTotalsResponse',
@@ -35,6 +39,8 @@ __all__ = [
     'HistoricalRankingsResponse',
     'Leaderboard',
     'LeaderboardEntry',
+    'MedalAwarded',
+    'MilestoneAwarded',
     'PeriodStats',
     'PostResponse',
     'TeamTimeSeriesBucket',

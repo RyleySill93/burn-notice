@@ -367,8 +367,9 @@ type RankColor = keyof typeof MEDAL_PALETTES
 // Shared shimmer keyframes (injected once via style tag)
 const shimmerStyle = `
 @keyframes badge-shimmer {
-  0%, 100% { opacity: 0; transform: translateX(-120%) rotate(25deg); }
-  50% { opacity: 0.6; transform: translateX(120%) rotate(25deg); }
+  0%, 40% { opacity: 0; }
+  50% { opacity: 0.35; }
+  60%, 100% { opacity: 0; }
 }
 @keyframes badge-pulse {
   0%, 100% { filter: drop-shadow(0 0 3px var(--badge-glow)); }
@@ -460,7 +461,7 @@ function RankingMedalBadge({
               {count}
             </text>
             {/* Shimmer overlay */}
-            <rect x="0" y="0" width="60" height="60" clipPath={`url(#${id}-clip)`} fill="white" opacity="0" style={{ animation: 'badge-shimmer 4s ease-in-out infinite', animationDelay: `${index * 0.3}s` }} />
+            <line x1="15" y1="-5" x2="45" y2="65" stroke="white" strokeWidth="8" strokeOpacity="0" clipPath={`url(#${id}-clip)`} style={{ animation: 'badge-shimmer 4s ease-in-out infinite', animationDelay: `${index * 0.3}s` }} />
           </svg>
         </motion.div>
       </TooltipTrigger>
@@ -533,7 +534,7 @@ function CrownBadge({
               <path d={isTokens ? BOLT_PATH : CLOCK_PATH} />
             </g>
             {/* Shimmer */}
-            <rect x="0" y="0" width="60" height="60" clipPath={`url(#${id}-clip)`} fill="white" opacity="0" style={{ animation: 'badge-shimmer 3.5s ease-in-out infinite', animationDelay: `${index * 0.2}s` }} />
+            <line x1="15" y1="-5" x2="45" y2="65" stroke="white" strokeWidth="8" strokeOpacity="0" clipPath={`url(#${id}-clip)`} style={{ animation: 'badge-shimmer 3.5s ease-in-out infinite', animationDelay: `${index * 0.2}s` }} />
           </svg>
         </motion.div>
       </TooltipTrigger>
@@ -662,7 +663,7 @@ function MilestoneBadge({
               {cfg.label}
             </text>
             {/* Shimmer */}
-            <rect x="0" y="0" width="60" height="60" clipPath={`url(#${id}-clip)`} fill="white" opacity="0" style={{ animation: 'badge-shimmer 5s ease-in-out infinite', animationDelay: `${index * 0.5}s` }} />
+            <line x1="15" y1="-5" x2="45" y2="65" stroke="white" strokeWidth="8" strokeOpacity="0" clipPath={`url(#${id}-clip)`} style={{ animation: 'badge-shimmer 5s ease-in-out infinite', animationDelay: `${index * 0.5}s` }} />
           </svg>
         </motion.div>
       </TooltipTrigger>
@@ -726,7 +727,7 @@ function PurpleHeartBadge({
               <path d={HEART_PATH} />
             </g>
             {/* Shimmer */}
-            <rect x="0" y="0" width="60" height="60" clipPath={`url(#${id}-clip)`} fill="white" opacity="0" style={{ animation: 'badge-shimmer 4.5s ease-in-out infinite', animationDelay: `${index * 0.3}s` }} />
+            <line x1="15" y1="-5" x2="45" y2="65" stroke="white" strokeWidth="8" strokeOpacity="0" clipPath={`url(#${id}-clip)`} style={{ animation: 'badge-shimmer 4.5s ease-in-out infinite', animationDelay: `${index * 0.3}s` }} />
           </svg>
         </motion.div>
       </TooltipTrigger>

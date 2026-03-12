@@ -169,7 +169,7 @@ function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string
   }, [])
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-8">
+    <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
       <motion.div
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
@@ -234,7 +234,7 @@ function TeamTotalsSlide({
   prevMinutes: number
 }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-12">
+    <div className="flex flex-col items-center justify-center min-h-full gap-12 py-16">
       <motion.h2
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -298,7 +298,7 @@ function CrownsSlide({ crowns }: { crowns: CrownHolder[] }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-8">
+    <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
       <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -388,7 +388,7 @@ function PodiumSlide({
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-8">
+    <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
       <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -455,7 +455,7 @@ function RecordsSlide({ records }: { records: RecapRecord[] }) {
 
   if (records.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-8">
+      <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
         <motion.h2
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -477,7 +477,7 @@ function RecordsSlide({ records }: { records: RecapRecord[] }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-8 px-8">
+    <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16 px-8">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
         <Trophy className="h-12 w-12 text-yellow-400" />
         <h2 className="text-5xl font-bold" style={{ fontFamily: 'Bangers, cursive' }}>
@@ -589,7 +589,7 @@ function MilestonesSlide({ milestones }: { milestones: MilestoneAwarded[] }) {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-8">
+    <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
       <motion.div
         initial={{ opacity: 0, y: -30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -646,7 +646,7 @@ function OutroSlide() {
   }, [])
 
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-8">
+    <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
       <motion.div
         initial={{ scale: 0, rotate: -180 }}
         animate={{ scale: 1, rotate: 0 }}
@@ -904,7 +904,7 @@ function WeeklyRecapContent() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -100 }}
           transition={{ duration: 0.4 }}
-          className="h-full w-full"
+          className="h-full w-full overflow-y-auto"
         >
           {slides[currentSlide]}
         </motion.div>

@@ -3142,7 +3142,7 @@ class LeaderboardService:
         team_total_tokens = sum(e.tokens for e in weekly_entries)
         team_total_minutes = sum(e.active_minutes for e in weekly_entries)
 
-        # --- Crowns: derived from Record table (company scope, max value per type/period) ---
+        # --- Crowns: only NEW company records set during this week ---
         crown_combos = [
             ('daily_tokens', RecordType.TOKENS, RecordPeriod.DAILY),
             ('daily_time', RecordType.TIME, RecordPeriod.DAILY),
@@ -3151,25 +3151,28 @@ class LeaderboardService:
         ]
         crowns: list[CrownHolder] = []
         for crown_type, record_type, record_period in crown_combos:
-            top_record = (
+            # Only show crowns where the record was set during this week
+            new_record = (
                 db.session.query(Record)
                 .filter(
                     Record.customer_id == customer_id,
                     Record.record_type == record_type,
                     Record.record_period == record_period,
                     Record.record_scope == RecordScope.COMPANY,
+                    Record.record_date >= week_start,
+                    Record.record_date <= week_end,
                 )
                 .order_by(Record.value.desc())
                 .first()
             )
-            if top_record:
+            if new_record:
                 crowns.append(
                     CrownHolder(
-                        engineer_id=top_record.engineer_id,
-                        display_name=engineer_names.get(top_record.engineer_id, 'Unknown'),
+                        engineer_id=new_record.engineer_id,
+                        display_name=engineer_names.get(new_record.engineer_id, 'Unknown'),
                         crown_type=crown_type,
-                        value=top_record.value,
-                        record_date=top_record.record_date,
+                        value=new_record.value,
+                        record_date=new_record.record_date,
                     )
                 )
 

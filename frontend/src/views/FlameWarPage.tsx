@@ -14,10 +14,10 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Flame, Zap, Activity, BarChart3, Trophy, Swords } from 'lucide-react'
+import { Flame, BarChart3, Swords } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { format, isSameDay } from 'date-fns'
 import { useMetricToggle, type MetricType } from '@/hooks/useMetricToggle'
 import { LeaderboardDatePicker } from '@/components/LeaderboardDatePicker'
@@ -88,7 +88,6 @@ interface Leaderboard {
   monthly: LeaderboardEntry[]
 }
 
-type TimeSeriesPeriod = 'hourly' | 'daily' | 'weekly' | 'monthly'
 
 function getMetricValue(
   data: {
@@ -152,22 +151,6 @@ function formatValue(n: number, metric: MetricType): string {
   if (metric === 'cost') return formatCost(n)
   if (metric === 'time') return formatMinutes(n)
   return formatTokens(n)
-}
-
-function getMetricLabel(metric: MetricType): string {
-  switch (metric) {
-    case 'total': return 'tokens'
-    case 'input': return 'input tokens'
-    case 'output': return 'output tokens'
-    case 'cost': return ''
-    case 'commits': return 'commits'
-    case 'additions': return 'additions'
-    case 'deletions': return 'deletions'
-    case 'lines': return 'lines'
-    case 'prs': return 'PRs'
-    case 'time': return ''
-    default: return 'tokens'
-  }
 }
 
 // The versus bar - shows proportional comparison between two values
@@ -248,78 +231,42 @@ function VersusBar({
   )
 }
 
-function PeriodComparison({
-  title,
-  icon: Icon,
-  leftStats,
-  rightStats,
-  leftName,
-  rightName,
-  metric,
-}: {
-  title: string
-  icon: React.ElementType
-  leftStats: PeriodStats | undefined
-  rightStats: PeriodStats | undefined
-  leftName: string
-  rightName: string
-  metric: MetricType
-}) {
-  const leftValue = leftStats ? getMetricValue(leftStats, metric) : 0
-  const rightValue = rightStats ? getMetricValue(rightStats, metric) : 0
+type PeriodType = 'daily' | 'weekly' | 'monthly'
 
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <VersusBar
-          leftValue={leftValue}
-          rightValue={rightValue}
-          leftName={leftName}
-          rightName={rightName}
-          metric={metric}
-        />
-      </CardContent>
-    </Card>
-  )
+const PERIOD_STATS_KEY: Record<PeriodType, keyof Pick<EngineerStats, 'today' | 'thisWeek' | 'thisMonth'>> = {
+  daily: 'today',
+  weekly: 'thisWeek',
+  monthly: 'thisMonth',
+}
+
+const PERIOD_LABEL: Record<PeriodType, string> = {
+  daily: 'Today',
+  weekly: 'This Week',
+  monthly: 'This Month',
 }
 
 function Scoreboard({
-  leftStats,
-  rightStats,
+  leftValue,
+  rightValue,
   leftName,
   rightName,
-  metric,
 }: {
-  leftStats: EngineerStats | undefined
-  rightStats: EngineerStats | undefined
+  leftValue: number
+  rightValue: number
   leftName: string
   rightName: string
-  metric: MetricType
 }) {
-  // Count wins across all three periods
-  const periods = ['today', 'thisWeek', 'thisMonth'] as const
-  let leftWins = 0
-  let rightWins = 0
-
-  for (const period of periods) {
-    const leftVal = leftStats ? getMetricValue(leftStats[period], metric) : 0
-    const rightVal = rightStats ? getMetricValue(rightStats[period], metric) : 0
-    if (leftVal > rightVal) leftWins++
-    if (rightVal > leftVal) rightWins++
-  }
+  const leftWins = leftValue > rightValue
+  const rightWins = rightValue > leftValue
 
   return (
     <div className="flex items-center justify-center gap-6 py-4">
       <div className="text-center">
         <div className={cn(
           'text-4xl font-bold tabular-nums',
-          leftWins > rightWins && 'text-orange-500'
+          leftWins && 'text-orange-500'
         )}>
-          {leftWins}
+          {leftWins ? 'W' : rightWins ? 'L' : '-'}
         </div>
         <div className="text-xs text-muted-foreground mt-1 max-w-[100px] truncate">{leftName}</div>
       </div>
@@ -330,9 +277,9 @@ function Scoreboard({
       <div className="text-center">
         <div className={cn(
           'text-4xl font-bold tabular-nums',
-          rightWins > leftWins && 'text-blue-500'
+          rightWins && 'text-blue-500'
         )}>
-          {rightWins}
+          {rightWins ? 'W' : leftWins ? 'L' : '-'}
         </div>
         <div className="text-xs text-muted-foreground mt-1 max-w-[100px] truncate">{rightName}</div>
       </div>
@@ -387,7 +334,7 @@ export function FlameWarPage() {
 function FlameWarContent() {
   const [leftEngineerId, setLeftEngineerId] = useState<string>('')
   const [rightEngineerId, setRightEngineerId] = useState<string>('')
-  const [timeSeriesPeriod, setTimeSeriesPeriod] = useState<TimeSeriesPeriod>('daily')
+  const [period, setPeriod] = useState<PeriodType>('daily')
   const [timeSeriesDate, setTimeSeriesDate] = useState<Date>(new Date())
   const [isCumulative, setIsCumulative] = useState(false)
   const { metric, setMetric } = useMetricToggle()
@@ -446,11 +393,11 @@ function FlameWarContent() {
 
   // Fetch time series for both
   const { data: leftTimeSeries, isLoading: leftTSLoading } = useQuery<TimeSeriesResponse>({
-    queryKey: ['engineer-time-series', leftEngineerId, timeSeriesPeriod, format(timeSeriesDate, 'yyyy-MM-dd')],
+    queryKey: ['engineer-time-series', leftEngineerId, period, format(timeSeriesDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       const response = await axios.get<TimeSeriesResponse>(
         `/api/leaderboard/engineers/${leftEngineerId}/time-series`,
-        { params: { period: timeSeriesPeriod, as_of: format(timeSeriesDate, 'yyyy-MM-dd') } }
+        { params: { period, as_of: format(timeSeriesDate, 'yyyy-MM-dd') } }
       )
       return response.data
     },
@@ -459,11 +406,11 @@ function FlameWarContent() {
   })
 
   const { data: rightTimeSeries, isLoading: rightTSLoading } = useQuery<TimeSeriesResponse>({
-    queryKey: ['engineer-time-series', rightEngineerId, timeSeriesPeriod, format(timeSeriesDate, 'yyyy-MM-dd')],
+    queryKey: ['engineer-time-series', rightEngineerId, period, format(timeSeriesDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       const response = await axios.get<TimeSeriesResponse>(
         `/api/leaderboard/engineers/${rightEngineerId}/time-series`,
-        { params: { period: timeSeriesPeriod, as_of: format(timeSeriesDate, 'yyyy-MM-dd') } }
+        { params: { period, as_of: format(timeSeriesDate, 'yyyy-MM-dd') } }
       )
       return response.data
     },
@@ -490,11 +437,9 @@ function FlameWarContent() {
 
       const timestamp = new Date(ts)
       let label: string
-      if (timeSeriesPeriod === 'hourly') {
-        label = format(timestamp, 'h:mm a')
-      } else if (timeSeriesPeriod === 'daily') {
+      if (period === 'daily') {
         label = format(timestamp, 'MMM d')
-      } else if (timeSeriesPeriod === 'weekly') {
+      } else if (period === 'weekly') {
         label = format(timestamp, 'MMM d')
       } else {
         label = format(timestamp, 'MMM yyyy')
@@ -512,11 +457,6 @@ function FlameWarContent() {
       })
     }
 
-    // Filter leading zeros for hourly
-    if (timeSeriesPeriod === 'hourly') {
-      const firstNonZero = merged.findIndex(d => d.left > 0 || d.right > 0)
-      if (firstNonZero > 0) return merged.slice(firstNonZero)
-    }
     return merged
   })()
 
@@ -524,6 +464,10 @@ function FlameWarContent() {
   const rightName = rightStats?.displayName || 'Engineer 2'
   const bothSelected = !!leftEngineerId && !!rightEngineerId
   const timeSeriesLoading = leftTSLoading || rightTSLoading
+
+  const statsKey = PERIOD_STATS_KEY[period]
+  const leftPeriodValue = leftStats ? getMetricValue(leftStats[statsKey], metric) : 0
+  const rightPeriodValue = rightStats ? getMetricValue(rightStats[statsKey], metric) : 0
 
   return (
     <div className="space-y-6">
@@ -541,7 +485,16 @@ function FlameWarContent() {
             <p className="text-muted-foreground text-sm">Head-to-head engineer comparison</p>
           </div>
         </div>
-        <MetricToggle metric={metric} setMetric={setMetric} />
+        <div className="flex items-center gap-3">
+          <Tabs value={period} onValueChange={(v) => setPeriod(v as PeriodType)}>
+            <TabsList>
+              <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
+              <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
+              <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <MetricToggle metric={metric} setMetric={setMetric} />
+        </div>
       </div>
 
       {/* Engineer Selectors */}
@@ -573,52 +526,27 @@ function FlameWarContent() {
 
       {bothSelected && (
         <>
-          {/* Scoreboard */}
+          {/* Scoreboard + Versus Bar */}
           <Card>
-            <CardContent className="pt-6">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{PERIOD_LABEL[period]}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <Scoreboard
-                leftStats={leftStats}
-                rightStats={rightStats}
+                leftValue={leftPeriodValue}
+                rightValue={rightPeriodValue}
+                leftName={leftName}
+                rightName={rightName}
+              />
+              <VersusBar
+                leftValue={leftPeriodValue}
+                rightValue={rightPeriodValue}
                 leftName={leftName}
                 rightName={rightName}
                 metric={metric}
               />
-              <p className="text-center text-xs text-muted-foreground">
-                Period wins (Today + This Week + This Month)
-              </p>
             </CardContent>
           </Card>
-
-          {/* Period Comparisons */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <PeriodComparison
-              title="Today"
-              icon={Zap}
-              leftStats={leftStats?.today}
-              rightStats={rightStats?.today}
-              leftName={leftName}
-              rightName={rightName}
-              metric={metric}
-            />
-            <PeriodComparison
-              title="This Week"
-              icon={Activity}
-              leftStats={leftStats?.thisWeek}
-              rightStats={rightStats?.thisWeek}
-              leftName={leftName}
-              rightName={rightName}
-              metric={metric}
-            />
-            <PeriodComparison
-              title="This Month"
-              icon={BarChart3}
-              leftStats={leftStats?.thisMonth}
-              rightStats={rightStats?.thisMonth}
-              leftName={leftName}
-              rightName={rightName}
-              metric={metric}
-            />
-          </div>
 
           {/* Time Series Comparison */}
           <Card>
@@ -637,21 +565,13 @@ function FlameWarContent() {
                   <Label htmlFor="cumulative" className="text-xs">Cumulative</Label>
                 </div>
                 <LeaderboardDatePicker
-                  activeTab={timeSeriesPeriod === 'daily' || timeSeriesPeriod === 'hourly' ? 'today' : timeSeriesPeriod}
+                  activeTab={period === 'daily' ? 'today' : period}
                   selectedDate={timeSeriesDate}
                   onDateChange={setTimeSeriesDate}
                 />
               </div>
             </CardHeader>
             <CardContent>
-              <Tabs value={timeSeriesPeriod} onValueChange={(v) => setTimeSeriesPeriod(v as TimeSeriesPeriod)} className="w-full mb-4">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="hourly" className="text-xs">Hourly</TabsTrigger>
-                  <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
-                  <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
-                  <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
-                </TabsList>
-              </Tabs>
               <div className="h-[300px]">
                 {timeSeriesLoading ? (
                   <div className="flex items-center justify-center h-full">
@@ -662,29 +582,11 @@ function FlameWarContent() {
                     <BarChart3 className="h-12 w-12 mb-2 opacity-20" />
                     <p>No data for this period</p>
                   </div>
-                ) : timeSeriesPeriod === 'hourly' ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" fontSize={12} tickLine={false} axisLine={false} interval={11} />
-                      <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => formatValue(v, metric)} />
-                      <Tooltip
-                        formatter={(value: number, name: string) => [
-                          formatValue(value, metric),
-                          name === 'left' ? leftName : rightName
-                        ]}
-                        labelStyle={{ fontWeight: 'bold', color: '#111827' }}
-                      />
-                      <Legend formatter={(value) => value === 'left' ? leftName : rightName} />
-                      <Line type="monotone" dataKey="left" stroke="#f97316" strokeWidth={2} dot={false} name="left" />
-                      <Line type="monotone" dataKey="right" stroke="#3b82f6" strokeWidth={2} dot={false} name="right" />
-                    </LineChart>
-                  </ResponsiveContainer>
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="label" fontSize={12} tickLine={false} axisLine={false} interval={timeSeriesPeriod === 'monthly' ? 0 : 'preserveStartEnd'} />
+                      <XAxis dataKey="label" fontSize={12} tickLine={false} axisLine={false} interval={period === 'monthly' ? 0 : 'preserveStartEnd'} />
                       <YAxis fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => formatValue(v, metric)} />
                       <Tooltip
                         formatter={(value: number, name: string) => [

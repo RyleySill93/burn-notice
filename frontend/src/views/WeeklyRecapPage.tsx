@@ -880,10 +880,8 @@ function WeeklyRecapContent() {
         ))}
       </div>
 
-      {/* Animated flames on title + outro slides only */}
-      {(currentSlide === 0 || currentSlide === totalSlides - 1) && (
-        <AnimatedFlames intensity="low" />
-      )}
+      {/* Animated flames at bottom */}
+      <AnimatedFlames intensity="low" />
 
       {/* Slides */}
       <AnimatePresence mode="wait">

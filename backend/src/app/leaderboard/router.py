@@ -108,10 +108,13 @@ def get_historical_rankings(
     engineer_id: str,
     period_type: str = 'daily',
     num_periods: int = 20,
+    as_of: date | None = None,
     membership: MembershipRead = Depends(get_current_membership),
 ) -> HistoricalRankingsResponse:
     """Get historical rankings for an engineer."""
-    return LeaderboardService.get_historical_rankings(membership.customer_id, engineer_id, period_type, num_periods)
+    return LeaderboardService.get_historical_rankings(
+        membership.customer_id, engineer_id, period_type, num_periods, as_of=as_of
+    )
 
 
 @router.get('/engineers/{engineer_id}/time-series', response_model=TimeSeriesResponse)

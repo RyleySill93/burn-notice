@@ -56,7 +56,6 @@ from src.app.leaderboard.domains import (
 from src.app.usage.models import TelemetryEvent, Usage, UsageDaily
 from src.network.database import db
 
-
 ACTIVE_MINUTES_GAP_SECONDS = 600  # 10 minutes
 
 
@@ -131,9 +130,7 @@ class LeaderboardService:
         return active_by_engineer
 
     @staticmethod
-    def _calculate_active_minutes_by_day(
-        engineer_id: str, start_utc: datetime, end_utc: datetime
-    ) -> dict[date, int]:
+    def _calculate_active_minutes_by_day(engineer_id: str, start_utc: datetime, end_utc: datetime) -> dict[date, int]:
         """Calculate active minutes per day for an engineer. Days are in PST/PDT."""
         timestamps = (
             db.session.query(TelemetryEvent.created_at)
@@ -212,9 +209,7 @@ class LeaderboardService:
         """Get total active minutes for all engineers in a date range."""
         start_utc, _ = get_day_bounds_utc(start_date)
         _, end_utc = get_day_bounds_utc(end_date)
-        engineer_ids = [
-            e.id for e in db.session.query(Engineer.id).filter(Engineer.customer_id == customer_id).all()
-        ]
+        engineer_ids = [e.id for e in db.session.query(Engineer.id).filter(Engineer.customer_id == customer_id).all()]
         active_by_eng = LeaderboardService._calculate_active_minutes_batch(engineer_ids, start_utc, end_utc)
         return sum(active_by_eng.values())
 
@@ -226,9 +221,7 @@ class LeaderboardService:
         today_start_utc, _ = get_day_bounds_utc(get_today())
         time_elapsed = now_utc - today_start_utc
         end_utc = start_utc + time_elapsed
-        engineer_ids = [
-            e.id for e in db.session.query(Engineer.id).filter(Engineer.customer_id == customer_id).all()
-        ]
+        engineer_ids = [e.id for e in db.session.query(Engineer.id).filter(Engineer.customer_id == customer_id).all()]
         active_by_eng = LeaderboardService._calculate_active_minutes_batch(engineer_ids, start_utc, end_utc)
         return sum(active_by_eng.values())
 
@@ -644,7 +637,12 @@ class LeaderboardService:
             .all()
         )
         for r in daily_results:
-            totals_by_engineer[r.engineer_id] = (r.tokens or 0, r.tokens_input or 0, r.tokens_output or 0, r.cost_usd or 0.0)
+            totals_by_engineer[r.engineer_id] = (
+                r.tokens or 0,
+                r.tokens_input or 0,
+                r.tokens_output or 0,
+                r.cost_usd or 0.0,
+            )
 
         # 2. Get UNROLLED data from Usage (rolled_up_at IS NULL) for the date range
         unrolled_results = (
@@ -857,7 +855,9 @@ class LeaderboardService:
         today_active = LeaderboardService._get_active_minutes_for_range(customer_id, as_of, as_of)
         yesterday_active = LeaderboardService._get_active_minutes_at_this_point(customer_id, as_of - timedelta(days=1))
         this_week_active = LeaderboardService._get_active_minutes_for_range(customer_id, week_start, as_of)
-        last_week_active = LeaderboardService._get_active_minutes_for_range(customer_id, last_week_start, last_week_same_day)
+        last_week_active = LeaderboardService._get_active_minutes_for_range(
+            customer_id, last_week_start, last_week_same_day
+        )
         this_month_active = LeaderboardService._get_active_minutes_for_range(customer_id, month_start, as_of)
         last_month_active = LeaderboardService._get_active_minutes_for_range(
             customer_id, last_month_start, last_month_comparison_end
@@ -1267,9 +1267,7 @@ class LeaderboardService:
         # Active minutes by day
         full_start_utc, _ = get_day_bounds_utc(start_date)
         _, full_end_utc = get_day_bounds_utc(end_date)
-        engineer_ids = [
-            e.id for e in db.session.query(Engineer.id).filter(Engineer.customer_id == customer_id).all()
-        ]
+        engineer_ids = [e.id for e in db.session.query(Engineer.id).filter(Engineer.customer_id == customer_id).all()]
         active_by_day_by_eng = LeaderboardService._calculate_active_minutes_by_day_batch(
             engineer_ids, full_start_utc, full_end_utc
         )
@@ -1374,9 +1372,13 @@ class LeaderboardService:
 
         # Active minutes
         today_active = LeaderboardService._get_engineer_active_minutes_for_range(engineer_id, as_of, as_of)
-        yesterday_active = LeaderboardService._get_engineer_active_minutes_at_this_point(engineer_id, as_of - timedelta(days=1))
+        yesterday_active = LeaderboardService._get_engineer_active_minutes_at_this_point(
+            engineer_id, as_of - timedelta(days=1)
+        )
         this_week_active = LeaderboardService._get_engineer_active_minutes_for_range(engineer_id, week_start, as_of)
-        last_week_active = LeaderboardService._get_engineer_active_minutes_for_range(engineer_id, last_week_start, last_week_same_day)
+        last_week_active = LeaderboardService._get_engineer_active_minutes_for_range(
+            engineer_id, last_week_start, last_week_same_day
+        )
         this_month_active = LeaderboardService._get_engineer_active_minutes_for_range(engineer_id, month_start, as_of)
         last_month_active = LeaderboardService._get_engineer_active_minutes_for_range(
             engineer_id, last_month_start, last_month_comparison_end
@@ -1742,9 +1744,7 @@ class LeaderboardService:
         # Active minutes by day
         full_start_utc, _ = get_day_bounds_utc(start_date)
         _, full_end_utc = get_day_bounds_utc(end_date)
-        active_by_day = LeaderboardService._calculate_active_minutes_by_day(
-            engineer_id, full_start_utc, full_end_utc
-        )
+        active_by_day = LeaderboardService._calculate_active_minutes_by_day(engineer_id, full_start_utc, full_end_utc)
 
         totals = []
         current = start_date
@@ -1766,10 +1766,10 @@ class LeaderboardService:
 
     @staticmethod
     def get_historical_rankings(
-        customer_id: str, engineer_id: str, period_type: str, num_periods: int = 20
+        customer_id: str, engineer_id: str, period_type: str, num_periods: int = 20, as_of: date | None = None
     ) -> HistoricalRankingsResponse:
         """Get historical rankings for an engineer over past periods."""
-        today = get_today()
+        today = as_of if as_of is not None else get_today()
         rankings = []
 
         if period_type == 'daily':
@@ -1778,7 +1778,9 @@ class LeaderboardService:
                 rank, tokens, tokens_input, tokens_output, cost_usd = LeaderboardService._get_rank_for_day_detailed(
                     customer_id, engineer_id, period_date
                 )
-                active = LeaderboardService._get_engineer_active_minutes_for_range(engineer_id, period_date, period_date)
+                active = LeaderboardService._get_engineer_active_minutes_for_range(
+                    engineer_id, period_date, period_date
+                )
                 rankings.append(
                     HistoricalRank(
                         period_start=period_date,
@@ -1976,9 +1978,51 @@ class LeaderboardService:
                 .all()
             )
 
+            if results:
+                for rank, row in enumerate(results, 1):
+                    if row.engineer_id == engineer_id:
+                        return rank, row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0
+                return None, 0, 0, 0, 0.0
+
+            # Fallback to raw Usage table if no rollup data exists
+            start_utc, end_utc = get_day_bounds_utc(for_date)
+            results = (
+                db.session.query(
+                    Usage.engineer_id,
+                    func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
+                    func.sum(Usage.tokens_input).label('tokens_input'),
+                    func.sum(Usage.tokens_output).label('tokens_output'),
+                )
+                .join(Engineer, Usage.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    Usage.created_at >= start_utc,
+                    Usage.created_at < end_utc,
+                )
+                .group_by(Usage.engineer_id)
+                .having(func.sum(Usage.tokens_input + Usage.tokens_output) > 0)
+                .order_by(func.sum(Usage.tokens_input + Usage.tokens_output).desc())
+                .all()
+            )
+            cost_results = (
+                db.session.query(
+                    TelemetryEvent.engineer_id,
+                    func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+                )
+                .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+                .filter(
+                    Engineer.customer_id == customer_id,
+                    TelemetryEvent.created_at >= start_utc,
+                    TelemetryEvent.created_at < end_utc,
+                )
+                .group_by(TelemetryEvent.engineer_id)
+                .all()
+            )
+            cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
+
             for rank, row in enumerate(results, 1):
                 if row.engineer_id == engineer_id:
-                    return rank, row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0
+                    return rank, row.tokens, row.tokens_input, row.tokens_output, cost_by_engineer.get(engineer_id, 0.0)
 
         return None, 0, 0, 0, 0.0
 
@@ -2130,9 +2174,52 @@ class LeaderboardService:
                     return rank, tokens, tokens_input, tokens_output, cost_usd
             return None, 0, 0, 0, 0.0
 
-        for rank, row in enumerate(results, 1):
+        if results:
+            for rank, row in enumerate(results, 1):
+                if row.engineer_id == engineer_id:
+                    return rank, row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0
+            return None, 0, 0, 0, 0.0
+
+        # Fallback to raw Usage table if no rollup data exists for the range
+        start_utc, _ = get_day_bounds_utc(start_date)
+        _, end_utc = get_day_bounds_utc(end_date)
+        fallback_results = (
+            db.session.query(
+                Usage.engineer_id,
+                func.sum(Usage.tokens_input + Usage.tokens_output).label('tokens'),
+                func.sum(Usage.tokens_input).label('tokens_input'),
+                func.sum(Usage.tokens_output).label('tokens_output'),
+            )
+            .join(Engineer, Usage.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                Usage.created_at >= start_utc,
+                Usage.created_at < end_utc,
+            )
+            .group_by(Usage.engineer_id)
+            .having(func.sum(Usage.tokens_input + Usage.tokens_output) > 0)
+            .order_by(func.sum(Usage.tokens_input + Usage.tokens_output).desc())
+            .all()
+        )
+        cost_results = (
+            db.session.query(
+                TelemetryEvent.engineer_id,
+                func.sum(TelemetryEvent.cost_usd).label('cost_usd'),
+            )
+            .join(Engineer, TelemetryEvent.engineer_id == Engineer.id)
+            .filter(
+                Engineer.customer_id == customer_id,
+                TelemetryEvent.created_at >= start_utc,
+                TelemetryEvent.created_at < end_utc,
+            )
+            .group_by(TelemetryEvent.engineer_id)
+            .all()
+        )
+        cost_by_engineer = {r.engineer_id: r.cost_usd or 0.0 for r in cost_results}
+
+        for rank, row in enumerate(fallback_results, 1):
             if row.engineer_id == engineer_id:
-                return rank, row.tokens, row.tokens_input, row.tokens_output, row.cost_usd or 0.0
+                return rank, row.tokens, row.tokens_input, row.tokens_output, cost_by_engineer.get(engineer_id, 0.0)
 
         return None, 0, 0, 0, 0.0
 
@@ -2482,9 +2569,7 @@ class LeaderboardService:
                     cost_by_bucket[bucket_time] = r.cost_usd or 0.0
 
             # Active minutes by day
-            active_by_day = LeaderboardService._calculate_active_minutes_by_day(
-                engineer_id, start_utc, end_utc
-            )
+            active_by_day = LeaderboardService._calculate_active_minutes_by_day(engineer_id, start_utc, end_utc)
 
             # Build complete list with zeros for missing buckets
             data_points = []
@@ -2507,8 +2592,7 @@ class LeaderboardService:
                         else:
                             bucket_end = current.replace(month=current.month + 1)
                     bucket_active = sum(
-                        minutes for day, minutes in active_by_day.items()
-                        if current.date() <= day < bucket_end.date()
+                        minutes for day, minutes in active_by_day.items() if current.date() <= day < bucket_end.date()
                     )
 
                 data_points.append(
@@ -2717,7 +2801,10 @@ class LeaderboardService:
             end_date_only = (end_time - timedelta(seconds=1)).date()  # end_time is exclusive
 
             from loguru import logger
-            logger.info(f"Team time series query: period={period}, customer={customer_id}, start={start_date_only}, end={end_date_only}")
+
+            logger.info(
+                f'Team time series query: period={period}, customer={customer_id}, start={start_date_only}, end={end_date_only}'
+            )
 
             if period == 'daily':
                 # Query UsageDaily directly - one record per engineer per day
@@ -2739,7 +2826,7 @@ class LeaderboardService:
                     .all()
                 )
 
-                logger.info(f"Daily query returned {len(results)} results")
+                logger.info(f'Daily query returned {len(results)} results')
 
                 for r in results:
                     bucket_time = datetime(r.date.year, r.date.month, r.date.day, tzinfo=APP_TIMEZONE)
@@ -2873,7 +2960,10 @@ class LeaderboardService:
         ]
 
         from loguru import logger
-        logger.info(f"Team time series response: {len(engineers)} engineers, {len(data_points)} data points, engineers_with_data={len(engineers_with_data)}")
+
+        logger.info(
+            f'Team time series response: {len(engineers)} engineers, {len(data_points)} data points, engineers_with_data={len(engineers_with_data)}'
+        )
 
         return TeamTimeSeriesResponse(
             period=period,

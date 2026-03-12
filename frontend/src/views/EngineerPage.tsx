@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import {
   TrendingUp,
   TrendingDown,
@@ -24,8 +25,9 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { format, isSameDay } from 'date-fns'
+import { motion } from 'framer-motion'
 import { useMetricToggle, type MetricType } from '@/hooks/useMetricToggle'
 import { useAuth } from '@/contexts/AuthContext'
 import { hasFlameWarAccess } from '@/lib/flame-war-access'
@@ -319,126 +321,230 @@ function StatCard({
   )
 }
 
-const CROWN_LABELS: Record<string, string> = {
-  daily_tokens: 'Daily Tokens',
-  daily_time: 'Daily Time',
-  weekly_tokens: 'Weekly Tokens',
-  weekly_time: 'Weekly Time',
+// --- Medal Ribbon Bar (Apple Fitness / Military Ribbon style) ---
+
+interface MedalBadgeConfig {
+  emoji: string
+  label: string
+  description: string
+  bg: string
+  border: string
+  glow: string
+  textColor: string
 }
 
-const MEDAL_TYPE_LABELS: Record<string, string> = {
-  gold: 'Gold',
-  silver: 'Silver',
-  bronze: 'Bronze',
-  token_10m: '10M Tokens',
-  token_100m: '100M Tokens',
-  token_1b: '1B Tokens',
-  time_100h: '100 Hours',
-  time_1000h: '1,000 Hours',
-  time_10000h: '10,000 Hours',
+function getRankingBadgeConfig(medal: EngineerMedalEntry): MedalBadgeConfig {
+  const isTokens = medal.metricType === 'tokens'
+  const metricEmoji = isTokens ? '⚡' : '⏱️'
+  const periodLabel = medal.periodType === 'weekly' ? 'Weekly' : 'Monthly'
+  const metricLabel = isTokens ? 'Tokens' : 'Time'
+  const valueStr = isTokens ? formatTokens(medal.value) : formatMinutes(medal.value)
+  const dateStr = medal.periodStart ? format(new Date(medal.periodStart), 'MMM d, yyyy') : ''
+
+  if (medal.medalType === 'gold') {
+    return {
+      emoji: `🥇${metricEmoji}`,
+      label: `${periodLabel} Gold`,
+      description: `1st Place — ${periodLabel} ${metricLabel} (${valueStr}) — ${dateStr}`,
+      bg: 'bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-500',
+      border: 'border-yellow-500/50',
+      glow: 'shadow-yellow-400/40',
+      textColor: 'text-yellow-950',
+    }
+  }
+  if (medal.medalType === 'silver') {
+    return {
+      emoji: `🥈${metricEmoji}`,
+      label: `${periodLabel} Silver`,
+      description: `2nd Place — ${periodLabel} ${metricLabel} (${valueStr}) — ${dateStr}`,
+      bg: 'bg-gradient-to-br from-gray-200 via-slate-300 to-gray-400',
+      border: 'border-gray-400/50',
+      glow: 'shadow-gray-300/40',
+      textColor: 'text-gray-900',
+    }
+  }
+  // bronze
+  return {
+    emoji: `🥉${metricEmoji}`,
+    label: `${periodLabel} Bronze`,
+    description: `3rd Place — ${periodLabel} ${metricLabel} (${valueStr}) — ${dateStr}`,
+    bg: 'bg-gradient-to-br from-orange-300 via-amber-600 to-orange-700',
+    border: 'border-orange-600/50',
+    glow: 'shadow-orange-400/40',
+    textColor: 'text-orange-950',
+  }
 }
 
-const MEDAL_COLORS: Record<string, string> = {
-  gold: 'text-yellow-500',
-  silver: 'text-gray-400',
-  bronze: 'text-amber-700',
+function getMilestoneBadgeConfig(medal: EngineerMedalEntry): MedalBadgeConfig {
+  const dateStr = format(new Date(medal.createdAt), 'MMM d, yyyy')
+  const configs: Record<string, MedalBadgeConfig> = {
+    token_10m: {
+      emoji: '⚡',
+      label: '10M Tokens',
+      description: `Burned 10 million tokens — ${dateStr}`,
+      bg: 'bg-gradient-to-br from-orange-400 via-red-500 to-orange-600',
+      border: 'border-orange-500/50',
+      glow: 'shadow-orange-400/40',
+      textColor: 'text-white',
+    },
+    token_100m: {
+      emoji: '🔥',
+      label: '100M Tokens',
+      description: `Burned 100 million tokens — ${dateStr}`,
+      bg: 'bg-gradient-to-br from-red-500 via-rose-600 to-red-700',
+      border: 'border-red-500/50',
+      glow: 'shadow-red-500/40',
+      textColor: 'text-white',
+    },
+    token_1b: {
+      emoji: '☄️',
+      label: '1B Tokens',
+      description: `Burned ONE BILLION tokens — ${dateStr}`,
+      bg: 'bg-gradient-to-br from-fuchsia-500 via-purple-600 to-violet-700',
+      border: 'border-purple-500/50',
+      glow: 'shadow-purple-500/50',
+      textColor: 'text-white',
+    },
+    time_100h: {
+      emoji: '⏰',
+      label: '100 Hours',
+      description: `100 hours of active coding time — ${dateStr}`,
+      bg: 'bg-gradient-to-br from-cyan-400 via-blue-500 to-cyan-600',
+      border: 'border-cyan-500/50',
+      glow: 'shadow-cyan-400/40',
+      textColor: 'text-white',
+    },
+    time_1000h: {
+      emoji: '🕐',
+      label: '1,000 Hours',
+      description: `1,000 hours of active coding time — ${dateStr}`,
+      bg: 'bg-gradient-to-br from-blue-500 via-indigo-600 to-blue-700',
+      border: 'border-indigo-500/50',
+      glow: 'shadow-indigo-500/40',
+      textColor: 'text-white',
+    },
+    time_10000h: {
+      emoji: '🧙',
+      label: '10,000 Hours',
+      description: `10,000 hours — You are the master now — ${dateStr}`,
+      bg: 'bg-gradient-to-br from-violet-500 via-purple-700 to-fuchsia-800',
+      border: 'border-violet-500/50',
+      glow: 'shadow-violet-500/50',
+      textColor: 'text-white',
+    },
+  }
+  return configs[medal.medalType] || {
+    emoji: '🏅',
+    label: medal.medalType,
+    description: medal.medalType,
+    bg: 'bg-gradient-to-br from-gray-300 to-gray-500',
+    border: 'border-gray-400/50',
+    glow: 'shadow-gray-400/40',
+    textColor: 'text-white',
+  }
 }
 
-function MedalsSection({ medalsData }: { medalsData: EngineerMedalsData }) {
-  const { crowns, medalCounts, medals } = medalsData
-  const hasCrowns = crowns.length > 0
-  const rankingMedals = medals.filter((m) => m.medalCategory === 'ranking')
+function getCrownBadgeConfig(crown: EngineerCrown): MedalBadgeConfig {
+  const isTokens = crown.crownType.includes('tokens')
+  const isDaily = crown.crownType.includes('daily')
+  const periodLabel = isDaily ? 'Daily' : 'Weekly'
+  const metricLabel = isTokens ? 'Tokens' : 'Time'
+  const valueStr = isTokens ? formatTokens(crown.value) : formatMinutes(crown.value)
+
+  return {
+    emoji: '👑',
+    label: `${periodLabel} ${metricLabel}`,
+    description: `Company Record — ${periodLabel} ${metricLabel} (${valueStr})`,
+    bg: isTokens
+      ? 'bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500'
+      : 'bg-gradient-to-br from-yellow-400 via-amber-500 to-orange-500',
+    border: 'border-yellow-400/60',
+    glow: 'shadow-yellow-400/50',
+    textColor: 'text-white',
+  }
+}
+
+function MedalBadge({ config, index }: { config: MedalBadgeConfig; index: number }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <motion.div
+          initial={{ opacity: 0, scale: 0, rotate: -20 }}
+          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+          transition={{
+            type: 'spring',
+            stiffness: 400,
+            damping: 15,
+            delay: index * 0.04,
+          }}
+          whileHover={{
+            scale: 1.25,
+            rotate: [0, -6, 6, -3, 0],
+            transition: { duration: 0.4 },
+          }}
+          whileTap={{ scale: 0.9 }}
+          className={cn(
+            'relative flex flex-col items-center justify-center',
+            'w-14 h-14 rounded-2xl border-2 cursor-pointer select-none',
+            'transition-shadow duration-200',
+            config.bg,
+            config.border,
+            `hover:shadow-lg hover:${config.glow}`,
+          )}
+        >
+          <span className="text-lg leading-none">{config.emoji}</span>
+          <span className={cn('text-[8px] font-black leading-tight mt-0.5 text-center px-0.5', config.textColor)}>
+            {config.label}
+          </span>
+        </motion.div>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-64 text-center text-sm font-medium">
+        {config.description}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+function MedalsRibbon({ medalsData }: { medalsData: EngineerMedalsData }) {
+  const { crowns, medals } = medalsData
+
+  // Build ordered badge list: crowns first, then ranking medals (gold → silver → bronze), then milestones
+  const badges: MedalBadgeConfig[] = []
+
+  // Crowns
+  for (const crown of crowns) {
+    badges.push(getCrownBadgeConfig(crown))
+  }
+
+  // Ranking medals sorted: gold, silver, bronze — then by tokens before time
+  const rankOrder: Record<string, number> = { gold: 0, silver: 1, bronze: 2 }
+  const metricOrder: Record<string, number> = { tokens: 0, time: 1 }
+  const rankingMedals = medals
+    .filter((m) => m.medalCategory === 'ranking')
+    .sort((a, b) => {
+      const rankDiff = (rankOrder[a.medalType] ?? 9) - (rankOrder[b.medalType] ?? 9)
+      if (rankDiff !== 0) return rankDiff
+      const metricDiff = (metricOrder[a.metricType] ?? 9) - (metricOrder[b.metricType] ?? 9)
+      if (metricDiff !== 0) return metricDiff
+      return (a.periodStart ?? '').localeCompare(b.periodStart ?? '')
+    })
+  for (const medal of rankingMedals) {
+    badges.push(getRankingBadgeConfig(medal))
+  }
+
+  // Milestones
   const milestoneMedals = medals.filter((m) => m.medalCategory === 'milestone')
-  const hasRankings = rankingMedals.length > 0
-  const hasMilestones = milestoneMedals.length > 0
+  for (const medal of milestoneMedals) {
+    badges.push(getMilestoneBadgeConfig(medal))
+  }
+
+  if (badges.length === 0) return null
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {/* Medal Counts Summary */}
-      {hasRankings && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Medal className="h-4 w-4 text-yellow-500" />
-              Medals
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-4">
-              {(['gold', 'silver', 'bronze'] as const).map((type) => {
-                const count = medalCounts[type] || 0
-                if (count === 0) return null
-                const Icon = type === 'gold' ? Crown : type === 'silver' ? Medal : Award
-                return (
-                  <div key={type} className="flex items-center gap-1.5">
-                    <Icon className={cn('h-5 w-5', MEDAL_COLORS[type])} />
-                    <span className="text-lg font-bold">{count}</span>
-                    <span className="text-xs text-muted-foreground">{MEDAL_TYPE_LABELS[type]}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Crowns */}
-      {hasCrowns && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Crown className="h-4 w-4 text-yellow-500" />
-              Crowns Held
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {crowns.map((crown) => {
-                const isTokens = crown.crownType.includes('tokens')
-                const CrownIcon = isTokens ? Zap : Clock
-                return (
-                  <div key={crown.crownType} className="flex items-center gap-2">
-                    <CrownIcon className={cn('h-4 w-4', isTokens ? 'text-orange-400' : 'text-red-400')} />
-                    <span className="text-sm font-medium">{CROWN_LABELS[crown.crownType]}</span>
-                    <span className="text-sm text-muted-foreground ml-auto">
-                      {isTokens ? formatTokens(crown.value) : formatMinutes(crown.value)}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Milestones */}
-      {hasMilestones && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Star className="h-4 w-4 text-purple-500" />
-              Milestones
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {milestoneMedals.map((m, i) => {
-                const isTokens = m.metricType === 'tokens'
-                const MIcon = isTokens ? Zap : Clock
-                return (
-                  <div key={i} className="flex items-center gap-2">
-                    <MIcon className={cn('h-4 w-4', isTokens ? 'text-orange-400' : 'text-red-400')} />
-                    <span className="text-sm font-medium">{MEDAL_TYPE_LABELS[m.medalType] || m.medalType}</span>
-                    <Badge variant="outline" className="ml-auto text-xs text-purple-600 border-purple-200">
-                      {format(new Date(m.createdAt), 'MMM d')}
-                    </Badge>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+    <div className="flex flex-wrap gap-2">
+      {badges.map((config, i) => (
+        <MedalBadge key={i} config={config} index={i} />
+      ))}
     </div>
   )
 }
@@ -695,6 +801,11 @@ export function EngineerPage() {
         <MetricToggle metric={metric} setMetric={setMetric} />
       </div>
 
+      {/* Medals Ribbon (Flame War users only) */}
+      {showFlameWar && medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
+        <MedalsRibbon medalsData={medalsData} />
+      )}
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
@@ -725,11 +836,6 @@ export function EngineerPage() {
           metric={metric}
         />
       </div>
-
-      {/* Medals & Crowns (Flame War users only) */}
-      {showFlameWar && medalsData && (medalsData.crowns.length > 0 || medalsData.medals.length > 0) && (
-        <MedalsSection medalsData={medalsData} />
-      )}
 
       {/* Time Series Chart and Historical Rankings */}
       <div className="grid gap-6 lg:grid-cols-2 items-start">
@@ -793,7 +899,7 @@ export function EngineerPage() {
                     axisLine={false}
                     tickFormatter={(value) => formatValue(value, metric)}
                   />
-                  <Tooltip
+                  <RechartsTooltip
                     formatter={(value: number) => [
                       formatValue(value, metric),
                       metric === 'cost'
@@ -830,7 +936,7 @@ export function EngineerPage() {
                     axisLine={false}
                     tickFormatter={(value) => formatValue(value, metric)}
                   />
-                  <Tooltip
+                  <RechartsTooltip
                     formatter={(value: number, name: string) => {
                       const label = name === 'tokensInput' ? 'Input' : name === 'tokensOutput' ? 'Output' : metric === 'cost' ? 'Cost' : 'Tokens'
                       return [formatValue(value, metric), label]

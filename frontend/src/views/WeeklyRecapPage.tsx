@@ -3,7 +3,10 @@ import { Navigate, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { hasFlameWarAccess } from '@/lib/flame-war-access'
-import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Crown, Medal, Award, Calendar, TrendingUp, TrendingDown, Star } from 'lucide-react'
+import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Calendar, TrendingUp, TrendingDown } from 'lucide-react'
+import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, MILESTONE_CONFIGS } from '@/components/badges'
+import type { Rank, Metric as BadgeMetric, MilestoneKind, CrownKind } from '@/components/badges'
+import { AnimatedFlames } from '@/components/AnimatedFlames'
 import { addDays, subDays, startOfWeek } from 'date-fns'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
@@ -281,10 +284,6 @@ function CrownsSlide({ crowns }: { crowns: CrownHolder[] }) {
     weekly_tokens: 'Tokens',
     weekly_time: 'Time',
   }
-  const crownIcons: Record<string, typeof Zap> = {
-    weekly_tokens: Zap,
-    weekly_time: Clock,
-  }
   const crownFormatters: Record<string, (v: number) => string> = {
     weekly_tokens: formatNumber,
     weekly_time: formatMinutes,
@@ -297,14 +296,13 @@ function CrownsSlide({ crowns }: { crowns: CrownHolder[] }) {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-4"
       >
-        <Crown className="h-12 w-12 text-yellow-400" />
         <h2 className="text-5xl font-bold" style={{ fontFamily: 'Bangers, cursive' }}>
           Crown Holders
         </h2>
       </motion.div>
       <div className="grid grid-cols-2 gap-6 max-w-3xl w-full px-8">
         {crowns.map((crown, i) => {
-          const CrownIcon = crownIcons[crown.crownType] || Zap
+          const crownKind = crown.crownType.replace('weekly_', '') as CrownKind
           const formatter = crownFormatters[crown.crownType] || formatNumber
           return (
             <motion.div
@@ -314,10 +312,7 @@ function CrownsSlide({ crowns }: { crowns: CrownHolder[] }) {
               transition={{ delay: 0.3 + i * 0.15, type: 'spring' }}
               className="flex items-center gap-4 bg-gradient-to-r from-yellow-500/10 to-transparent border border-yellow-500/30 rounded-xl p-5"
             >
-              <div className="relative">
-                <CrownIcon className="h-8 w-8 text-yellow-400/50" />
-                <Crown className="h-5 w-5 text-yellow-400 absolute -top-2 -right-2" />
-              </div>
+              <CrownBadgeComponent kind={crownKind} size={48} />
               <div className="flex-1">
                 <div className="text-xs text-yellow-400/70 uppercase tracking-wider font-semibold">
                   {crownLabels[crown.crownType] || crown.crownType}
@@ -340,6 +335,7 @@ function PodiumSlide({
   formatValue,
   color,
   medals,
+  metricType,
 }: {
   title: string
   icon: typeof Trophy
@@ -347,6 +343,7 @@ function PodiumSlide({
   formatValue: (v: number) => string
   color: string
   medals?: MedalAwarded[]
+  metricType: BadgeMetric
 }) {
   useEffect(() => {
     const timer = setTimeout(fireConfettiThenFlames, 1200)
@@ -360,19 +357,10 @@ function PodiumSlide({
     'from-yellow-500/30 border-yellow-500/50',
     'from-amber-700/30 border-amber-700/50',
   ]
-  const rankIcons = [
-    <Medal key="silver" className="h-10 w-10 text-gray-400" />,
-    <Crown key="gold" className="h-12 w-12 text-yellow-400" />,
-    <Award key="bronze" className="h-8 w-8 text-amber-700" />,
-  ]
-  const medalColors: Record<string, string> = {
-    gold: 'text-yellow-400',
-    silver: 'text-gray-400',
-    bronze: 'text-amber-700',
-  }
+  const rankToMedalRank: Record<number, Rank> = { 1: 'gold', 2: 'silver', 3: 'bronze' }
   const delays = [0.6, 0.3, 0.9]
 
-  // Map engineer medals by rank
+  // Map engineer medals by engineerId
   const medalByEngineer = new Map<string, string>()
   if (medals) {
     for (const m of medals) {
@@ -396,7 +384,7 @@ function PodiumSlide({
         {podiumOrder.map((idx, visualIdx) => {
           const entry = podium[idx]
           if (!entry) return null
-          const engineerMedal = medalByEngineer.get(entry.engineerId)
+          const medalRank = rankToMedalRank[entry.rank]
           return (
             <motion.div
               key={entry.engineerId}
@@ -409,11 +397,14 @@ function PodiumSlide({
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: delays[visualIdx] + 0.3, type: 'spring' }}
-                className="flex items-center gap-1"
               >
-                {rankIcons[visualIdx]}
-                {engineerMedal && (
-                  <Medal className={`h-5 w-5 ${medalColors[engineerMedal] || 'text-yellow-400'}`} />
+                {medalRank && (
+                  <RankingMedal
+                    rank={medalRank}
+                    metric={metricType}
+                    count={1}
+                    size={visualIdx === 1 ? 72 : visualIdx === 0 ? 60 : 52}
+                  />
                 )}
               </motion.div>
               <span className="text-xl font-semibold truncate max-w-[180px]">{entry.displayName}</span>
@@ -564,42 +555,30 @@ function MilestonesSlide({ milestones }: { milestones: MilestoneAwarded[] }) {
     return () => clearTimeout(timer)
   }, [])
 
-  const milestoneLabels: Record<string, string> = {
-    token_1m: 'Spark — 1M Tokens',
-    token_10m: 'Ember — 10M Tokens',
-    token_50m: 'Blaze — 50M Tokens',
-    token_100m: 'Inferno — 100M Tokens',
-    token_250m: 'Firestorm — 250M Tokens',
-    token_500m: 'Supernova — 500M Tokens',
-    token_1b: 'Solar Flare — 1 BILLION Tokens',
-    token_10b: 'Big Bang — 10 BILLION Tokens',
-    time_10h: 'Clocked In — 10 Hours',
-    time_100h: 'Grinder — 100 Hours',
-    time_500h: 'Marathoner — 500 Hours',
-    time_1000h: 'Ironman — 1,000 Hours',
-    time_2500h: 'Centurion — 2,500 Hours',
-    time_5000h: 'Titan — 5,000 Hours',
-    time_10000h: 'Eternal — 10,000 Hours',
-    time_25000h: 'Transcendent — 25,000 Hours',
-  }
-  const milestoneIcons: Record<string, typeof Zap> = {
-    token_1m: Zap,
-    token_10m: Zap,
-    token_50m: Zap,
-    token_100m: Zap,
-    token_250m: Zap,
-    token_500m: Zap,
-    token_1b: Zap,
-    token_10b: Zap,
-    time_10h: Clock,
-    time_100h: Clock,
-    time_500h: Clock,
-    time_1000h: Clock,
-    time_2500h: Clock,
-    time_5000h: Clock,
-    time_10000h: Clock,
-    time_25000h: Clock,
-  }
+  // Dedup: only show highest milestone per (engineer, metric_type)
+  const TOKEN_MILESTONE_ORDER: string[] = ['token_10b', 'token_1b', 'token_500m', 'token_250m', 'token_100m', 'token_50m', 'token_10m', 'token_1m']
+  const TIME_MILESTONE_ORDER: string[] = ['time_25000h', 'time_10000h', 'time_5000h', 'time_2500h', 'time_1000h', 'time_500h', 'time_100h', 'time_10h']
+
+  const deduped = useMemo(() => {
+    const seen = new Map<string, MilestoneAwarded>()
+    for (const m of milestones) {
+      const isToken = m.medalType.startsWith('token_')
+      const key = `${m.engineerId}|${isToken ? 'tokens' : 'time'}`
+      const existing = seen.get(key)
+      if (!existing) {
+        seen.set(key, m)
+      } else {
+        const order = isToken ? TOKEN_MILESTONE_ORDER : TIME_MILESTONE_ORDER
+        const existingIdx = order.indexOf(existing.medalType)
+        const newIdx = order.indexOf(m.medalType)
+        // Lower index = higher tier
+        if (newIdx >= 0 && (existingIdx < 0 || newIdx < existingIdx)) {
+          seen.set(key, m)
+        }
+      }
+    }
+    return Array.from(seen.values())
+  }, [milestones])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
@@ -608,39 +587,29 @@ function MilestonesSlide({ milestones }: { milestones: MilestoneAwarded[] }) {
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-4"
       >
-        <Star className="h-12 w-12 text-purple-400" />
         <h2 className="text-5xl font-bold" style={{ fontFamily: 'Bangers, cursive' }}>
           Milestones Unlocked!
         </h2>
       </motion.div>
       <div className="grid grid-cols-1 gap-4 max-w-2xl w-full px-8">
-        {milestones.map((m, i) => {
-          const MIcon = milestoneIcons[m.medalType] || Star
+        {deduped.map((m, i) => {
+          const cfg = MILESTONE_CONFIGS[m.medalType as MilestoneKind]
+          const label = cfg ? `${cfg.name} — ${cfg.label} ${m.medalType.startsWith('token_') ? 'Tokens' : 'Hours'}` : m.medalType
           return (
             <motion.div
-              key={i}
+              key={`${m.engineerId}-${m.medalType}`}
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 + i * 0.2, type: 'spring' }}
               className="flex items-center gap-5 bg-gradient-to-r from-purple-500/10 to-transparent border border-purple-500/30 rounded-xl p-6"
             >
-              <div className="relative">
-                <MIcon className="h-10 w-10 text-purple-400" />
-                <Star className="h-4 w-4 text-yellow-400 absolute -top-1 -right-1 fill-yellow-400" />
-              </div>
+              <MilestoneBadge kind={m.medalType as MilestoneKind} size={56} />
               <div className="flex-1">
                 <div className="font-bold text-xl">{m.displayName}</div>
                 <div className="text-purple-300 font-semibold" style={{ fontFamily: 'Bangers, cursive' }}>
-                  {milestoneLabels[m.medalType] || m.medalType}
+                  {label}
                 </div>
               </div>
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.6 + i * 0.2, type: 'spring', bounce: 0.5 }}
-              >
-                <Medal className="h-8 w-8 text-purple-400" />
-              </motion.div>
             </motion.div>
           )
         })}
@@ -791,6 +760,7 @@ function WeeklyRecapContent() {
         formatValue={formatNumber}
         color="text-orange-400"
         medals={tokenMedals}
+        metricType="tokens"
       />,
       <PodiumSlide
         key="time-podium"
@@ -800,6 +770,7 @@ function WeeklyRecapContent() {
         formatValue={formatMinutes}
         color="text-red-400"
         medals={timeMedals}
+        metricType="time"
       />,
     )
 
@@ -908,6 +879,9 @@ function WeeklyRecapContent() {
           />
         ))}
       </div>
+
+      {/* Animated flames at bottom */}
+      <AnimatedFlames intensity="low" />
 
       {/* Slides */}
       <AnimatePresence mode="wait">

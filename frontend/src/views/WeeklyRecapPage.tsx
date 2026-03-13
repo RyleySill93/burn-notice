@@ -175,7 +175,7 @@ type PlaySound = (effect: SoundEffect, options?: { volume?: number; delay?: numb
 
 function TitleSlide({ weekStart, weekEnd, play }: { weekStart: string; weekEnd: string; play: PlaySound }) {
   useEffect(() => {
-    play('fanfare', { volume: 0.6 })
+    play('say-so', { volume: 0.5 })
     const timer = setTimeout(() => {
       fireConfetti()
       setTimeout(fireFlames, 2000)
@@ -242,12 +242,18 @@ function TeamTotalsSlide({
   minutes,
   prevTokens,
   prevMinutes,
+  play,
 }: {
   tokens: number
   minutes: number
   prevTokens: number
   prevMinutes: number
+  play: PlaySound
 }) {
+  useEffect(() => {
+    play('team-totals', { volume: 0.5 })
+  }, [])
+
   return (
     <div className="flex flex-col items-center justify-center min-h-full gap-12 py-16">
       <motion.h2
@@ -362,7 +368,7 @@ function PodiumSlide({
   play: PlaySound
 }) {
   useEffect(() => {
-    play('celebration', { volume: 0.4 })
+    play(metricType === 'tokens' ? 'tokens-podium' : 'celebration', { volume: 0.4 })
     const timer = setTimeout(fireConfettiThenFlames, 1200)
     return () => clearTimeout(timer)
   }, [])
@@ -589,7 +595,7 @@ function EngineerRecordRow({ records, delay }: { records: RecapRecord[]; delay: 
 
 function MilestonesSlide({ milestones, play }: { milestones: MilestoneAwarded[]; play: PlaySound }) {
   useEffect(() => {
-    play('fanfare', { volume: 0.4 })
+    play('milestones', { volume: 0.4 })
     const timer = setTimeout(fireConfettiThenFlames, 500)
     return () => clearTimeout(timer)
   }, [])
@@ -858,8 +864,7 @@ function SpecialAwardsSlide({ actions, play }: { actions: ActionMedalAwarded[]; 
 
 function OutroSlide({ play }: { play: PlaySound }) {
   useEffect(() => {
-    // Curb Your Enthusiasm theme
-    play('curb', { volume: 0.5 })
+    play('outro', { volume: 0.5 })
     const timer = setTimeout(() => {
       fireConfetti()
       setTimeout(fireFlames, 2000)
@@ -931,10 +936,22 @@ function CountUp({
 
 // --- Main Component ---
 
+// Brainrot videos - Subway Surfers, Minecraft parkour, satisfying content, etc.
+const BRAINROT_VIDEO_IDS = [
+  'hT_nvWreIhg', // Minecraft parkour
+  'n_Dv4JMiwgE', // Subway Surfers
+  'fXLicO0CRvk', // Satisfying slime
+  'sNhhvQGsMEc', // Temple Run gameplay
+  '8ZP3AXgMKjo', // Subway Surfers
+  'dQw4w9WgXcQ', // Classic rickroll as a bonus brainrot
+]
+
 function WeeklyRecapContent() {
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [asOfDate, setAsOfDate] = useState<Date>(new Date())
+  const [brainrotVisible, setBrainrotVisible] = useState(false)
+  const [brainrotVideoId] = useState(() => BRAINROT_VIDEO_IDS[Math.floor(Math.random() * BRAINROT_VIDEO_IDS.length)])
   const { enabled: soundEnabled, toggle: toggleSound, play, stopAll } = useSoundEffects()
 
   const isCurrentWeek = startOfWeek(asOfDate, { weekStartsOn: 1 }).getTime() ===
@@ -986,6 +1003,7 @@ function WeeklyRecapContent() {
         minutes={data.teamTotalMinutes}
         prevTokens={data.prevWeekTokens}
         prevMinutes={data.prevWeekMinutes}
+        play={play}
       />,
     ]
 
@@ -1058,11 +1076,15 @@ function WeeklyRecapContent() {
         goPrev()
       }
       if (e.key === 'Escape') {
-        navigate('/flame-war')
+        navigate('/badges')
+      }
+      if (e.key === 'z' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setBrainrotVisible((prev) => !prev)
       }
     }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
+    window.addEventListener('keydown', handleKey, true)
+    return () => window.removeEventListener('keydown', handleKey, true)
   }, [goNext, goPrev, navigate])
 
   if (!data && isFetching) {
@@ -1192,6 +1214,34 @@ function WeeklyRecapContent() {
         </button>
         <span className="text-xs text-muted-foreground">Press ESC to exit</span>
       </div>
+
+      {/* Hidden brainrot video easter egg (Cmd/Ctrl+Z) */}
+      <AnimatePresence>
+        {brainrotVisible && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.5, y: -20 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className="absolute top-16 right-6 z-50 rounded-xl overflow-hidden shadow-2xl border-2 border-orange-500/50"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 280, height: 500 }}
+          >
+            <iframe
+              src={`https://www.youtube.com/embed/${brainrotVideoId}?autoplay=1&mute=0&loop=1&playlist=${brainrotVideoId}&controls=0&modestbranding=1`}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+            />
+            <button
+              onClick={() => setBrainrotVisible(false)}
+              className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 text-white text-xs flex items-center justify-center transition-colors"
+            >
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

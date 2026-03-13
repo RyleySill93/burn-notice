@@ -18,6 +18,11 @@ export type SoundEffect =
   | 'drumroll'
   | 'yankee-doodle'
   | 'curb'
+  | 'say-so'
+  | 'outro'
+  | 'team-totals'
+  | 'tokens-podium'
+  | 'milestones'
 
 const SOUND_URLS: Record<SoundEffect, string> = {
   fanfare: '/sounds/fanfare.mp3',
@@ -26,6 +31,11 @@ const SOUND_URLS: Record<SoundEffect, string> = {
   drumroll: '/sounds/drumroll.mp3',
   'yankee-doodle': '/sounds/yankee-doodle.mp3',
   curb: '/sounds/curb.mp3',
+  'say-so': '/sounds/say-so.mp3',
+  outro: '/sounds/outro.mp3',
+  'team-totals': '/sounds/team-totals.mp3',
+  'tokens-podium': '/sounds/tokens-podium.mp3',
+  milestones: '/sounds/milestones.mp3',
 }
 
 export function useSoundEffects() {

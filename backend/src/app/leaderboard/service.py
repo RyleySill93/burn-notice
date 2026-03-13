@@ -3273,3 +3273,126 @@ class LeaderboardService:
             prev_week_tokens=prev_week_tokens,
             prev_week_minutes=prev_week_minutes,
         )
+
+    @staticmethod
+    def get_head_to_head(
+        left_engineer_id: str,
+        right_engineer_id: str,
+        period_type: str = 'weekly',
+    ) -> 'HeadToHeadResponse':
+        """
+        Get all-time head-to-head win counts between two engineers for a given period type.
+        Counts wins by tokens and time for each period bucket.
+        """
+        from src.app.leaderboard.domains import HeadToHeadResponse
+        from src.app.usage.models import UsageDaily
+
+        # Determine the SQL date_trunc interval
+        if period_type == 'daily':
+            trunc_interval = 'day'
+        elif period_type == 'weekly':
+            trunc_interval = 'week'
+        else:  # monthly
+            trunc_interval = 'month'
+
+        # Query token totals per period for both engineers
+        rows = (
+            db.session.query(
+                func.date_trunc(trunc_interval, UsageDaily.date).label('period'),
+                UsageDaily.engineer_id,
+                func.sum(UsageDaily.total_tokens).label('tokens'),
+            )
+            .filter(UsageDaily.engineer_id.in_([left_engineer_id, right_engineer_id]))
+            .group_by('period', UsageDaily.engineer_id)
+            .all()
+        )
+
+        # Build per-period maps: {period: {engineer_id: tokens}}
+        token_by_period: dict[str, dict[str, int]] = defaultdict(dict)
+        for row in rows:
+            token_by_period[str(row.period)][row.engineer_id] = int(row.tokens or 0)
+
+        # Count token wins
+        left_token_wins = 0
+        right_token_wins = 0
+        token_ties = 0
+        for period_data in token_by_period.values():
+            left_val = period_data.get(left_engineer_id, 0)
+            right_val = period_data.get(right_engineer_id, 0)
+            # Skip periods where both have 0
+            if left_val == 0 and right_val == 0:
+                continue
+            if left_val > right_val:
+                left_token_wins += 1
+            elif right_val > left_val:
+                right_token_wins += 1
+            else:
+                token_ties += 1
+
+        # Calculate time wins using active minutes by day, then aggregate by period
+        # Get the full date range from UsageDaily
+        date_range = (
+            db.session.query(
+                func.min(UsageDaily.date).label('min_date'),
+                func.max(UsageDaily.date).label('max_date'),
+            )
+            .filter(UsageDaily.engineer_id.in_([left_engineer_id, right_engineer_id]))
+            .one()
+        )
+
+        left_time_wins = 0
+        right_time_wins = 0
+        time_ties = 0
+
+        if date_range.min_date and date_range.max_date:
+            start_utc, _ = get_day_bounds_utc(date_range.min_date)
+            _, end_utc = get_day_bounds_utc(date_range.max_date)
+
+            day_minutes = LeaderboardService._calculate_active_minutes_by_day_batch(
+                [left_engineer_id, right_engineer_id], start_utc, end_utc
+            )
+
+            # Aggregate daily minutes into period buckets
+            time_by_period: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+            for day, eng_data in day_minutes.items():
+                if period_type == 'daily':
+                    period_key = str(day)
+                elif period_type == 'weekly':
+                    # Monday-based week start
+                    week_start = day - timedelta(days=day.weekday())
+                    period_key = str(week_start)
+                else:  # monthly
+                    period_key = f'{day.year}-{day.month:02d}'
+
+                for eng_id, minutes in eng_data.items():
+                    time_by_period[period_key][eng_id] += minutes
+
+            for period_data in time_by_period.values():
+                left_val = period_data.get(left_engineer_id, 0)
+                right_val = period_data.get(right_engineer_id, 0)
+                if left_val == 0 and right_val == 0:
+                    continue
+                if left_val > right_val:
+                    left_time_wins += 1
+                elif right_val > left_val:
+                    right_time_wins += 1
+                else:
+                    time_ties += 1
+
+        total_periods = max(
+            left_token_wins + right_token_wins + token_ties,
+            left_time_wins + right_time_wins + time_ties,
+        )
+
+        return HeadToHeadResponse(
+            period_type=period_type,
+            left_engineer_id=left_engineer_id,
+            right_engineer_id=right_engineer_id,
+            left_token_wins=left_token_wins,
+            right_token_wins=right_token_wins,
+            token_ties=token_ties,
+            left_time_wins=left_time_wins,
+            right_time_wins=right_time_wins,
+            time_ties=time_ties,
+            total_periods=total_periods,
+        )

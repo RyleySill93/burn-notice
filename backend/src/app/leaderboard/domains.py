@@ -355,3 +355,18 @@ class WeeklyRecapResponse(BaseDomain):
     milestones_awarded: list[MilestoneAwarded]
     prev_week_tokens: int
     prev_week_minutes: int
+
+
+class HeadToHeadResponse(BaseDomain):
+    """All-time head-to-head win counts for a given period type."""
+
+    period_type: str  # daily, weekly, monthly
+    left_engineer_id: str
+    right_engineer_id: str
+    left_token_wins: int
+    right_token_wins: int
+    token_ties: int
+    left_time_wins: int
+    right_time_wins: int
+    time_ties: int
+    total_periods: int

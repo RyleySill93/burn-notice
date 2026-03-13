@@ -235,33 +235,67 @@ function VersusBar({
 type PeriodType = 'daily' | 'weekly' | 'monthly'
 
 
+interface HeadToHeadData {
+  periodType: string
+  leftEngineerId: string
+  rightEngineerId: string
+  leftTokenWins: number
+  rightTokenWins: number
+  tokenTies: number
+  leftTimeWins: number
+  rightTimeWins: number
+  timeTies: number
+  totalPeriods: number
+}
+
 function AllTimeScoreboard({
-  leftStats,
-  rightStats,
+  leftEngineerId,
+  rightEngineerId,
   leftName,
   rightName,
   metric,
 }: {
-  leftStats: EngineerStats | undefined
-  rightStats: EngineerStats | undefined
+  leftEngineerId: string
+  rightEngineerId: string
   leftName: string
   rightName: string
   metric: MetricType
 }) {
-  const periods = ['today', 'thisWeek', 'thisMonth'] as const
-  let leftWins = 0
-  let rightWins = 0
+  const [periodType, setPeriodType] = useState<PeriodType>('weekly')
 
-  for (const period of periods) {
-    const leftVal = leftStats ? getMetricValue(leftStats[period], metric) : 0
-    const rightVal = rightStats ? getMetricValue(rightStats[period], metric) : 0
-    if (leftVal > rightVal) leftWins++
-    if (rightVal > leftVal) rightWins++
-  }
+  const { data: h2h } = useQuery<HeadToHeadData>({
+    queryKey: ['head-to-head', leftEngineerId, rightEngineerId, periodType],
+    queryFn: async () => {
+      const response = await axios.get<HeadToHeadData>('/api/leaderboard/head-to-head', {
+        params: {
+          left_engineer_id: leftEngineerId,
+          right_engineer_id: rightEngineerId,
+          period_type: periodType,
+        },
+      })
+      return response.data
+    },
+    enabled: !!leftEngineerId && !!rightEngineerId,
+  })
+
+  const isTimeBased = metric === 'time'
+  const leftWins = h2h ? (isTimeBased ? h2h.leftTimeWins : h2h.leftTokenWins) : 0
+  const rightWins = h2h ? (isTimeBased ? h2h.rightTimeWins : h2h.rightTokenWins) : 0
+  const ties = h2h ? (isTimeBased ? h2h.timeTies : h2h.tokenTies) : 0
+  const periodLabel = periodType === 'daily' ? 'day' : periodType === 'weekly' ? 'week' : 'month'
 
   return (
     <Card>
       <CardContent className="py-8">
+        <div className="flex justify-center mb-6">
+          <Tabs value={periodType} onValueChange={(v) => setPeriodType(v as PeriodType)}>
+            <TabsList>
+              <TabsTrigger value="daily" className="text-xs">Daily</TabsTrigger>
+              <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
+              <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
         <div className="flex items-center justify-center gap-8">
           <div className="text-center">
             <div className={cn(
@@ -287,7 +321,8 @@ function AllTimeScoreboard({
           </div>
         </div>
         <p className="text-center text-xs text-muted-foreground mt-4">
-          Period wins (Today + This Week + This Month)
+          All-time {isTimeBased ? 'time' : 'token'} wins by {periodLabel}
+          {ties > 0 && ` (${ties} ${ties === 1 ? 'tie' : 'ties'})`}
         </p>
       </CardContent>
     </Card>
@@ -536,8 +571,8 @@ function FlameWarContent() {
         <>
           {/* All-Time Scoreboard */}
           <AllTimeScoreboard
-            leftStats={leftStats}
-            rightStats={rightStats}
+            leftEngineerId={leftEngineerId}
+            rightEngineerId={rightEngineerId}
             leftName={leftName}
             rightName={rightName}
             metric={metric}

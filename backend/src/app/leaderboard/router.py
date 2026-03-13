@@ -8,6 +8,7 @@ from src.app.leaderboard.domains import (
     DailyTotalsResponse,
     EngineerMedalsResponse,
     EngineerStatsResponse,
+    HeadToHeadResponse,
     HistoricalRankingsResponse,
     Leaderboard,
     PostResponse,
@@ -170,6 +171,17 @@ def award_action_medal(
         citation=payload.citation,
         awarded_by_user_id=membership.user_id,
     )
+
+
+@router.get('/head-to-head')
+def get_head_to_head(
+    left_engineer_id: str,
+    right_engineer_id: str,
+    period_type: str = 'weekly',
+    membership: MembershipRead = Depends(get_current_membership),
+) -> HeadToHeadResponse:
+    """Get all-time head-to-head win counts between two engineers."""
+    return LeaderboardService.get_head_to_head(left_engineer_id, right_engineer_id, period_type)
 
 
 @router.get('/weekly-recap')

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { hasFlameWarAccess } from '@/lib/flame-war-access'
 import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Calendar, TrendingUp, TrendingDown } from 'lucide-react'
-import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, MILESTONE_CONFIGS } from '@/components/badges'
+import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
 import type { Rank, Metric as BadgeMetric, MilestoneKind, CrownKind } from '@/components/badges'
 import { AnimatedFlames } from '@/components/AnimatedFlames'
 import { addDays, subDays, startOfWeek } from 'date-fns'
@@ -55,6 +55,14 @@ interface MilestoneAwarded {
   value: number
 }
 
+interface ActionMedalAwarded {
+  engineerId: string
+  displayName: string
+  medalType: string
+  citation: string | null
+  awardedByDisplayName: string | null
+}
+
 interface WeeklyRecapData {
   weekStart: string
   weekEnd: string
@@ -68,6 +76,7 @@ interface WeeklyRecapData {
   milestonesAwarded: MilestoneAwarded[]
   prevWeekTokens: number
   prevWeekMinutes: number
+  actionsAwarded: ActionMedalAwarded[]
 }
 
 function formatNumber(n: number): string {
@@ -635,6 +644,200 @@ function MilestonesSlide({ milestones }: { milestones: MilestoneAwarded[] }) {
   )
 }
 
+function SpecialAwardsSlide({ actions }: { actions: ActionMedalAwarded[] }) {
+  const [phase, setPhase] = useState<'buildup' | 'reveal'>('buildup')
+
+  useEffect(() => {
+    // Buildup phase with drumroll tension, then reveal
+    const revealTimer = setTimeout(() => {
+      setPhase('reveal')
+      // Big dramatic confetti burst on reveal
+      setTimeout(() => {
+        confetti({
+          particleCount: 200,
+          spread: 120,
+          origin: { y: 0.5 },
+          colors: ['#7c3aed', '#c084fc', '#e9d5ff', '#ffd700', '#ffffff'],
+          gravity: 0.6,
+          ticks: 200,
+        })
+      }, 400)
+    }, 4000)
+
+    return () => clearTimeout(revealTimer)
+  }, [])
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-full gap-6 py-16">
+      {/* Title - always visible */}
+      <motion.div
+        initial={{ opacity: 0, y: -30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8 }}
+        className="flex flex-col items-center gap-3"
+      >
+        <motion.div
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          <PurpleHeartBadge size={72} />
+        </motion.div>
+        <h2 className="text-5xl font-bold text-center" style={{ fontFamily: 'Bangers, cursive' }}>
+          Special Commendation
+        </h2>
+      </motion.div>
+
+      {/* Buildup phase - drumroll tension */}
+      {phase === 'buildup' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.8 }}
+          className="flex flex-col items-center gap-6"
+        >
+          {/* Decorative military-style dividers */}
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 1, duration: 1.2, ease: 'easeOut' }}
+            className="w-64 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent"
+          />
+
+          {/* Pulsing "drumroll" dots */}
+          <div className="flex items-center gap-3">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <motion.div
+                key={i}
+                className="w-2.5 h-2.5 rounded-full bg-purple-400"
+                animate={{
+                  scale: [0.5, 1.2, 0.5],
+                  opacity: [0.3, 1, 0.3],
+                }}
+                transition={{
+                  duration: 0.6,
+                  repeat: Infinity,
+                  delay: i * 0.12,
+                  ease: 'easeInOut',
+                }}
+              />
+            ))}
+          </div>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.6, 1] }}
+            transition={{ delay: 1.5, duration: 2, repeat: Infinity }}
+            className="text-lg text-purple-300/80 tracking-widest uppercase"
+            style={{ fontFamily: 'Bangers, cursive', letterSpacing: '0.25em' }}
+          >
+            Attention...
+          </motion.p>
+
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 1.4, duration: 1.2, ease: 'easeOut' }}
+            className="w-64 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent"
+          />
+        </motion.div>
+      )}
+
+      {/* Reveal phase - show the awards */}
+      {phase === 'reveal' && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center gap-6 w-full max-w-2xl px-8"
+        >
+          {/* Military-style star divider */}
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 0.6 }}
+            className="flex items-center gap-3 w-full"
+          >
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-400/50" />
+            <span className="text-purple-400 text-sm">&#9733; &#9733; &#9733;</span>
+            <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-400/50" />
+          </motion.div>
+
+          {actions.map((action, i) => (
+            <motion.div
+              key={`${action.engineerId}-${action.medalType}-${i}`}
+              initial={{ opacity: 0, y: 40, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: 0.3 + i * 0.4, type: 'spring', bounce: 0.3 }}
+              className="w-full bg-gradient-to-r from-purple-500/15 via-purple-500/10 to-transparent border border-purple-500/30 rounded-xl p-6"
+            >
+              <div className="flex items-center gap-5">
+                <motion.div
+                  initial={{ scale: 0, rotate: -90 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.5 + i * 0.4, type: 'spring', bounce: 0.5 }}
+                >
+                  <PurpleHeartBadge size={64} />
+                </motion.div>
+                <div className="flex-1">
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.7 + i * 0.4 }}
+                    className="font-bold text-2xl"
+                    style={{ fontFamily: 'Bangers, cursive' }}
+                  >
+                    {action.displayName}
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.9 + i * 0.4 }}
+                    className="text-purple-300 font-semibold text-sm uppercase tracking-wider mt-1"
+                  >
+                    Purple Heart
+                  </motion.div>
+                  {action.citation && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.1 + i * 0.4 }}
+                      className="text-muted-foreground text-sm mt-2 italic"
+                    >
+                      &ldquo;{action.citation}&rdquo;
+                    </motion.p>
+                  )}
+                  {action.awardedByDisplayName && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 1.2 + i * 0.4 }}
+                      className="text-muted-foreground/60 text-xs mt-1"
+                    >
+                      Awarded by {action.awardedByDisplayName}
+                    </motion.p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          ))}
+
+          {/* Bottom military divider */}
+          <motion.div
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ delay: 0.3 + actions.length * 0.4, duration: 0.6 }}
+            className="flex items-center gap-3 w-full"
+          >
+            <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-400/50" />
+            <span className="text-purple-400 text-sm">&#9733; &#9733; &#9733;</span>
+            <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-400/50" />
+          </motion.div>
+        </motion.div>
+      )}
+    </div>
+  )
+}
+
 function OutroSlide() {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -748,6 +951,7 @@ function WeeklyRecapContent() {
     const hasCrowns = data.crowns.length > 0
     const hasRecords = data.records.length > 0
     const hasMilestones = data.milestonesAwarded.length > 0
+    const hasActions = (data.actionsAwarded?.length ?? 0) > 0
 
     // Map medals by metric type for podium slides
     const tokenMedals = data.medalsAwarded.filter((m) => m.metricType === 'tokens')
@@ -797,6 +1001,10 @@ function WeeklyRecapContent() {
 
     if (hasMilestones) {
       slideList.push(<MilestonesSlide key="milestones" milestones={data.milestonesAwarded} />)
+    }
+
+    if (hasActions) {
+      slideList.push(<SpecialAwardsSlide key="actions" actions={data.actionsAwarded} />)
     }
 
     slideList.push(<OutroSlide key="outro" />)

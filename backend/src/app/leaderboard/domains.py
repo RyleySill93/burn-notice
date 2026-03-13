@@ -301,6 +301,16 @@ class MilestoneAwarded(BaseDomain):
     value: float
 
 
+class ActionMedalAwarded(BaseDomain):
+    """An action medal (e.g. Purple Heart) awarded during the recap period."""
+
+    engineer_id: str
+    display_name: str
+    medal_type: str  # purple_heart, etc.
+    citation: str | None
+    awarded_by_display_name: str | None
+
+
 class AwardActionMedalRequest(BaseDomain):
     """Request payload for awarding an action medal."""
 
@@ -355,6 +365,7 @@ class WeeklyRecapResponse(BaseDomain):
     milestones_awarded: list[MilestoneAwarded]
     prev_week_tokens: int
     prev_week_minutes: int
+    actions_awarded: list[ActionMedalAwarded] = []
 
 
 class HeadToHeadResponse(BaseDomain):

@@ -3249,6 +3249,32 @@ class LeaderboardService:
             for m in milestone_medal_rows
         ]
 
+        # --- Action medals (purple heart, etc.) created during this week ---
+        from src.app.leaderboard.domains import ActionMedalAwarded
+        from src.core.user.models import User
+
+        action_medal_rows = (
+            db.session.query(Medal, User.first_name, User.last_name)
+            .outerjoin(User, Medal.awarded_by_user_id == User.id)
+            .filter(
+                Medal.customer_id == customer_id,
+                Medal.medal_category == MedalCategory.ACTION,
+                Medal.created_at >= week_start_utc,
+                Medal.created_at < week_end_utc,
+            )
+            .all()
+        )
+        actions_awarded = [
+            ActionMedalAwarded(
+                engineer_id=m.engineer_id,
+                display_name=engineer_names.get(m.engineer_id, 'Unknown'),
+                medal_type=m.medal_type,
+                citation=m.citation,
+                awarded_by_display_name=f'{first} {last}' if first else None,
+            )
+            for m, first, last in action_medal_rows
+        ]
+
         # --- Previous week totals for WoW comparison ---
         prev_week_start = week_start - timedelta(days=7)
         prev_week_end = week_start - timedelta(days=1)
@@ -3272,6 +3298,7 @@ class LeaderboardService:
             milestones_awarded=milestones_awarded,
             prev_week_tokens=prev_week_tokens,
             prev_week_minutes=prev_week_minutes,
+            actions_awarded=actions_awarded,
         )
 
     @staticmethod

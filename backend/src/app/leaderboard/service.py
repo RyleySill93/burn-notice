@@ -3106,12 +3106,22 @@ class LeaderboardService:
         from src.app.records.models import Record
 
         today = as_of or get_today()
-        # Current week Mon-Sun
-        week_start = today - timedelta(days=today.weekday())
-        week_end = week_start + timedelta(days=6)
+        # Burndown week runs Friday-to-Thursday (displayed as Fri-Fri)
+        # Friday = weekday 4. Find the most recent Friday on or before today.
+        days_since_friday = (today.weekday() - 4) % 7
+        week_start = today - timedelta(days=days_since_friday)
+        week_end = week_start + timedelta(days=6)  # Thursday
 
-        # Get weekly leaderboard entries (already sorted by tokens desc)
-        weekly_entries = LeaderboardService._get_weekly_leaderboard(customer_id, today)
+        # Get ranked entries for this Friday-Thursday range
+        prev_week_start = week_start - timedelta(days=7)
+        prev_week_end = week_start - timedelta(days=1)
+        weekly_entries = LeaderboardService._get_ranked_entries_with_live(
+            customer_id=customer_id,
+            start_date=week_start,
+            end_date=week_end,
+            prev_start_date=prev_week_start,
+            prev_end_date=prev_week_end,
+        )
 
         # Build tokens podium (top 3)
         tokens_podium = [
@@ -3276,8 +3286,6 @@ class LeaderboardService:
         ]
 
         # --- Previous week totals for WoW comparison ---
-        prev_week_start = week_start - timedelta(days=7)
-        prev_week_end = week_start - timedelta(days=1)
         prev_week_tokens = LeaderboardService._get_tokens_for_range_full(
             customer_id, prev_week_start, prev_week_end
         )

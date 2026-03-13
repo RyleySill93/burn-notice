@@ -8,7 +8,7 @@ import { useSoundEffects, type SoundEffect } from '@/hooks/useSoundEffects'
 import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
 import type { Rank, Metric as BadgeMetric, MilestoneKind, CrownKind } from '@/components/badges'
 import { AnimatedFlames } from '@/components/AnimatedFlames'
-import { addDays, subDays, startOfWeek, getDay, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns'
+import { addDays, subDays } from 'date-fns'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import axios from '@/lib/axios-instance'
@@ -206,7 +206,7 @@ function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string
         transition={{ delay: 1, duration: 0.5 }}
         className="text-2xl text-muted-foreground"
       >
-        {format(new Date(weekStart), 'MMM d')} - {format(new Date(weekEnd), 'MMM d, yyyy')}
+        {format(new Date(weekStart), 'MMM d')} - {format(addDays(new Date(weekEnd), 1), 'MMM d, yyyy')}
       </motion.p>
       {/* Flame gradient at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-orange-500/20 via-orange-500/5 to-transparent pointer-events-none" />
@@ -942,30 +942,41 @@ function CountUp({
 
 // Brainrot videos - Subway Surfers, Minecraft parkour, satisfying content, etc.
 /**
- * Get the latest week that's available for a burndown.
- * Weeks run Mon–Sun but aren't available until Friday 9am UTC.
- * Returns the Monday of the latest available week.
+ * Get the most recent Friday (as a Date) on or before the given date.
+ * Weeks for the burndown run Friday-to-Friday.
+ */
+function getMostRecentFriday(d: Date): Date {
+  const day = d.getUTCDay() // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  const daysSinceFriday = (day - 5 + 7) % 7
+  const friday = new Date(d)
+  friday.setUTCDate(friday.getUTCDate() - daysSinceFriday)
+  friday.setUTCHours(0, 0, 0, 0)
+  return friday
+}
+
+/**
+ * Get the latest week available for burndown.
+ * Weeks run Fri-to-Fri. A week's burndown is available after its
+ * ending Friday at 9am UTC.
  */
 function getLatestAvailableWeekStart(): Date {
   const now = new Date()
-  const nowUtcHours = now.getUTCHours()
-  const dayOfWeek = now.getUTCDay() // 0=Sun, 5=Fri
+  // The Friday that starts the "current" Fri-Fri window
+  const currentFriday = getMostRecentFriday(now)
 
-  // Find the Monday of the current week (Mon-based)
-  const currentWeekMonday = startOfWeek(now, { weekStartsOn: 1 })
+  // The cutoff is this Friday at 9am UTC — that's when this week's data is ready
+  const cutoff = new Date(currentFriday)
+  cutoff.setUTCDate(cutoff.getUTCDate() + 7) // Next Friday
+  cutoff.setUTCHours(9, 0, 0, 0)
 
-  // Check if Friday 9am UTC of the current week has passed
-  // Friday = day index 5 (getUTCDay), which is 4 days after Monday
-  const fridayCutoff = new Date(currentWeekMonday)
-  fridayCutoff.setUTCDate(fridayCutoff.getUTCDate() + 4) // Friday
-  fridayCutoff.setUTCHours(9, 0, 0, 0)
-
-  if (now >= fridayCutoff) {
-    // Current week is available
-    return currentWeekMonday
+  if (now >= cutoff) {
+    // Current week is done, show it
+    return currentFriday
   }
-  // Otherwise, show last week
-  return new Date(currentWeekMonday.getTime() - 7 * 24 * 60 * 60 * 1000)
+  // Otherwise show the previous week
+  const prevFriday = new Date(currentFriday)
+  prevFriday.setUTCDate(prevFriday.getUTCDate() - 7)
+  return prevFriday
 }
 
 // Brainrot gameplay videos (muted, background visuals only)
@@ -985,8 +996,7 @@ function WeeklyRecapContent() {
   const [brainrotVideoId] = useState(() => BRAINROT_VIDEO_IDS[Math.floor(Math.random() * BRAINROT_VIDEO_IDS.length)])
   const { enabled: soundEnabled, toggle: toggleSound, play, stopAll } = useSoundEffects()
 
-  const isLatestWeek = startOfWeek(asOfDate, { weekStartsOn: 1 }).getTime() ===
-    latestWeekStart.getTime()
+  const isLatestWeek = getMostRecentFriday(asOfDate).getTime() === latestWeekStart.getTime()
 
   const goToPrevWeek = useCallback(() => {
     setAsOfDate((prev) => subDays(prev, 7))
@@ -996,9 +1006,7 @@ function WeeklyRecapContent() {
   const goToNextWeek = useCallback(() => {
     setAsOfDate((prev) => {
       const next = addDays(prev, 7)
-      const nextWeekMonday = startOfWeek(next, { weekStartsOn: 1 })
-      // Don't go past the latest available week
-      if (nextWeekMonday.getTime() > latestWeekStart.getTime()) return prev
+      if (getMostRecentFriday(next).getTime() > latestWeekStart.getTime()) return prev
       return next
     })
     setCurrentSlide(0)
@@ -1242,7 +1250,7 @@ function WeeklyRecapContent() {
           <Calendar className="h-3.5 w-3.5" />
           {data ? (
             <span>
-              {format(new Date(data.weekStart), 'MMM d')} - {format(new Date(data.weekEnd), 'MMM d')}
+              {format(new Date(data.weekStart), 'MMM d')} - {format(addDays(new Date(data.weekEnd), 1), 'MMM d')}
             </span>
           ) : (
             <span>Loading...</span>

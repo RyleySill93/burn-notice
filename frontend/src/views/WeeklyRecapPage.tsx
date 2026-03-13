@@ -555,6 +555,9 @@ function EngineerRecordRow({ records, delay }: { records: RecapRecord[]; delay: 
               {prevStr && (
                 <span className="text-muted-foreground text-xs">(was {prevStr})</span>
               )}
+              <span className="text-muted-foreground text-xs">
+                {format(new Date(record.recordDate), 'EEEE, MMMM d yyyy')}
+              </span>
             </div>
           )
         })}

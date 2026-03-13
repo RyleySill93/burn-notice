@@ -1,10 +1,33 @@
+import { useState } from 'react'
 import { Navigate, Link } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { hasFlameWarAccess } from '@/lib/flame-war-access'
-import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Award, Presentation, Trophy, Medal, Heart, Crown } from 'lucide-react'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RankingMedal, MilestoneBadge, CrownBadge, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
 import type { Rank, Metric, MilestoneKind, CrownKind } from '@/components/badges'
+import { cn } from '@/lib/utils'
+import axios from '@/lib/axios-instance'
+
+interface BadgeLeaderboardEntry {
+  engineerId: string
+  displayName: string
+  gold: number
+  silver: number
+  bronze: number
+  milestones: number
+  crowns: number
+  purpleHearts: number
+  total: number
+}
+
+interface BadgeLeaderboardData {
+  entries: BadgeLeaderboardEntry[]
+}
+
+type BadgeTab = 'leaderboard' | 'directory'
 
 const RANKING_MEDALS: { rank: Rank; metric: Metric; label: string; description: string }[] = [
   { rank: 'gold', metric: 'tokens', label: 'Gold — Tokens', description: 'Weekly #1 in tokens burned' },
@@ -30,6 +53,8 @@ const TIME_MILESTONES: MilestoneKind[] = [
   'time_2500h', 'time_5000h', 'time_10000h', 'time_25000h',
 ]
 
+// --- Badge Directory components ---
+
 function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="mb-4">
@@ -51,29 +76,9 @@ function BadgeCard({ badge, label, description }: { badge: React.ReactNode; labe
   )
 }
 
-export function BadgeDirectoryPage() {
-  const { user } = useAuth()
-
-  if (!hasFlameWarAccess(user?.id)) {
-    return <Navigate to="/dashboard" replace />
-  }
-
+function BadgeDirectory() {
   return (
-    <div className="max-w-3xl mx-auto space-y-10 pb-16">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link to="/flame-war">
-          <Button variant="ghost" size="icon">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold" style={{ fontFamily: 'Bangers, cursive' }}>Badge Directory</h1>
-          <p className="text-muted-foreground text-sm">All the badges you can earn</p>
-        </div>
-      </div>
-
-      {/* Crowns */}
+    <div className="space-y-10">
       <section>
         <SectionHeader title="Crowns" subtitle="Awarded to the current holder of a company record. Only one person holds each crown at a time." />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -88,7 +93,6 @@ export function BadgeDirectoryPage() {
         </div>
       </section>
 
-      {/* Ranking Medals */}
       <section>
         <SectionHeader title="Weekly Medals" subtitle="Awarded to the top 3 each week. Collect multiples — the count shows on the badge." />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -103,7 +107,6 @@ export function BadgeDirectoryPage() {
         </div>
       </section>
 
-      {/* Token Milestones */}
       <section>
         <SectionHeader title="Token Milestones" subtitle="Earned once when you hit cumulative token thresholds. Only your highest is displayed." />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -121,7 +124,6 @@ export function BadgeDirectoryPage() {
         </div>
       </section>
 
-      {/* Time Milestones */}
       <section>
         <SectionHeader title="Time Milestones" subtitle="Earned once when you hit cumulative coding hour thresholds. Only your highest is displayed." />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -139,7 +141,6 @@ export function BadgeDirectoryPage() {
         </div>
       </section>
 
-      {/* Purple Heart */}
       <section>
         <SectionHeader title="Special" subtitle="Manually awarded by teammates for acts of valor." />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -150,6 +151,175 @@ export function BadgeDirectoryPage() {
           />
         </div>
       </section>
+    </div>
+  )
+}
+
+// --- Badge Leaderboard components ---
+
+type SortKey = 'total' | 'gold' | 'silver' | 'bronze' | 'milestones' | 'crowns' | 'purpleHearts'
+
+function CountCell({ count, highlight }: { count: number; highlight?: boolean }) {
+  return (
+    <span className={cn(
+      'tabular-nums text-sm',
+      count === 0 && 'text-muted-foreground/40',
+      highlight && count > 0 && 'font-bold',
+    )}>
+      {count}
+    </span>
+  )
+}
+
+function BadgeLeaderboard() {
+  const [sortBy, setSortBy] = useState<SortKey>('total')
+
+  const { data, isLoading } = useQuery<BadgeLeaderboardData>({
+    queryKey: ['badge-leaderboard'],
+    queryFn: async () => {
+      const response = await axios.get<BadgeLeaderboardData>('/api/leaderboard/badge-leaderboard')
+      return response.data
+    },
+  })
+
+  const sorted = data?.entries
+    ? [...data.entries].sort((a, b) => b[sortBy] - a[sortBy])
+    : []
+
+  const columns: { key: SortKey; label: string; icon: React.ReactNode }[] = [
+    { key: 'total', label: 'Total', icon: <Award className="h-3.5 w-3.5" /> },
+    { key: 'gold', label: 'Gold', icon: <RankingMedal rank="gold" metric="tokens" count={0} size={20} /> },
+    { key: 'silver', label: 'Silver', icon: <RankingMedal rank="silver" metric="tokens" count={0} size={20} /> },
+    { key: 'bronze', label: 'Bronze', icon: <RankingMedal rank="bronze" metric="tokens" count={0} size={20} /> },
+    { key: 'milestones', label: 'Milestones', icon: <Medal className="h-3.5 w-3.5" /> },
+    { key: 'crowns', label: 'Crowns', icon: <Crown className="h-3.5 w-3.5" /> },
+    { key: 'purpleHearts', label: 'Hearts', icon: <Heart className="h-3.5 w-3.5" /> },
+  ]
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+      </div>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">Badge Leaderboard</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b text-xs text-muted-foreground">
+                <th className="text-left py-2 pr-4 font-medium">#</th>
+                <th className="text-left py-2 pr-4 font-medium">Engineer</th>
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    className={cn(
+                      'py-2 px-2 font-medium text-center cursor-pointer hover:text-foreground transition-colors',
+                      sortBy === col.key && 'text-foreground',
+                    )}
+                    onClick={() => setSortBy(col.key)}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      {col.icon}
+                      <span className="hidden sm:inline">{col.label}</span>
+                      {sortBy === col.key && <span className="text-orange-500">&#9660;</span>}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((entry, i) => (
+                <tr key={entry.engineerId} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                  <td className="py-3 pr-4 text-sm text-muted-foreground tabular-nums">{i + 1}</td>
+                  <td className="py-3 pr-4">
+                    <Link
+                      to={`/engineers/${entry.engineerId}`}
+                      className="font-medium text-sm hover:underline"
+                    >
+                      {entry.displayName}
+                    </Link>
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    <CountCell count={entry.total} highlight={sortBy === 'total'} />
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    <CountCell count={entry.gold} highlight={sortBy === 'gold'} />
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    <CountCell count={entry.silver} highlight={sortBy === 'silver'} />
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    <CountCell count={entry.bronze} highlight={sortBy === 'bronze'} />
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    <CountCell count={entry.milestones} highlight={sortBy === 'milestones'} />
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    <CountCell count={entry.crowns} highlight={sortBy === 'crowns'} />
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    <CountCell count={entry.purpleHearts} highlight={sortBy === 'purpleHearts'} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// --- Main Page ---
+
+export function BadgeDirectoryPage() {
+  const { user } = useAuth()
+  const [tab, setTab] = useState<BadgeTab>('leaderboard')
+
+  if (!hasFlameWarAccess(user?.id)) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Award className="h-7 w-7 text-orange-500" />
+          <div>
+            <h1 className="text-2xl font-bold" style={{ fontFamily: 'Bangers, cursive' }}>
+              Badges
+            </h1>
+            <p className="text-muted-foreground text-sm">Leaderboard and badge directory</p>
+          </div>
+        </div>
+        <Link
+          to="/weekly-recap"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors"
+        >
+          <Presentation className="h-4 w-4" />
+          Weekly Recap
+        </Link>
+      </div>
+
+      {/* Tab Selector */}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as BadgeTab)}>
+        <TabsList>
+          <TabsTrigger value="leaderboard" className="text-xs">Leaderboard</TabsTrigger>
+          <TabsTrigger value="directory" className="text-xs">Badge Directory</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {/* Content */}
+      {tab === 'leaderboard' && <BadgeLeaderboard />}
+      {tab === 'directory' && <BadgeDirectory />}
     </div>
   )
 }

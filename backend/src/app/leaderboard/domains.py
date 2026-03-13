@@ -381,3 +381,23 @@ class HeadToHeadResponse(BaseDomain):
     right_time_wins: int
     time_ties: int
     total_periods: int
+
+
+class BadgeLeaderboardEntry(BaseDomain):
+    """A single engineer's badge counts for the badge leaderboard."""
+
+    engineer_id: str
+    display_name: str
+    gold: int = 0
+    silver: int = 0
+    bronze: int = 0
+    milestones: int = 0
+    crowns: int = 0
+    purple_hearts: int = 0
+    total: int = 0
+
+
+class BadgeLeaderboardResponse(BaseDomain):
+    """Badge leaderboard for all engineers in a customer."""
+
+    entries: list[BadgeLeaderboardEntry]

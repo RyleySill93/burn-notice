@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, status
 
 from src.app.leaderboard.domains import (
     AwardActionMedalRequest,
+    BadgeLeaderboardResponse,
     DailyTotalsByEngineerResponse,
     DailyTotalsResponse,
     EngineerMedalsResponse,
@@ -171,6 +172,14 @@ def award_action_medal(
         citation=payload.citation,
         awarded_by_user_id=membership.user_id,
     )
+
+
+@router.get('/badge-leaderboard')
+def get_badge_leaderboard(
+    membership: MembershipRead = Depends(get_current_membership),
+) -> BadgeLeaderboardResponse:
+    """Get badge counts for all engineers, ranked by total badges."""
+    return LeaderboardService.get_badge_leaderboard(membership.customer_id)
 
 
 @router.get('/head-to-head')

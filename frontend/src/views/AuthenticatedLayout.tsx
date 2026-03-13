@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useNavigate, Link, useLocation } from 'react-router'
 import { useAuth } from '@/contexts/AuthContext'
-import { Flame, LogOut, Check, Building2, Users, Settings, LayoutDashboard, Moon, Sun, Monitor, Swords } from 'lucide-react'
+import { Flame, LogOut, Check, Building2, Users, Settings, LayoutDashboard, Moon, Sun, Monitor, Swords, Award } from 'lucide-react'
 import { hasFlameWarAccess } from '@/lib/flame-war-access'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -54,7 +54,10 @@ export function AuthenticatedLayout() {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/team', label: 'Team', icon: Users },
     ...(hasFlameWarAccess(user?.id)
-      ? [{ path: '/flame-war', label: 'Flame War', icon: Swords }]
+      ? [
+          { path: '/flame-war', label: 'Flame War', icon: Swords },
+          { path: '/badges', label: 'Badges', icon: Award },
+        ]
       : []),
   ]
 

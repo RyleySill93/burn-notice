@@ -3423,3 +3423,78 @@ class LeaderboardService:
             time_ties=time_ties,
             total_periods=total_periods,
         )
+
+    @staticmethod
+    def get_badge_leaderboard(customer_id: str) -> 'BadgeLeaderboardResponse':
+        """Get badge counts for all engineers in a customer, ranked by total."""
+        from src.app.leaderboard.domains import BadgeLeaderboardEntry, BadgeLeaderboardResponse
+        from src.app.medals.enums import MedalCategory
+        from src.app.medals.models import Medal
+        from src.app.records.enums import RecordPeriod, RecordScope
+        from src.app.records.models import Record
+
+        # Get all engineers
+        engineers = db.session.query(Engineer).filter(Engineer.customer_id == customer_id).all()
+        engineer_names = {e.id: e.display_name for e in engineers}
+
+        # Get all medals for this customer
+        medals = (
+            db.session.query(Medal.engineer_id, Medal.medal_category, Medal.medal_type)
+            .filter(Medal.customer_id == customer_id)
+            .all()
+        )
+
+        # Count badges per engineer
+        counts: dict[str, dict[str, int]] = {
+            e.id: {'gold': 0, 'silver': 0, 'bronze': 0, 'milestones': 0, 'purple_hearts': 0, 'crowns': 0}
+            for e in engineers
+        }
+
+        for engineer_id, medal_category, medal_type in medals:
+            if engineer_id not in counts:
+                continue
+            if medal_category == MedalCategory.RANKING:
+                if medal_type in ('gold', 'silver', 'bronze'):
+                    counts[engineer_id][medal_type] += 1
+            elif medal_category == MedalCategory.MILESTONE:
+                counts[engineer_id]['milestones'] += 1
+            elif medal_category == MedalCategory.ACTION:
+                counts[engineer_id]['purple_hearts'] += 1
+
+        # Count crowns (derived from records)
+        for record_period in [RecordPeriod.WEEKLY]:
+            for record_type_val in ['tokens', 'time']:
+                top_record = (
+                    db.session.query(Record)
+                    .filter(
+                        Record.customer_id == customer_id,
+                        Record.record_type == record_type_val,
+                        Record.record_period == record_period,
+                        Record.record_scope == RecordScope.COMPANY,
+                    )
+                    .order_by(Record.value.desc())
+                    .first()
+                )
+                if top_record and top_record.engineer_id in counts:
+                    counts[top_record.engineer_id]['crowns'] += 1
+
+        entries = []
+        for engineer_id, c in counts.items():
+            total = c['gold'] + c['silver'] + c['bronze'] + c['milestones'] + c['crowns'] + c['purple_hearts']
+            entries.append(
+                BadgeLeaderboardEntry(
+                    engineer_id=engineer_id,
+                    display_name=engineer_names.get(engineer_id, 'Unknown'),
+                    gold=c['gold'],
+                    silver=c['silver'],
+                    bronze=c['bronze'],
+                    milestones=c['milestones'],
+                    crowns=c['crowns'],
+                    purple_hearts=c['purple_hearts'],
+                    total=total,
+                )
+            )
+
+        entries.sort(key=lambda e: e.total, reverse=True)
+
+        return BadgeLeaderboardResponse(entries=entries)

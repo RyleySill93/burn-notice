@@ -29,6 +29,7 @@ def create_db_engine(host: str) -> Engine:
         username=settings.DB_USER,
         password=settings.DB_PASSWORD,
         host=host,
+        port=settings.DB_PORT,
         database=settings.DB_NAME,
     ).render_as_string(hide_password=False)
 

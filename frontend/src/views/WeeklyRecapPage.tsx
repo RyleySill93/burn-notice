@@ -941,13 +941,10 @@ function CountUp({
 // --- Main Component ---
 
 // Brainrot videos - Subway Surfers, Minecraft parkour, satisfying content, etc.
+// Brainrot gameplay videos (muted, background visuals only)
 const BRAINROT_VIDEO_IDS = [
-  'hT_nvWreIhg', // Minecraft parkour
-  'n_Dv4JMiwgE', // Subway Surfers
-  'fXLicO0CRvk', // Satisfying slime
-  'sNhhvQGsMEc', // Temple Run gameplay
-  '8ZP3AXgMKjo', // Subway Surfers
-  'dQw4w9WgXcQ', // Classic rickroll as a bonus brainrot
+  'zZ7AimPACzc',
+  'P-4b4qQZpWM',
 ]
 
 function WeeklyRecapContent() {
@@ -1255,35 +1252,80 @@ function WeeklyRecapContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md"
             onClick={(e) => e.stopPropagation()}
           >
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-              className="bg-card border border-border rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl"
+              initial={{ scale: 0, rotate: -10 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0, rotate: 10 }}
+              transition={{ type: 'spring', damping: 12, stiffness: 200 }}
+              className="relative bg-card border-2 border-orange-500/40 rounded-3xl p-10 max-w-lg mx-4 text-center shadow-[0_0_80px_rgba(249,115,22,0.15)]"
             >
-              <div className="text-4xl mb-4">⚠️</div>
-              <h2 className="text-xl font-bold mb-2">Accessibility Notice</h2>
-              <p className="text-muted-foreground mb-6">
-                Engineers with birthdays after 2000 detected. Enable Gen Z accessibility mode?
+              {/* Rotating warning icon */}
+              <motion.div
+                animate={{ rotate: [0, -10, 10, -10, 0] }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+                className="text-6xl mb-3"
+              >
+                🚨
+              </motion.div>
+
+              <h2
+                className="text-4xl mb-1 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-400 bg-clip-text text-transparent"
+                style={{ fontFamily: 'Bangers, cursive', letterSpacing: '2px' }}
+              >
+                CRITICAL ALERT
+              </h2>
+              <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-5">
+                Accessibility Compliance Division
               </p>
-              <div className="flex gap-3 justify-center">
+
+              <p className="text-muted-foreground mb-2 text-base leading-relaxed">
+                Our systems have detected engineers with birthdays
+                <span className="text-orange-400 font-semibold"> after the year 2000</span> in
+                attendance.
+              </p>
+              <p className="text-muted-foreground mb-8 text-base leading-relaxed">
+                Federal regulations require activation of
+                <span className="font-bold text-foreground"> Gen Z Accessibility Mode</span> to
+                ensure comprehension and sustained attention.
+              </p>
+
+              <div className="flex gap-4 justify-center items-center">
                 <button
                   onClick={handleBrainrotDecline}
-                  className="px-6 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+                  className="px-5 py-2.5 rounded-xl border border-border/50 text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
                 >
-                  No thanks
+                  decline at your own risk
                 </button>
-                <button
+
+                {/* 3D enable button */}
+                <motion.button
                   onClick={handleBrainrotAccept}
-                  className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 text-white text-sm font-bold hover:opacity-90 transition-opacity"
+                  whileHover={{ scale: 1.05, y: -2 }}
+                  whileTap={{ scale: 0.95, y: 2 }}
+                  className="relative px-8 py-4 rounded-2xl text-white font-bold text-lg cursor-pointer"
+                  style={{
+                    fontFamily: 'Bangers, cursive',
+                    letterSpacing: '2px',
+                    background: 'linear-gradient(135deg, #7c3aed, #ec4899, #f97316)',
+                    boxShadow: '0 6px 0 #581c87, 0 8px 20px rgba(124,58,237,0.4), 0 0 40px rgba(236,72,153,0.2)',
+                    transform: 'translateY(-2px)',
+                  }}
                 >
-                  Enable 🧠
-                </button>
+                  <span className="flex items-center gap-2 text-xl">
+                    🧠 ACTIVATE 🔥
+                  </span>
+                </motion.button>
               </div>
+
+              {/* Tiny legal disclaimer */}
+              <p className="text-[9px] text-muted-foreground/30 mt-6 leading-tight">
+                By clicking ACTIVATE you agree to enhanced audio-visual stimulation including but not limited
+                to: Subway Surfers gameplay, Minecraft parkour, unhinged sound effects, and involuntary head bobbing.
+                Management assumes no liability for lost productivity.
+              </p>
             </motion.div>
           </motion.div>
         )}
@@ -1302,7 +1344,7 @@ function WeeklyRecapContent() {
             style={{ width: 280, height: 500 }}
           >
             <iframe
-              src={`https://www.youtube.com/embed/${brainrotVideoId}?autoplay=1&mute=0&loop=1&playlist=${brainrotVideoId}&controls=0&modestbranding=1`}
+              src={`https://www.youtube.com/embed/${brainrotVideoId}?autoplay=1&mute=1&loop=1&playlist=${brainrotVideoId}&controls=0&modestbranding=1&showinfo=0&rel=0`}
               className="w-full h-full"
               allow="autoplay; encrypted-media"
               allowFullScreen

@@ -206,7 +206,7 @@ function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string
         transition={{ delay: 1, duration: 0.5 }}
         className="text-2xl text-muted-foreground"
       >
-        {format(new Date(weekStart), 'MMM d')} - {format(addDays(new Date(weekEnd), 1), 'MMM d, yyyy')}
+        {format(new Date(weekStart), 'MMM d')} - {format(new Date(weekEnd), 'MMM d, yyyy')}
       </motion.p>
       {/* Flame gradient at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-orange-500/20 via-orange-500/5 to-transparent pointer-events-none" />
@@ -941,47 +941,6 @@ function CountUp({
 // --- Main Component ---
 
 // Brainrot videos - Subway Surfers, Minecraft parkour, satisfying content, etc.
-/**
- * Get the most recent Friday (as a Date) on or before the given date.
- * Uses local time so date-fns format() serializes the correct day.
- */
-function getMostRecentFriday(d: Date): Date {
-  const day = d.getDay() // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
-  const daysSinceFriday = (day - 5 + 7) % 7
-  const friday = new Date(d)
-  friday.setDate(friday.getDate() - daysSinceFriday)
-  friday.setHours(12, 0, 0, 0) // Noon to avoid any timezone edge cases
-  return friday
-}
-
-/**
- * Get the latest week available for burndown.
- * Weeks run Fri-to-Fri. A week's burndown is available after its
- * ending Friday at 9am UTC.
- */
-function getLatestAvailableWeekStart(): Date {
-  const now = new Date()
-  // The Friday that starts the "current" Fri-Fri window
-  const currentFriday = getMostRecentFriday(now)
-
-  // The cutoff is the NEXT Friday at 9am UTC (end of this week)
-  const nextFriday = new Date(currentFriday)
-  nextFriday.setDate(nextFriday.getDate() + 7)
-  // Create cutoff in UTC: next Friday at 9am UTC
-  const cutoffUtc = Date.UTC(
-    nextFriday.getFullYear(), nextFriday.getMonth(), nextFriday.getDate(), 9, 0, 0
-  )
-
-  if (now.getTime() >= cutoffUtc) {
-    // Current week is done, show it
-    return currentFriday
-  }
-  // Otherwise show the previous week
-  const prevFriday = new Date(currentFriday)
-  prevFriday.setDate(prevFriday.getDate() - 7)
-  prevFriday.setHours(12, 0, 0, 0)
-  return prevFriday
-}
 
 // Brainrot gameplay videos (muted, background visuals only)
 const BRAINROT_VIDEO_IDS = [
@@ -992,15 +951,21 @@ const BRAINROT_VIDEO_IDS = [
 function WeeklyRecapContent() {
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [latestWeekStart] = useState(() => getLatestAvailableWeekStart())
-  const [asOfDate, setAsOfDate] = useState<Date>(latestWeekStart)
+  const [asOfDate, setAsOfDate] = useState<Date>(new Date())
   const [showBrainrotModal, setShowBrainrotModal] = useState(false)
   const brainrotDismissed = useRef(false)
   const [brainrotVisible, setBrainrotVisible] = useState(false)
   const [brainrotVideoId] = useState(() => BRAINROT_VIDEO_IDS[Math.floor(Math.random() * BRAINROT_VIDEO_IDS.length)])
   const { enabled: soundEnabled, toggle: toggleSound, play, stopAll } = useSoundEffects()
 
-  const isLatestWeek = getMostRecentFriday(asOfDate).getTime() === latestWeekStart.getTime()
+  const isCurrentWeek = (() => {
+    const now = new Date()
+    const nowMonday = new Date(now)
+    nowMonday.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1))
+    const asOfMonday = new Date(asOfDate)
+    asOfMonday.setDate(asOfDate.getDate() - asOfDate.getDay() + (asOfDate.getDay() === 0 ? -6 : 1))
+    return nowMonday.toDateString() === asOfMonday.toDateString()
+  })()
 
   const goToPrevWeek = useCallback(() => {
     setAsOfDate((prev) => subDays(prev, 7))
@@ -1010,11 +975,10 @@ function WeeklyRecapContent() {
   const goToNextWeek = useCallback(() => {
     setAsOfDate((prev) => {
       const next = addDays(prev, 7)
-      if (getMostRecentFriday(next).getTime() > latestWeekStart.getTime()) return prev
-      return next
+      return next > new Date() ? prev : next
     })
     setCurrentSlide(0)
-  }, [latestWeekStart])
+  }, [])
 
   const asOfStr = format(asOfDate, 'yyyy-MM-dd')
 
@@ -1254,7 +1218,7 @@ function WeeklyRecapContent() {
           <Calendar className="h-3.5 w-3.5" />
           {data ? (
             <span>
-              {format(new Date(data.weekStart), 'MMM d')} - {format(addDays(new Date(data.weekEnd), 1), 'MMM d')}
+              {format(new Date(data.weekStart), 'MMM d')} - {format(new Date(data.weekEnd), 'MMM d')}
             </span>
           ) : (
             <span>Loading...</span>
@@ -1262,7 +1226,7 @@ function WeeklyRecapContent() {
         </div>
         <button
           onClick={goToNextWeek}
-          disabled={isLatestWeek}
+          disabled={isCurrentWeek}
           className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
         >
           <ChevronRight className="h-4 w-4" />

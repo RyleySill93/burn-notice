@@ -3444,9 +3444,25 @@ class LeaderboardService:
             .all()
         )
 
+        # Milestone ordering (highest last so max() works)
+        token_milestone_order = [
+            'token_1m', 'token_10m', 'token_50m', 'token_100m',
+            'token_250m', 'token_500m', 'token_1b', 'token_10b',
+        ]
+        time_milestone_order = [
+            'time_10h', 'time_100h', 'time_500h', 'time_1000h',
+            'time_2500h', 'time_5000h', 'time_10000h', 'time_25000h',
+        ]
+        token_milestone_rank = {m: i for i, m in enumerate(token_milestone_order)}
+        time_milestone_rank = {m: i for i, m in enumerate(time_milestone_order)}
+
         # Count badges per engineer
-        counts: dict[str, dict[str, int]] = {
-            e.id: {'gold': 0, 'silver': 0, 'bronze': 0, 'milestones': 0, 'purple_hearts': 0, 'crowns': 0}
+        counts: dict[str, dict] = {
+            e.id: {
+                'gold': 0, 'silver': 0, 'bronze': 0,
+                'token_milestone': None, 'time_milestone': None,
+                'purple_hearts': 0,
+            }
             for e in engineers
         }
 
@@ -3457,30 +3473,42 @@ class LeaderboardService:
                 if medal_type in ('gold', 'silver', 'bronze'):
                     counts[engineer_id][medal_type] += 1
             elif medal_category == MedalCategory.MILESTONE:
-                counts[engineer_id]['milestones'] += 1
+                if medal_type in token_milestone_rank:
+                    current = counts[engineer_id]['token_milestone']
+                    if current is None or token_milestone_rank[medal_type] > token_milestone_rank.get(current, -1):
+                        counts[engineer_id]['token_milestone'] = medal_type
+                elif medal_type in time_milestone_rank:
+                    current = counts[engineer_id]['time_milestone']
+                    if current is None or time_milestone_rank[medal_type] > time_milestone_rank.get(current, -1):
+                        counts[engineer_id]['time_milestone'] = medal_type
             elif medal_category == MedalCategory.ACTION:
                 counts[engineer_id]['purple_hearts'] += 1
 
-        # Count crowns (derived from records)
-        for record_period in [RecordPeriod.WEEKLY]:
-            for record_type_val in ['tokens', 'time']:
-                top_record = (
-                    db.session.query(Record)
-                    .filter(
-                        Record.customer_id == customer_id,
-                        Record.record_type == record_type_val,
-                        Record.record_period == record_period,
-                        Record.record_scope == RecordScope.COMPANY,
-                    )
-                    .order_by(Record.value.desc())
-                    .first()
+        # Determine crown holders (derived from records)
+        crown_holders: dict[str, dict[str, bool]] = {e.id: {'token_crown': False, 'time_crown': False} for e in engineers}
+        for record_type_val, crown_key in [('tokens', 'token_crown'), ('time', 'time_crown')]:
+            top_record = (
+                db.session.query(Record)
+                .filter(
+                    Record.customer_id == customer_id,
+                    Record.record_type == record_type_val,
+                    Record.record_period == RecordPeriod.WEEKLY,
+                    Record.record_scope == RecordScope.COMPANY,
                 )
-                if top_record and top_record.engineer_id in counts:
-                    counts[top_record.engineer_id]['crowns'] += 1
+                .order_by(Record.value.desc())
+                .first()
+            )
+            if top_record and top_record.engineer_id in crown_holders:
+                crown_holders[top_record.engineer_id][crown_key] = True
 
         entries = []
         for engineer_id, c in counts.items():
-            total = c['gold'] + c['silver'] + c['bronze'] + c['milestones'] + c['crowns'] + c['purple_hearts']
+            crowns = crown_holders.get(engineer_id, {})
+            token_crown = crowns.get('token_crown', False)
+            time_crown = crowns.get('time_crown', False)
+            milestone_count = (1 if c['token_milestone'] else 0) + (1 if c['time_milestone'] else 0)
+            crown_count = (1 if token_crown else 0) + (1 if time_crown else 0)
+            total = c['gold'] + c['silver'] + c['bronze'] + milestone_count + crown_count + c['purple_hearts']
             entries.append(
                 BadgeLeaderboardEntry(
                     engineer_id=engineer_id,
@@ -3488,8 +3516,10 @@ class LeaderboardService:
                     gold=c['gold'],
                     silver=c['silver'],
                     bronze=c['bronze'],
-                    milestones=c['milestones'],
-                    crowns=c['crowns'],
+                    token_milestone=c['token_milestone'],
+                    time_milestone=c['time_milestone'],
+                    token_crown=token_crown,
+                    time_crown=time_crown,
                     purple_hearts=c['purple_hearts'],
                     total=total,
                 )

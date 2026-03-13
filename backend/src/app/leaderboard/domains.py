@@ -391,8 +391,10 @@ class BadgeLeaderboardEntry(BaseDomain):
     gold: int = 0
     silver: int = 0
     bronze: int = 0
-    milestones: int = 0
-    crowns: int = 0
+    token_milestone: str | None = None  # highest token milestone kind e.g. 'token_100m'
+    time_milestone: str | None = None   # highest time milestone kind e.g. 'time_1000h'
+    token_crown: bool = False
+    time_crown: bool = False
     purple_hearts: int = 0
     total: int = 0
 

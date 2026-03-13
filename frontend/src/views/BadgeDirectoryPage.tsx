@@ -3,7 +3,7 @@ import { Navigate, Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { hasFlameWarAccess } from '@/lib/flame-war-access'
-import { Award, Presentation, Trophy, Medal, Heart, Crown } from 'lucide-react'
+import { Award, Presentation, Medal, Heart, Crown } from 'lucide-react'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RankingMedal, MilestoneBadge, CrownBadge, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
@@ -17,8 +17,10 @@ interface BadgeLeaderboardEntry {
   gold: number
   silver: number
   bronze: number
-  milestones: number
-  crowns: number
+  tokenMilestone: string | null  // e.g. 'token_100m'
+  timeMilestone: string | null   // e.g. 'time_1000h'
+  tokenCrown: boolean
+  timeCrown: boolean
   purpleHearts: number
   total: number
 }
@@ -157,7 +159,31 @@ function BadgeDirectory() {
 
 // --- Badge Leaderboard components ---
 
-type SortKey = 'total' | 'gold' | 'silver' | 'bronze' | 'milestones' | 'crowns' | 'purpleHearts'
+// Milestone ordering for sort comparisons (higher index = higher milestone)
+const TOKEN_MILESTONE_RANK: Record<string, number> = {
+  token_1m: 1, token_10m: 2, token_50m: 3, token_100m: 4,
+  token_250m: 5, token_500m: 6, token_1b: 7, token_10b: 8,
+}
+const TIME_MILESTONE_RANK: Record<string, number> = {
+  time_10h: 1, time_100h: 2, time_500h: 3, time_1000h: 4,
+  time_2500h: 5, time_5000h: 6, time_10000h: 7, time_25000h: 8,
+}
+
+type SortKey = 'total' | 'gold' | 'silver' | 'bronze' | 'tokenMilestone' | 'timeMilestone' | 'tokenCrown' | 'timeCrown' | 'purpleHearts'
+
+function getSortValue(entry: BadgeLeaderboardEntry, key: SortKey): number {
+  switch (key) {
+    case 'total': return entry.total
+    case 'gold': return entry.gold
+    case 'silver': return entry.silver
+    case 'bronze': return entry.bronze
+    case 'tokenMilestone': return entry.tokenMilestone ? (TOKEN_MILESTONE_RANK[entry.tokenMilestone] ?? 0) : 0
+    case 'timeMilestone': return entry.timeMilestone ? (TIME_MILESTONE_RANK[entry.timeMilestone] ?? 0) : 0
+    case 'tokenCrown': return entry.tokenCrown ? 1 : 0
+    case 'timeCrown': return entry.timeCrown ? 1 : 0
+    case 'purpleHearts': return entry.purpleHearts
+  }
+}
 
 function CountCell({ count, highlight }: { count: number; highlight?: boolean }) {
   return (
@@ -183,7 +209,7 @@ function BadgeLeaderboard() {
   })
 
   const sorted = data?.entries
-    ? [...data.entries].sort((a, b) => b[sortBy] - a[sortBy])
+    ? [...data.entries].sort((a, b) => getSortValue(b, sortBy) - getSortValue(a, sortBy))
     : []
 
   const columns: { key: SortKey; label: string; icon: React.ReactNode }[] = [
@@ -191,8 +217,10 @@ function BadgeLeaderboard() {
     { key: 'gold', label: 'Gold', icon: <RankingMedal rank="gold" metric="tokens" count={0} size={20} /> },
     { key: 'silver', label: 'Silver', icon: <RankingMedal rank="silver" metric="tokens" count={0} size={20} /> },
     { key: 'bronze', label: 'Bronze', icon: <RankingMedal rank="bronze" metric="tokens" count={0} size={20} /> },
-    { key: 'milestones', label: 'Milestones', icon: <Medal className="h-3.5 w-3.5" /> },
-    { key: 'crowns', label: 'Crowns', icon: <Crown className="h-3.5 w-3.5" /> },
+    { key: 'tokenMilestone', label: 'Tokens', icon: <Medal className="h-3.5 w-3.5" /> },
+    { key: 'timeMilestone', label: 'Time', icon: <Medal className="h-3.5 w-3.5" /> },
+    { key: 'tokenCrown', label: 'Tokens', icon: <Crown className="h-3.5 w-3.5" /> },
+    { key: 'timeCrown', label: 'Time', icon: <Crown className="h-3.5 w-3.5" /> },
     { key: 'purpleHearts', label: 'Hearts', icon: <Heart className="h-3.5 w-3.5" /> },
   ]
 
@@ -259,13 +287,49 @@ function BadgeLeaderboard() {
                     <CountCell count={entry.bronze} highlight={sortBy === 'bronze'} />
                   </td>
                   <td className="py-3 px-2 text-center">
-                    <CountCell count={entry.milestones} highlight={sortBy === 'milestones'} />
+                    {entry.tokenMilestone ? (
+                      <div className="flex justify-center">
+                        <MilestoneBadge kind={entry.tokenMilestone as MilestoneKind} size={28} />
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground/30">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-2 text-center">
-                    <CountCell count={entry.crowns} highlight={sortBy === 'crowns'} />
+                    {entry.timeMilestone ? (
+                      <div className="flex justify-center">
+                        <MilestoneBadge kind={entry.timeMilestone as MilestoneKind} size={28} />
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground/30">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-2 text-center">
-                    <CountCell count={entry.purpleHearts} highlight={sortBy === 'purpleHearts'} />
+                    {entry.tokenCrown ? (
+                      <div className="flex justify-center">
+                        <CrownBadge kind="tokens" size={28} />
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground/30">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    {entry.timeCrown ? (
+                      <div className="flex justify-center">
+                        <CrownBadge kind="time" size={28} />
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground/30">—</span>
+                    )}
+                  </td>
+                  <td className="py-3 px-2 text-center">
+                    {entry.purpleHearts > 0 ? (
+                      <div className="flex justify-center">
+                        <PurpleHeartBadge size={28} />
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground/30">—</span>
+                    )}
                   </td>
                 </tr>
               ))}

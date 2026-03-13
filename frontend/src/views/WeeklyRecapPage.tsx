@@ -173,15 +173,33 @@ type PlaySound = (effect: SoundEffect, options?: { volume?: number; delay?: numb
 
 // --- Slide Components ---
 
-function TitleSlide({ weekStart, weekEnd, play }: { weekStart: string; weekEnd: string; play: PlaySound }) {
+function TitleSlide({
+  weekStart,
+  weekEnd,
+  play,
+  brainrotActive,
+  onActivateBrainrot,
+}: {
+  weekStart: string
+  weekEnd: string
+  play: PlaySound
+  brainrotActive: boolean
+  onActivateBrainrot: () => void
+}) {
   useEffect(() => {
-    play('say-so', { volume: 0.5 })
     const timer = setTimeout(() => {
       fireConfetti()
       setTimeout(fireFlames, 2000)
     }, 500)
     return () => clearTimeout(timer)
   }, [])
+
+  // Play Say So when brainrot activates
+  useEffect(() => {
+    if (brainrotActive) {
+      play('say-so', { volume: 0.5 })
+    }
+  }, [brainrotActive])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
@@ -209,6 +227,44 @@ function TitleSlide({ weekStart, weekEnd, play }: { weekStart: string; weekEnd: 
       >
         {format(new Date(weekStart), 'MMM d')} - {format(new Date(weekEnd), 'MMM d, yyyy')}
       </motion.p>
+
+      {/* Brainrot mode button */}
+      {!brainrotActive && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 1.5, type: 'spring', bounce: 0.5 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            onActivateBrainrot()
+          }}
+          className="relative mt-4 px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 text-white font-bold text-lg shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-105 active:scale-95 transition-all overflow-hidden group"
+        >
+          <span className="relative z-10 flex items-center gap-3">
+            <span className="text-2xl">🧠</span>
+            <span style={{ fontFamily: 'Bangers, cursive', fontSize: '24px', letterSpacing: '1px' }}>
+              BRAINROT MODE
+            </span>
+            <span className="text-2xl">🔥</span>
+          </span>
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity"
+            animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+        </motion.button>
+      )}
+      {brainrotActive && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', bounce: 0.6 }}
+          className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600/20 via-pink-500/20 to-orange-500/20 border border-pink-500/30 text-pink-400 font-bold text-sm"
+        >
+          🧠 BRAINROT ACTIVATED 🧠
+        </motion.div>
+      )}
+
       {/* Flame gradient at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-orange-500/20 via-orange-500/5 to-transparent pointer-events-none" />
     </div>
@@ -668,10 +724,15 @@ function SpecialAwardsSlide({ actions, play }: { actions: ActionMedalAwarded[]; 
 
   useEffect(() => {
     // Drumroll during buildup
-    play('drumroll', { volume: 0.6, loop: true })
+    const drumrollAudio = play('drumroll', { volume: 0.6, loop: true })
 
     // Buildup phase with drumroll tension, then reveal
     const revealTimer = setTimeout(() => {
+      // Stop drumroll before reveal
+      if (drumrollAudio) {
+        drumrollAudio.pause()
+        drumrollAudio.currentTime = 0
+      }
       setPhase('reveal')
       // Yankee doodle fife on reveal
       play('yankee-doodle', { volume: 0.5 })
@@ -950,9 +1011,16 @@ function WeeklyRecapContent() {
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [asOfDate, setAsOfDate] = useState<Date>(new Date())
+  const [brainrotActive, setBrainrotActive] = useState(false)
   const [brainrotVisible, setBrainrotVisible] = useState(false)
   const [brainrotVideoId] = useState(() => BRAINROT_VIDEO_IDS[Math.floor(Math.random() * BRAINROT_VIDEO_IDS.length)])
   const { enabled: soundEnabled, toggle: toggleSound, play, stopAll } = useSoundEffects()
+
+  const activateBrainrot = useCallback(() => {
+    setBrainrotActive(true)
+    setBrainrotVisible(true)
+    if (!soundEnabled) toggleSound()
+  }, [soundEnabled, toggleSound])
 
   const isCurrentWeek = startOfWeek(asOfDate, { weekStartsOn: 1 }).getTime() ===
     startOfWeek(new Date(), { weekStartsOn: 1 }).getTime()
@@ -996,7 +1064,7 @@ function WeeklyRecapContent() {
     const timeMedals = data.medalsAwarded.filter((m) => m.metricType === 'time')
 
     const slideList: React.ReactElement[] = [
-      <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} play={play} />,
+      <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} play={play} brainrotActive={brainrotActive} onActivateBrainrot={activateBrainrot} />,
       <TeamTotalsSlide
         key="totals"
         tokens={data.teamTotalTokens}
@@ -1051,7 +1119,7 @@ function WeeklyRecapContent() {
     slideList.push(<OutroSlide key="outro" play={play} />)
 
     return slideList
-  }, [data, play])
+  }, [data, play, brainrotActive, activateBrainrot])
 
   const totalSlides = slides.length
 

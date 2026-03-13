@@ -5,9 +5,9 @@ const STORAGE_KEY = 'burndown-sound-enabled'
 function getInitialState(): boolean {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    return stored === null ? true : stored === 'true'
+    return stored === null ? false : stored === 'true'
   } catch {
-    return true
+    return false
   }
 }
 

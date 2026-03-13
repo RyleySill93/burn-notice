@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RankingMedal, MilestoneBadge, CrownBadge, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
 import type { Rank, Metric, MilestoneKind, CrownKind } from '@/components/badges'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import axios from '@/lib/axios-instance'
 
@@ -238,6 +239,7 @@ function BadgeLeaderboard() {
         <CardTitle className="text-base">Badge Leaderboard</CardTitle>
       </CardHeader>
       <CardContent>
+        <TooltipProvider delayDuration={200}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -287,46 +289,87 @@ function BadgeLeaderboard() {
                     <CountCell count={entry.bronze} highlight={sortBy === 'bronze'} />
                   </td>
                   <td className="py-3 px-2 text-center">
-                    {entry.tokenMilestone ? (
-                      <div className="flex justify-center">
-                        <MilestoneBadge kind={entry.tokenMilestone as MilestoneKind} size={28} />
-                      </div>
-                    ) : (
+                    {entry.tokenMilestone ? (() => {
+                      const cfg = MILESTONE_CONFIGS[entry.tokenMilestone as MilestoneKind]
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex justify-center cursor-default">
+                              <MilestoneBadge kind={entry.tokenMilestone as MilestoneKind} size={28} />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-72 text-center">
+                            <p className="text-sm font-medium">{cfg.name} — {cfg.label} tokens burned</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )
+                    })() : (
                       <span className="text-muted-foreground/30">—</span>
                     )}
                   </td>
                   <td className="py-3 px-2 text-center">
-                    {entry.timeMilestone ? (
-                      <div className="flex justify-center">
-                        <MilestoneBadge kind={entry.timeMilestone as MilestoneKind} size={28} />
-                      </div>
-                    ) : (
+                    {entry.timeMilestone ? (() => {
+                      const cfg = MILESTONE_CONFIGS[entry.timeMilestone as MilestoneKind]
+                      return (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex justify-center cursor-default">
+                              <MilestoneBadge kind={entry.timeMilestone as MilestoneKind} size={28} />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-72 text-center">
+                            <p className="text-sm font-medium">{cfg.name} — {cfg.label} coding hours</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )
+                    })() : (
                       <span className="text-muted-foreground/30">—</span>
                     )}
                   </td>
                   <td className="py-3 px-2 text-center">
                     {entry.tokenCrown ? (
-                      <div className="flex justify-center">
-                        <CrownBadge kind="tokens" size={28} />
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex justify-center cursor-default">
+                            <CrownBadge kind="tokens" size={28} />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-72 text-center">
+                          <p className="text-sm font-medium">Company Record · Most Tokens Burned</p>
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
                       <span className="text-muted-foreground/30">—</span>
                     )}
                   </td>
                   <td className="py-3 px-2 text-center">
                     {entry.timeCrown ? (
-                      <div className="flex justify-center">
-                        <CrownBadge kind="time" size={28} />
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex justify-center cursor-default">
+                            <CrownBadge kind="time" size={28} />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-72 text-center">
+                          <p className="text-sm font-medium">Company Record · Most Coding Time</p>
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
                       <span className="text-muted-foreground/30">—</span>
                     )}
                   </td>
                   <td className="py-3 px-2 text-center">
                     {entry.purpleHearts > 0 ? (
-                      <div className="flex justify-center">
-                        <PurpleHeartBadge size={28} />
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex justify-center cursor-default">
+                            <PurpleHeartBadge size={28} />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-72 text-center">
+                          <p className="text-sm font-medium">Purple Heart × {entry.purpleHearts}</p>
+                        </TooltipContent>
+                      </Tooltip>
                     ) : (
                       <span className="text-muted-foreground/30">—</span>
                     )}
@@ -336,6 +379,7 @@ function BadgeLeaderboard() {
             </tbody>
           </table>
         </div>
+        </TooltipProvider>
       </CardContent>
     </Card>
   )

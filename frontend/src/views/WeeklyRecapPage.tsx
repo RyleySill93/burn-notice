@@ -8,7 +8,7 @@ import { useSoundEffects, type SoundEffect } from '@/hooks/useSoundEffects'
 import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
 import type { Rank, Metric as BadgeMetric, MilestoneKind, CrownKind } from '@/components/badges'
 import { AnimatedFlames } from '@/components/AnimatedFlames'
-import { addDays, subDays, startOfWeek } from 'date-fns'
+import { addDays, subDays, startOfWeek, getDay, setHours, setMinutes, setSeconds, setMilliseconds } from 'date-fns'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import axios from '@/lib/axios-instance'
@@ -941,24 +941,52 @@ function CountUp({
 // --- Main Component ---
 
 // Brainrot videos - Subway Surfers, Minecraft parkour, satisfying content, etc.
+/**
+ * Get the latest week that's available for a burndown.
+ * Weeks run Mon–Sun but aren't available until Friday 9am UTC.
+ * Returns the Monday of the latest available week.
+ */
+function getLatestAvailableWeekStart(): Date {
+  const now = new Date()
+  const nowUtcHours = now.getUTCHours()
+  const dayOfWeek = now.getUTCDay() // 0=Sun, 5=Fri
+
+  // Find the Monday of the current week (Mon-based)
+  const currentWeekMonday = startOfWeek(now, { weekStartsOn: 1 })
+
+  // Check if Friday 9am UTC of the current week has passed
+  // Friday = day index 5 (getUTCDay), which is 4 days after Monday
+  const fridayCutoff = new Date(currentWeekMonday)
+  fridayCutoff.setUTCDate(fridayCutoff.getUTCDate() + 4) // Friday
+  fridayCutoff.setUTCHours(9, 0, 0, 0)
+
+  if (now >= fridayCutoff) {
+    // Current week is available
+    return currentWeekMonday
+  }
+  // Otherwise, show last week
+  return new Date(currentWeekMonday.getTime() - 7 * 24 * 60 * 60 * 1000)
+}
+
 // Brainrot gameplay videos (muted, background visuals only)
 const BRAINROT_VIDEO_IDS = [
+  '12LMvdpMhlI',
   'zZ7AimPACzc',
-  'P-4b4qQZpWM',
 ]
 
 function WeeklyRecapContent() {
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
-  const [asOfDate, setAsOfDate] = useState<Date>(new Date())
+  const [latestWeekStart] = useState(() => getLatestAvailableWeekStart())
+  const [asOfDate, setAsOfDate] = useState<Date>(latestWeekStart)
   const [showBrainrotModal, setShowBrainrotModal] = useState(false)
   const brainrotDismissed = useRef(false)
   const [brainrotVisible, setBrainrotVisible] = useState(false)
   const [brainrotVideoId] = useState(() => BRAINROT_VIDEO_IDS[Math.floor(Math.random() * BRAINROT_VIDEO_IDS.length)])
   const { enabled: soundEnabled, toggle: toggleSound, play, stopAll } = useSoundEffects()
 
-  const isCurrentWeek = startOfWeek(asOfDate, { weekStartsOn: 1 }).getTime() ===
-    startOfWeek(new Date(), { weekStartsOn: 1 }).getTime()
+  const isLatestWeek = startOfWeek(asOfDate, { weekStartsOn: 1 }).getTime() ===
+    latestWeekStart.getTime()
 
   const goToPrevWeek = useCallback(() => {
     setAsOfDate((prev) => subDays(prev, 7))
@@ -968,10 +996,13 @@ function WeeklyRecapContent() {
   const goToNextWeek = useCallback(() => {
     setAsOfDate((prev) => {
       const next = addDays(prev, 7)
-      return next > new Date() ? new Date() : next
+      const nextWeekMonday = startOfWeek(next, { weekStartsOn: 1 })
+      // Don't go past the latest available week
+      if (nextWeekMonday.getTime() > latestWeekStart.getTime()) return prev
+      return next
     })
     setCurrentSlide(0)
-  }, [])
+  }, [latestWeekStart])
 
   const asOfStr = format(asOfDate, 'yyyy-MM-dd')
 
@@ -1219,7 +1250,7 @@ function WeeklyRecapContent() {
         </div>
         <button
           onClick={goToNextWeek}
-          disabled={isCurrentWeek}
+          disabled={isLatestWeek}
           className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors disabled:opacity-20 disabled:cursor-not-allowed"
         >
           <ChevronRight className="h-4 w-4" />

@@ -368,7 +368,7 @@ function PodiumSlide({
   play: PlaySound
 }) {
   useEffect(() => {
-    play(metricType === 'tokens' ? 'tokens-podium' : 'celebration', { volume: 0.4 })
+    play(metricType === 'tokens' ? 'tokens-podium' : 'time-podium', { volume: 0.4 })
     const timer = setTimeout(fireConfettiThenFlames, 1200)
     return () => clearTimeout(timer)
   }, [])

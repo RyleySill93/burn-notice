@@ -22,6 +22,7 @@ export type SoundEffect =
   | 'outro'
   | 'team-totals'
   | 'tokens-podium'
+  | 'time-podium'
   | 'milestones'
 
 const SOUND_URLS: Record<SoundEffect, string> = {
@@ -34,7 +35,8 @@ const SOUND_URLS: Record<SoundEffect, string> = {
   'say-so': '/sounds/say-so.mp3',
   outro: '/sounds/outro.mp3',
   'team-totals': '/sounds/team-totals.mp3',
-  'tokens-podium': '/sounds/tokens-podium.mp3',
+  'tokens-podium': '/sounds/dramatic-tiktok.mp3',
+  'time-podium': '/sounds/tokens-podium.mp3',
   milestones: '/sounds/milestones.mp3',
 }
 

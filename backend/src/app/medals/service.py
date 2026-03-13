@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from loguru import logger
 from sqlalchemy import func
@@ -330,3 +330,141 @@ class MedalService:
             'weeks_processed': weeks_processed,
             'medals_created': medals_created,
         }
+
+    @staticmethod
+    def backfill_milestones_with_dates(customer_id: str) -> int:
+        """Delete and re-create milestone medals with correct created_at timestamps.
+
+        For tokens: uses UsageDaily running totals to find the exact date each threshold was crossed.
+        For time: uses daily active minutes computation to find crossing dates.
+        """
+        engineers = db.session.query(Engineer).filter(Engineer.customer_id == customer_id).all()
+        if not engineers:
+            return 0
+
+        # Delete existing milestone medals for this customer
+        deleted = (
+            db.session.query(Medal)
+            .filter(
+                Medal.customer_id == customer_id,
+                Medal.medal_category == MedalCategory.MILESTONE,
+            )
+            .delete()
+        )
+        db.session.flush()
+        logger.info('Deleted existing milestone medals', customer_id=customer_id, deleted=deleted)
+
+        token_thresholds = [
+            (mt, thresh) for mt, metric, thresh in MILESTONE_THRESHOLDS if metric == MetricType.TOKENS
+        ]
+        time_thresholds = [
+            (mt, thresh) for mt, metric, thresh in MILESTONE_THRESHOLDS if metric == MetricType.TIME
+        ]
+
+        medals_created = 0
+
+        for engineer in engineers:
+            # --- Token milestones: running total from UsageDaily ---
+            daily_tokens = (
+                db.session.query(UsageDaily.date, UsageDaily.total_tokens)
+                .filter(UsageDaily.engineer_id == engineer.id)
+                .order_by(UsageDaily.date)
+                .all()
+            )
+
+            cumulative_tokens = 0
+            remaining_token_thresholds = list(token_thresholds)
+
+            for usage_date, tokens in daily_tokens:
+                cumulative_tokens += tokens
+                crossed = []
+                for medal_type, threshold in remaining_token_thresholds:
+                    if cumulative_tokens >= threshold:
+                        crossed.append((medal_type, threshold))
+
+                for medal_type, threshold in crossed:
+                    remaining_token_thresholds.remove((medal_type, threshold))
+                    medal_model = Medal(
+                        engineer_id=engineer.id,
+                        customer_id=customer_id,
+                        medal_category=MedalCategory.MILESTONE,
+                        medal_type=medal_type,
+                        metric_type=MetricType.TOKENS,
+                        value=float(cumulative_tokens),
+                        created_at=datetime(usage_date.year, usage_date.month, usage_date.day, 12, 0, 0, tzinfo=timezone.utc),
+                    )
+                    db.session.add(medal_model)
+                    medals_created += 1
+                    logger.info(
+                        'Milestone medal backfilled',
+                        engineer_id=engineer.id,
+                        medal_type=str(medal_type),
+                        crossed_date=str(usage_date),
+                        value=cumulative_tokens,
+                    )
+
+                if not remaining_token_thresholds:
+                    break
+
+            # --- Time milestones: daily active minutes ---
+            min_date = (
+                db.session.query(func.min(UsageDaily.date))
+                .filter(UsageDaily.engineer_id == engineer.id)
+                .scalar()
+            )
+            max_date = (
+                db.session.query(func.max(UsageDaily.date))
+                .filter(UsageDaily.engineer_id == engineer.id)
+                .scalar()
+            )
+
+            if min_date and max_date and time_thresholds:
+                start_utc, _ = get_day_bounds_utc(min_date)
+                _, end_utc = get_day_bounds_utc(max_date)
+                daily_minutes = LeaderboardService._calculate_active_minutes_by_day(
+                    engineer.id, start_utc, end_utc
+                )
+
+                # Sort by date and compute running total
+                sorted_days = sorted(daily_minutes.items())
+                cumulative_minutes = 0
+                remaining_time_thresholds = list(time_thresholds)
+
+                for usage_date, minutes in sorted_days:
+                    cumulative_minutes += minutes
+                    crossed = []
+                    for medal_type, threshold in remaining_time_thresholds:
+                        if cumulative_minutes >= threshold:
+                            crossed.append((medal_type, threshold))
+
+                    for medal_type, threshold in crossed:
+                        remaining_time_thresholds.remove((medal_type, threshold))
+                        medal_model = Medal(
+                            engineer_id=engineer.id,
+                            customer_id=customer_id,
+                            medal_category=MedalCategory.MILESTONE,
+                            medal_type=medal_type,
+                            metric_type=MetricType.TIME,
+                            value=float(cumulative_minutes),
+                            created_at=datetime(usage_date.year, usage_date.month, usage_date.day, 12, 0, 0, tzinfo=timezone.utc),
+                        )
+                        db.session.add(medal_model)
+                        medals_created += 1
+                        logger.info(
+                            'Milestone medal backfilled',
+                            engineer_id=engineer.id,
+                            medal_type=str(medal_type),
+                            crossed_date=str(usage_date),
+                            value=cumulative_minutes,
+                        )
+
+                    if not remaining_time_thresholds:
+                        break
+
+        db.session.commit()
+        logger.info(
+            'Milestone backfill with dates complete',
+            customer_id=customer_id,
+            medals_created=medals_created,
+        )
+        return medals_created

@@ -460,6 +460,19 @@ function RecordsSlide({ records }: { records: RecapRecord[] }) {
     )
   }
 
+  // Group records by engineer
+  const groupByEngineer = (recs: RecapRecord[]) => {
+    const map = new Map<string, RecapRecord[]>()
+    for (const r of recs) {
+      if (!map.has(r.engineerId)) map.set(r.engineerId, [])
+      map.get(r.engineerId)!.push(r)
+    }
+    return Array.from(map.entries())
+  }
+
+  const companyByEngineer = groupByEngineer(companyRecords)
+  const personalByEngineer = groupByEngineer(personalRecords)
+
   return (
     <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16 px-8">
       <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4">
@@ -469,7 +482,7 @@ function RecordsSlide({ records }: { records: RecapRecord[] }) {
         </h2>
       </motion.div>
       <div className="flex gap-12 w-full max-w-5xl">
-        {companyRecords.length > 0 && (
+        {companyByEngineer.length > 0 && (
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
@@ -480,13 +493,13 @@ function RecordsSlide({ records }: { records: RecapRecord[] }) {
               Company Records
             </h3>
             <div className="space-y-3">
-              {companyRecords.map((r, i) => (
-                <RecordCard key={i} record={r} delay={0.4 + i * 0.15} />
+              {companyByEngineer.map(([engineerId, recs], i) => (
+                <EngineerRecordRow key={engineerId} records={recs} delay={0.4 + i * 0.15} />
               ))}
             </div>
           </motion.div>
         )}
-        {personalRecords.length > 0 && (
+        {personalByEngineer.length > 0 && (
           <motion.div
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
@@ -497,8 +510,8 @@ function RecordsSlide({ records }: { records: RecapRecord[] }) {
               Personal Records
             </h3>
             <div className="space-y-3">
-              {personalRecords.map((r, i) => (
-                <RecordCard key={i} record={r} delay={0.6 + i * 0.15} />
+              {personalByEngineer.map(([engineerId, recs], i) => (
+                <EngineerRecordRow key={engineerId} records={recs} delay={0.6 + i * 0.15} />
               ))}
             </div>
           </motion.div>
@@ -508,42 +521,43 @@ function RecordsSlide({ records }: { records: RecapRecord[] }) {
   )
 }
 
-function RecordCard({ record, delay }: { record: RecapRecord; delay: number }) {
-  const isTokens = record.recordType === 'tokens'
-  const icon = isTokens ? <Zap className="h-5 w-5 text-orange-400" /> : <Clock className="h-5 w-5 text-red-400" />
-  const valueStr = isTokens ? formatNumber(record.value) : formatMinutes(record.value)
-  const prevStr = record.previousValue
-    ? isTokens
-      ? formatNumber(record.previousValue)
-      : formatMinutes(record.previousValue)
-    : null
-  const periodLabel = record.recordPeriod === 'daily' ? 'Daily' : record.recordPeriod === 'weekly' ? 'Weekly' : 'Monthly'
-  const typeLabel = isTokens ? 'Tokens' : 'Time'
+function EngineerRecordRow({ records, delay }: { records: RecapRecord[]; delay: number }) {
+  const name = records[0].displayName
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay, type: 'spring' }}
-      className="flex items-center gap-4 bg-card border border-border rounded-xl p-4"
+      className="bg-card border border-border rounded-xl p-4"
     >
-      {icon}
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold">{record.displayName}</span>
-          <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">
-            {periodLabel} {typeLabel}
-          </span>
-        </div>
-        <div className="text-sm text-muted-foreground">
-          <span className="text-foreground font-bold">{valueStr}</span>
-          {prevStr && (
-            <span>
-              {' '}
-              (was {prevStr})
-            </span>
-          )}
-        </div>
+      <div className="font-semibold mb-2">{name}</div>
+      <div className="flex flex-wrap gap-2">
+        {records.map((record, i) => {
+          const isTokens = record.recordType === 'tokens'
+          const icon = isTokens ? <Zap className="h-3.5 w-3.5 text-orange-400" /> : <Clock className="h-3.5 w-3.5 text-red-400" />
+          const valueStr = isTokens ? formatNumber(record.value) : formatMinutes(record.value)
+          const prevStr = record.previousValue
+            ? isTokens
+              ? formatNumber(record.previousValue)
+              : formatMinutes(record.previousValue)
+            : null
+          const periodLabel = record.recordPeriod === 'daily' ? 'Daily' : record.recordPeriod === 'weekly' ? 'Weekly' : 'Monthly'
+          const typeLabel = isTokens ? 'Tokens' : 'Time'
+
+          return (
+            <div key={i} className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-1.5 text-sm">
+              {icon}
+              <span className="text-xs bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full">
+                {periodLabel} {typeLabel}
+              </span>
+              <span className="font-bold">{valueStr}</span>
+              {prevStr && (
+                <span className="text-muted-foreground text-xs">(was {prevStr})</span>
+              )}
+            </div>
+          )
+        })}
       </div>
     </motion.div>
   )

@@ -943,14 +943,14 @@ function CountUp({
 // Brainrot videos - Subway Surfers, Minecraft parkour, satisfying content, etc.
 /**
  * Get the most recent Friday (as a Date) on or before the given date.
- * Weeks for the burndown run Friday-to-Friday.
+ * Uses local time so date-fns format() serializes the correct day.
  */
 function getMostRecentFriday(d: Date): Date {
-  const day = d.getUTCDay() // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
+  const day = d.getDay() // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
   const daysSinceFriday = (day - 5 + 7) % 7
   const friday = new Date(d)
-  friday.setUTCDate(friday.getUTCDate() - daysSinceFriday)
-  friday.setUTCHours(0, 0, 0, 0)
+  friday.setDate(friday.getDate() - daysSinceFriday)
+  friday.setHours(12, 0, 0, 0) // Noon to avoid any timezone edge cases
   return friday
 }
 
@@ -964,18 +964,22 @@ function getLatestAvailableWeekStart(): Date {
   // The Friday that starts the "current" Fri-Fri window
   const currentFriday = getMostRecentFriday(now)
 
-  // The cutoff is this Friday at 9am UTC — that's when this week's data is ready
-  const cutoff = new Date(currentFriday)
-  cutoff.setUTCDate(cutoff.getUTCDate() + 7) // Next Friday
-  cutoff.setUTCHours(9, 0, 0, 0)
+  // The cutoff is the NEXT Friday at 9am UTC (end of this week)
+  const nextFriday = new Date(currentFriday)
+  nextFriday.setDate(nextFriday.getDate() + 7)
+  // Create cutoff in UTC: next Friday at 9am UTC
+  const cutoffUtc = Date.UTC(
+    nextFriday.getFullYear(), nextFriday.getMonth(), nextFriday.getDate(), 9, 0, 0
+  )
 
-  if (now >= cutoff) {
+  if (now.getTime() >= cutoffUtc) {
     // Current week is done, show it
     return currentFriday
   }
   // Otherwise show the previous week
   const prevFriday = new Date(currentFriday)
-  prevFriday.setUTCDate(prevFriday.getUTCDate() - 7)
+  prevFriday.setDate(prevFriday.getDate() - 7)
+  prevFriday.setHours(12, 0, 0, 0)
   return prevFriday
 }
 

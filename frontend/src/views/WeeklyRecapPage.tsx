@@ -3,7 +3,8 @@ import { Navigate, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import { hasFlameWarAccess } from '@/lib/flame-war-access'
-import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Calendar, TrendingUp, TrendingDown } from 'lucide-react'
+import { Flame, Trophy, Clock, Zap, ChevronLeft, ChevronRight, Calendar, TrendingUp, TrendingDown, Volume2, VolumeX } from 'lucide-react'
+import { useSoundEffects, type SoundEffect } from '@/hooks/useSoundEffects'
 import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
 import type { Rank, Metric as BadgeMetric, MilestoneKind, CrownKind } from '@/components/badges'
 import { AnimatedFlames } from '@/components/AnimatedFlames'
@@ -168,10 +169,13 @@ function getWoWPercent(current: number, previous: number): number | null {
   return ((current - previous) / previous) * 100
 }
 
+type PlaySound = (effect: SoundEffect, options?: { volume?: number; delay?: number; loop?: boolean }) => HTMLAudioElement | undefined
+
 // --- Slide Components ---
 
-function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string }) {
+function TitleSlide({ weekStart, weekEnd, play }: { weekStart: string; weekEnd: string; play: PlaySound }) {
   useEffect(() => {
+    play('fanfare', { volume: 0.6 })
     const timer = setTimeout(() => {
       fireConfetti()
       setTimeout(fireFlames, 2000)
@@ -283,8 +287,9 @@ function TeamTotalsSlide({
   )
 }
 
-function CrownsSlide({ crowns }: { crowns: CrownHolder[] }) {
+function CrownsSlide({ crowns, play }: { crowns: CrownHolder[]; play: PlaySound }) {
   useEffect(() => {
+    play('celebration', { volume: 0.4 })
     const timer = setTimeout(fireConfettiThenFlames, 600)
     return () => clearTimeout(timer)
   }, [])
@@ -345,6 +350,7 @@ function PodiumSlide({
   color,
   medals,
   metricType,
+  play,
 }: {
   title: string
   icon: typeof Trophy
@@ -353,8 +359,10 @@ function PodiumSlide({
   color: string
   medals?: MedalAwarded[]
   metricType: BadgeMetric
+  play: PlaySound
 }) {
   useEffect(() => {
+    play('celebration', { volume: 0.4 })
     const timer = setTimeout(fireConfettiThenFlames, 1200)
     return () => clearTimeout(timer)
   }, [])
@@ -435,9 +443,13 @@ function PodiumSlide({
   )
 }
 
-function RecordsSlide({ records }: { records: RecapRecord[] }) {
+function RecordsSlide({ records, play }: { records: RecapRecord[]; play: PlaySound }) {
   useEffect(() => {
     if (records.length > 0) {
+      // Triple airhorn blast for records broken
+      play('airhorn', { volume: 0.5 })
+      play('airhorn', { volume: 0.4, delay: 300 })
+      play('airhorn', { volume: 0.45, delay: 700 })
       const timer = setTimeout(fireConfetti, 500)
       return () => clearTimeout(timer)
     }
@@ -575,8 +587,9 @@ function EngineerRecordRow({ records, delay }: { records: RecapRecord[]; delay: 
   )
 }
 
-function MilestonesSlide({ milestones }: { milestones: MilestoneAwarded[] }) {
+function MilestonesSlide({ milestones, play }: { milestones: MilestoneAwarded[]; play: PlaySound }) {
   useEffect(() => {
+    play('fanfare', { volume: 0.4 })
     const timer = setTimeout(fireConfettiThenFlames, 500)
     return () => clearTimeout(timer)
   }, [])
@@ -644,13 +657,18 @@ function MilestonesSlide({ milestones }: { milestones: MilestoneAwarded[] }) {
   )
 }
 
-function SpecialAwardsSlide({ actions }: { actions: ActionMedalAwarded[] }) {
+function SpecialAwardsSlide({ actions, play }: { actions: ActionMedalAwarded[]; play: PlaySound }) {
   const [phase, setPhase] = useState<'buildup' | 'reveal'>('buildup')
 
   useEffect(() => {
+    // Drumroll during buildup
+    play('drumroll', { volume: 0.6, loop: true })
+
     // Buildup phase with drumroll tension, then reveal
     const revealTimer = setTimeout(() => {
       setPhase('reveal')
+      // Yankee doodle fife on reveal
+      play('yankee-doodle', { volume: 0.5 })
       // Big dramatic confetti burst on reveal
       setTimeout(() => {
         confetti({
@@ -838,8 +856,10 @@ function SpecialAwardsSlide({ actions }: { actions: ActionMedalAwarded[] }) {
   )
 }
 
-function OutroSlide() {
+function OutroSlide({ play }: { play: PlaySound }) {
   useEffect(() => {
+    // Curb Your Enthusiasm theme
+    play('curb', { volume: 0.5 })
     const timer = setTimeout(() => {
       fireConfetti()
       setTimeout(fireFlames, 2000)
@@ -915,6 +935,7 @@ function WeeklyRecapContent() {
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [asOfDate, setAsOfDate] = useState<Date>(new Date())
+  const { enabled: soundEnabled, toggle: toggleSound, play, stopAll } = useSoundEffects()
 
   const isCurrentWeek = startOfWeek(asOfDate, { weekStartsOn: 1 }).getTime() ===
     startOfWeek(new Date(), { weekStartsOn: 1 }).getTime()
@@ -958,7 +979,7 @@ function WeeklyRecapContent() {
     const timeMedals = data.medalsAwarded.filter((m) => m.metricType === 'time')
 
     const slideList: React.ReactElement[] = [
-      <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} />,
+      <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} play={play} />,
       <TeamTotalsSlide
         key="totals"
         tokens={data.teamTotalTokens}
@@ -969,7 +990,7 @@ function WeeklyRecapContent() {
     ]
 
     if (hasCrowns) {
-      slideList.push(<CrownsSlide key="crowns" crowns={data.crowns} />)
+      slideList.push(<CrownsSlide key="crowns" crowns={data.crowns} play={play} />)
     }
 
     slideList.push(
@@ -982,6 +1003,7 @@ function WeeklyRecapContent() {
         color="text-orange-400"
         medals={tokenMedals}
         metricType="tokens"
+        play={play}
       />,
       <PodiumSlide
         key="time-podium"
@@ -992,35 +1014,38 @@ function WeeklyRecapContent() {
         color="text-red-400"
         medals={timeMedals}
         metricType="time"
+        play={play}
       />,
     )
 
     if (hasRecords) {
-      slideList.push(<RecordsSlide key="records" records={data.records} />)
+      slideList.push(<RecordsSlide key="records" records={data.records} play={play} />)
     }
 
     if (hasMilestones) {
-      slideList.push(<MilestonesSlide key="milestones" milestones={data.milestonesAwarded} />)
+      slideList.push(<MilestonesSlide key="milestones" milestones={data.milestonesAwarded} play={play} />)
     }
 
     if (hasActions) {
-      slideList.push(<SpecialAwardsSlide key="actions" actions={data.actionsAwarded} />)
+      slideList.push(<SpecialAwardsSlide key="actions" actions={data.actionsAwarded} play={play} />)
     }
 
-    slideList.push(<OutroSlide key="outro" />)
+    slideList.push(<OutroSlide key="outro" play={play} />)
 
     return slideList
-  }, [data])
+  }, [data, play])
 
   const totalSlides = slides.length
 
   const goNext = useCallback(() => {
+    stopAll()
     setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1))
-  }, [totalSlides])
+  }, [totalSlides, stopAll])
 
   const goPrev = useCallback(() => {
+    stopAll()
     setCurrentSlide((prev) => Math.max(prev - 1, 0))
-  }, [])
+  }, [stopAll])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -1152,9 +1177,20 @@ function WeeklyRecapContent() {
         )}
       </div>
 
-      {/* ESC hint */}
-      <div className="absolute top-6 right-6 z-10 text-xs text-muted-foreground">
-        Press ESC to exit
+      {/* Sound toggle + ESC hint */}
+      <div className="absolute top-6 right-6 z-10 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={toggleSound}
+          className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          title={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+        >
+          {soundEnabled ? (
+            <Volume2 className="h-4 w-4" />
+          ) : (
+            <VolumeX className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+        <span className="text-xs text-muted-foreground">Press ESC to exit</span>
       </div>
     </div>
   )

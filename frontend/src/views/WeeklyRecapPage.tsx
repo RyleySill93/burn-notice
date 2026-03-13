@@ -1069,6 +1069,10 @@ function WeeklyRecapContent() {
     // Intercept first "next" on title slide to show brainrot modal
     if (currentSlide === 0 && !brainrotDismissed.current) {
       setShowBrainrotModal(true)
+      // Play fah sound when modal appears (bypass enabled check with raw Audio)
+      const fah = new Audio('/sounds/fah.mp3')
+      fah.volume = 0.7
+      fah.play().catch(() => {})
       return
     }
     stopAll()
@@ -1080,9 +1084,8 @@ function WeeklyRecapContent() {
     brainrotDismissed.current = true
     setBrainrotVisible(true)
     if (!soundEnabled) toggleSound()
-    // Play random bruh/fah, then Say So after it ends
-    const effect = Math.random() < 0.5 ? 'bruh' : 'fah' as const
-    const audio = play(effect, { volume: 0.7 })
+    // Play vine boom, then Say So after it ends
+    const audio = play('vine-boom', { volume: 0.7 })
     if (audio) {
       audio.addEventListener('ended', () => {
         play('say-so', { volume: 0.5 })
@@ -1279,14 +1282,11 @@ function WeeklyRecapContent() {
               </motion.div>
 
               <h2
-                className="text-4xl mb-1 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-400 bg-clip-text text-transparent"
+                className="text-4xl mb-5 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-400 bg-clip-text text-transparent"
                 style={{ fontFamily: 'Bangers, cursive', letterSpacing: '2px' }}
               >
-                CRITICAL ALERT
+                ALERT
               </h2>
-              <p className="text-xs text-muted-foreground/60 uppercase tracking-widest mb-5">
-                Accessibility Compliance Division
-              </p>
 
               <p className="text-muted-foreground mb-2 text-base leading-relaxed">
                 Our systems have detected engineers with birthdays
@@ -1327,12 +1327,6 @@ function WeeklyRecapContent() {
                 </motion.button>
               </div>
 
-              {/* Tiny legal disclaimer */}
-              <p className="text-[9px] text-muted-foreground/30 mt-6 leading-tight">
-                By clicking ACTIVATE you agree to enhanced audio-visual stimulation including but not limited
-                to: Subway Surfers gameplay, Minecraft parkour, unhinged sound effects, and involuntary head bobbing.
-                Management assumes no liability for lost productivity.
-              </p>
             </motion.div>
           </motion.div>
         )}

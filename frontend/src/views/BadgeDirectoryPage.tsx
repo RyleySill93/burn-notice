@@ -32,13 +32,16 @@ interface BadgeLeaderboardData {
 
 type BadgeTab = 'leaderboard' | 'directory'
 
-const RANKING_MEDALS: { rank: Rank; metric: Metric; label: string; description: string }[] = [
-  { rank: 'gold', metric: 'tokens', label: 'Gold — Tokens', description: 'Weekly #1 in tokens burned' },
-  { rank: 'silver', metric: 'tokens', label: 'Silver — Tokens', description: 'Weekly #2 in tokens burned' },
-  { rank: 'bronze', metric: 'tokens', label: 'Bronze — Tokens', description: 'Weekly #3 in tokens burned' },
-  { rank: 'gold', metric: 'time', label: 'Gold — Time', description: 'Weekly #1 in coding time' },
-  { rank: 'silver', metric: 'time', label: 'Silver — Time', description: 'Weekly #2 in coding time' },
-  { rank: 'bronze', metric: 'time', label: 'Bronze — Time', description: 'Weekly #3 in coding time' },
+const TOKEN_MEDALS: { rank: Rank; label: string; description: string }[] = [
+  { rank: 'gold', label: 'Gold — Tokens', description: 'Weekly #1 in tokens burned' },
+  { rank: 'silver', label: 'Silver — Tokens', description: 'Weekly #2 in tokens burned' },
+  { rank: 'bronze', label: 'Bronze — Tokens', description: 'Weekly #3 in tokens burned' },
+]
+
+const TIME_MEDALS: { rank: Rank; label: string; description: string }[] = [
+  { rank: 'gold', label: 'Gold — Time', description: 'Weekly #1 in coding time' },
+  { rank: 'silver', label: 'Silver — Time', description: 'Weekly #2 in coding time' },
+  { rank: 'bronze', label: 'Bronze — Time', description: 'Weekly #3 in coding time' },
 ]
 
 const CROWNS: { kind: CrownKind; label: string; description: string }[] = [
@@ -98,54 +101,68 @@ function BadgeDirectory() {
 
       <section>
         <SectionHeader title="Weekly Medals" subtitle="Awarded to the top 3 each week. Collect multiples — the count shows on the badge." />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {RANKING_MEDALS.map((m) => (
-            <BadgeCard
-              key={`${m.rank}-${m.metric}`}
-              badge={<RankingMedal rank={m.rank} metric={m.metric} count={1} size={56} />}
-              label={m.label}
-              description={m.description}
-            />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <SectionHeader title="Token Milestones" subtitle="Earned once when you hit cumulative token thresholds. Only your highest is displayed." />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {TOKEN_MILESTONES.map((kind) => {
-            const cfg = MILESTONE_CONFIGS[kind]
-            return (
+        <div className="grid grid-cols-2 gap-x-6">
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tokens</p>
+            {TOKEN_MEDALS.map((m) => (
               <BadgeCard
-                key={kind}
-                badge={<MilestoneBadge kind={kind} size={56} />}
-                label={`${cfg.name} — ${cfg.label}`}
-                description={`Burn ${cfg.label} total tokens`}
+                key={`${m.rank}-tokens`}
+                badge={<RankingMedal rank={m.rank} metric="tokens" count={1} size={56} />}
+                label={m.label}
+                description={m.description}
               />
-            )
-          })}
-        </div>
-      </section>
-
-      <section>
-        <SectionHeader title="Time Milestones" subtitle="Earned once when you hit cumulative coding hour thresholds. Only your highest is displayed." />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {TIME_MILESTONES.map((kind) => {
-            const cfg = MILESTONE_CONFIGS[kind]
-            return (
+            ))}
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Time</p>
+            {TIME_MEDALS.map((m) => (
               <BadgeCard
-                key={kind}
-                badge={<MilestoneBadge kind={kind} size={56} />}
-                label={`${cfg.name} — ${cfg.label}`}
-                description={`Accumulate ${cfg.label} of coding time`}
+                key={`${m.rank}-time`}
+                badge={<RankingMedal rank={m.rank} metric="time" count={1} size={56} />}
+                label={m.label}
+                description={m.description}
               />
-            )
-          })}
+            ))}
+          </div>
         </div>
       </section>
 
       <section>
-        <SectionHeader title="Special" subtitle="Manually awarded by teammates for acts of valor." />
+        <SectionHeader title="Milestones" subtitle="Earned once when you hit cumulative thresholds. Only your highest is displayed." />
+        <div className="grid grid-cols-2 gap-x-6">
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Tokens</p>
+            {TOKEN_MILESTONES.map((kind) => {
+              const cfg = MILESTONE_CONFIGS[kind]
+              return (
+                <BadgeCard
+                  key={kind}
+                  badge={<MilestoneBadge kind={kind} size={56} />}
+                  label={`${cfg.name} — ${cfg.label}`}
+                  description={`Burn ${cfg.label} total tokens`}
+                />
+              )
+            })}
+          </div>
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Time</p>
+            {TIME_MILESTONES.map((kind) => {
+              const cfg = MILESTONE_CONFIGS[kind]
+              return (
+                <BadgeCard
+                  key={kind}
+                  badge={<MilestoneBadge kind={kind} size={56} />}
+                  label={`${cfg.name} — ${cfg.label}`}
+                  description={`Accumulate ${cfg.label} of coding time`}
+                />
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <SectionHeader title="Special Commendations" subtitle="Manually awarded by teammates for acts of valor." />
         <div className="grid gap-3 sm:grid-cols-2">
           <BadgeCard
             badge={<PurpleHeartBadge size={56} />}
@@ -170,11 +187,11 @@ const TIME_MILESTONE_RANK: Record<string, number> = {
   time_2500h: 5, time_5000h: 6, time_10000h: 7, time_25000h: 8,
 }
 
-type SortKey = 'total' | 'gold' | 'silver' | 'bronze' | 'tokenMilestone' | 'timeMilestone' | 'tokenCrown' | 'timeCrown' | 'purpleHearts'
+type SortKey = 'name' | 'gold' | 'silver' | 'bronze' | 'tokenMilestone' | 'timeMilestone' | 'tokenCrown' | 'timeCrown' | 'purpleHearts'
 
 function getSortValue(entry: BadgeLeaderboardEntry, key: SortKey): number {
   switch (key) {
-    case 'total': return entry.total
+    case 'name': return 0 // handled separately with localeCompare
     case 'gold': return entry.gold
     case 'silver': return entry.silver
     case 'bronze': return entry.bronze
@@ -199,7 +216,7 @@ function CountCell({ count, highlight }: { count: number; highlight?: boolean })
 }
 
 function BadgeLeaderboard() {
-  const [sortBy, setSortBy] = useState<SortKey>('total')
+  const [sortBy, setSortBy] = useState<SortKey>('name')
 
   const { data, isLoading } = useQuery<BadgeLeaderboardData>({
     queryKey: ['badge-leaderboard'],
@@ -210,11 +227,13 @@ function BadgeLeaderboard() {
   })
 
   const sorted = data?.entries
-    ? [...data.entries].sort((a, b) => getSortValue(b, sortBy) - getSortValue(a, sortBy))
+    ? [...data.entries].sort((a, b) => {
+        if (sortBy === 'name') return a.displayName.localeCompare(b.displayName)
+        return getSortValue(b, sortBy) - getSortValue(a, sortBy)
+      })
     : []
 
   const columns: { key: SortKey; label: string; icon: React.ReactNode }[] = [
-    { key: 'total', label: 'Total', icon: <Award className="h-3.5 w-3.5" /> },
     { key: 'gold', label: 'Gold', icon: <RankingMedal rank="gold" metric="tokens" count={0} size={20} /> },
     { key: 'silver', label: 'Silver', icon: <RankingMedal rank="silver" metric="tokens" count={0} size={20} /> },
     { key: 'bronze', label: 'Bronze', icon: <RankingMedal rank="bronze" metric="tokens" count={0} size={20} /> },
@@ -245,7 +264,16 @@ function BadgeLeaderboard() {
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
                 <th className="text-left py-2 pr-4 font-medium">#</th>
-                <th className="text-left py-2 pr-4 font-medium">Engineer</th>
+                <th
+                  className={cn(
+                    'text-left py-2 pr-4 font-medium cursor-pointer hover:text-foreground transition-colors',
+                    sortBy === 'name' && 'text-foreground',
+                  )}
+                  onClick={() => setSortBy('name')}
+                >
+                  Engineer
+                  {sortBy === 'name' && <span className="text-orange-500 ml-1">&#9660;</span>}
+                </th>
                 {columns.map((col) => (
                   <th
                     key={col.key}
@@ -275,9 +303,6 @@ function BadgeLeaderboard() {
                     >
                       {entry.displayName}
                     </Link>
-                  </td>
-                  <td className="py-3 px-2 text-center">
-                    <CountCell count={entry.total} highlight={sortBy === 'total'} />
                   </td>
                   <td className="py-3 px-2 text-center">
                     <CountCell count={entry.gold} highlight={sortBy === 'gold'} />

@@ -26,6 +26,7 @@ export type SoundEffect =
   | 'milestones'
   | 'bruh'
   | 'fah'
+  | 'vine-boom'
 
 const SOUND_URLS: Record<SoundEffect, string> = {
   fanfare: '/sounds/fanfare.mp3',
@@ -42,6 +43,7 @@ const SOUND_URLS: Record<SoundEffect, string> = {
   milestones: '/sounds/milestones.mp3',
   bruh: '/sounds/bruh.mp3',
   fah: '/sounds/fah.mp3',
+  'vine-boom': '/sounds/vine-boom.mp3',
 }
 
 export function useSoundEffects() {

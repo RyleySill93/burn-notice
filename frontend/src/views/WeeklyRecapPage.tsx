@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
@@ -173,19 +173,7 @@ type PlaySound = (effect: SoundEffect, options?: { volume?: number; delay?: numb
 
 // --- Slide Components ---
 
-function TitleSlide({
-  weekStart,
-  weekEnd,
-  play,
-  brainrotActive,
-  onActivateBrainrot,
-}: {
-  weekStart: string
-  weekEnd: string
-  play: PlaySound
-  brainrotActive: boolean
-  onActivateBrainrot: () => void
-}) {
+function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       fireConfetti()
@@ -193,13 +181,6 @@ function TitleSlide({
     }, 500)
     return () => clearTimeout(timer)
   }, [])
-
-  // Play Say So when brainrot activates
-  useEffect(() => {
-    if (brainrotActive) {
-      play('say-so', { volume: 0.5 })
-    }
-  }, [brainrotActive])
 
   return (
     <div className="flex flex-col items-center justify-center min-h-full gap-8 py-16">
@@ -227,44 +208,6 @@ function TitleSlide({
       >
         {format(new Date(weekStart), 'MMM d')} - {format(new Date(weekEnd), 'MMM d, yyyy')}
       </motion.p>
-
-      {/* Brainrot mode button */}
-      {!brainrotActive && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 1.5, type: 'spring', bounce: 0.5 }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onActivateBrainrot()
-          }}
-          className="relative mt-4 px-8 py-4 rounded-2xl bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 text-white font-bold text-lg shadow-lg shadow-pink-500/30 hover:shadow-pink-500/50 hover:scale-105 active:scale-95 transition-all overflow-hidden group"
-        >
-          <span className="relative z-10 flex items-center gap-3">
-            <span className="text-2xl">🧠</span>
-            <span style={{ fontFamily: 'Bangers, cursive', fontSize: '24px', letterSpacing: '1px' }}>
-              BRAINROT MODE
-            </span>
-            <span className="text-2xl">🔥</span>
-          </span>
-          <motion.div
-            className="absolute inset-0 bg-gradient-to-r from-orange-500 via-pink-500 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity"
-            animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
-            transition={{ duration: 3, repeat: Infinity }}
-          />
-        </motion.button>
-      )}
-      {brainrotActive && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', bounce: 0.6 }}
-          className="mt-4 px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600/20 via-pink-500/20 to-orange-500/20 border border-pink-500/30 text-pink-400 font-bold text-sm"
-        >
-          🧠 BRAINROT ACTIVATED 🧠
-        </motion.div>
-      )}
-
       {/* Flame gradient at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-orange-500/20 via-orange-500/5 to-transparent pointer-events-none" />
     </div>
@@ -1011,16 +954,11 @@ function WeeklyRecapContent() {
   const navigate = useNavigate()
   const [currentSlide, setCurrentSlide] = useState(0)
   const [asOfDate, setAsOfDate] = useState<Date>(new Date())
-  const [brainrotActive, setBrainrotActive] = useState(false)
+  const [showBrainrotModal, setShowBrainrotModal] = useState(false)
+  const brainrotDismissed = useRef(false)
   const [brainrotVisible, setBrainrotVisible] = useState(false)
   const [brainrotVideoId] = useState(() => BRAINROT_VIDEO_IDS[Math.floor(Math.random() * BRAINROT_VIDEO_IDS.length)])
   const { enabled: soundEnabled, toggle: toggleSound, play, stopAll } = useSoundEffects()
-
-  const activateBrainrot = useCallback(() => {
-    setBrainrotActive(true)
-    setBrainrotVisible(true)
-    if (!soundEnabled) toggleSound()
-  }, [soundEnabled, toggleSound])
 
   const isCurrentWeek = startOfWeek(asOfDate, { weekStartsOn: 1 }).getTime() ===
     startOfWeek(new Date(), { weekStartsOn: 1 }).getTime()
@@ -1064,7 +1002,7 @@ function WeeklyRecapContent() {
     const timeMedals = data.medalsAwarded.filter((m) => m.metricType === 'time')
 
     const slideList: React.ReactElement[] = [
-      <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} play={play} brainrotActive={brainrotActive} onActivateBrainrot={activateBrainrot} />,
+      <TitleSlide key="title" weekStart={data.weekStart} weekEnd={data.weekEnd} />,
       <TeamTotalsSlide
         key="totals"
         tokens={data.teamTotalTokens}
@@ -1119,11 +1057,37 @@ function WeeklyRecapContent() {
     slideList.push(<OutroSlide key="outro" play={play} />)
 
     return slideList
-  }, [data, play, brainrotActive, activateBrainrot])
+  }, [data, play])
 
   const totalSlides = slides.length
 
   const goNext = useCallback(() => {
+    // Intercept first "next" on title slide to show brainrot modal
+    if (currentSlide === 0 && !brainrotDismissed.current) {
+      setShowBrainrotModal(true)
+      return
+    }
+    stopAll()
+    setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1))
+  }, [totalSlides, stopAll, currentSlide])
+
+  const handleBrainrotAccept = useCallback(() => {
+    setShowBrainrotModal(false)
+    brainrotDismissed.current = true
+    setBrainrotVisible(true)
+    if (!soundEnabled) toggleSound()
+    // Play airhorn first, then Say So after it ends
+    const audio = play('airhorn', { volume: 0.6 })
+    if (audio) {
+      audio.addEventListener('ended', () => {
+        play('say-so', { volume: 0.5 })
+      })
+    }
+  }, [soundEnabled, toggleSound, play])
+
+  const handleBrainrotDecline = useCallback(() => {
+    setShowBrainrotModal(false)
+    brainrotDismissed.current = true
     stopAll()
     setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1))
   }, [totalSlides, stopAll])
@@ -1283,7 +1247,48 @@ function WeeklyRecapContent() {
         <span className="text-xs text-muted-foreground">Press ESC to exit</span>
       </div>
 
-      {/* Hidden brainrot video easter egg (Cmd/Ctrl+Z) */}
+      {/* Gen Z accessibility modal */}
+      <AnimatePresence>
+        {showBrainrotModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+              className="bg-card border border-border rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl"
+            >
+              <div className="text-4xl mb-4">⚠️</div>
+              <h2 className="text-xl font-bold mb-2">Accessibility Notice</h2>
+              <p className="text-muted-foreground mb-6">
+                Engineers with birthdays after 2000 detected. Enable Gen Z accessibility mode?
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={handleBrainrotDecline}
+                  className="px-6 py-2.5 rounded-lg border border-border text-sm font-medium hover:bg-muted transition-colors"
+                >
+                  No thanks
+                </button>
+                <button
+                  onClick={handleBrainrotAccept}
+                  className="px-6 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 text-white text-sm font-bold hover:opacity-90 transition-opacity"
+                >
+                  Enable 🧠
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Brainrot video overlay (Cmd/Ctrl+Z also toggles) */}
       <AnimatePresence>
         {brainrotVisible && (
           <motion.div

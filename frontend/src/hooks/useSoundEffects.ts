@@ -24,6 +24,8 @@ export type SoundEffect =
   | 'tokens-podium'
   | 'time-podium'
   | 'milestones'
+  | 'bruh'
+  | 'fah'
 
 const SOUND_URLS: Record<SoundEffect, string> = {
   fanfare: '/sounds/fanfare.mp3',
@@ -38,6 +40,8 @@ const SOUND_URLS: Record<SoundEffect, string> = {
   'tokens-podium': '/sounds/dramatic-tiktok.mp3',
   'time-podium': '/sounds/tokens-podium.mp3',
   milestones: '/sounds/milestones.mp3',
+  bruh: '/sounds/bruh.mp3',
+  fah: '/sounds/fah.mp3',
 }
 
 export function useSoundEffects() {

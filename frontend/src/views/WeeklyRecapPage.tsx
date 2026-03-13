@@ -1076,8 +1076,9 @@ function WeeklyRecapContent() {
     brainrotDismissed.current = true
     setBrainrotVisible(true)
     if (!soundEnabled) toggleSound()
-    // Play airhorn first, then Say So after it ends
-    const audio = play('airhorn', { volume: 0.6 })
+    // Play random bruh/fah, then Say So after it ends
+    const effect = Math.random() < 0.5 ? 'bruh' : 'fah' as const
+    const audio = play(effect, { volume: 0.7 })
     if (audio) {
       audio.addEventListener('ended', () => {
         play('say-so', { volume: 0.5 })

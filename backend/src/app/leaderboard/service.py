@@ -578,13 +578,18 @@ class LeaderboardService:
         """Get weekly leaderboard with rank changes from previous week."""
         # Current week (Mon-Sun containing as_of)
         week_start = as_of - timedelta(days=as_of.weekday())
+        week_end = week_start + timedelta(days=6)
         prev_week_start = week_start - timedelta(days=7)
         prev_week_end = week_start - timedelta(days=1)
+
+        # For past weeks use the full week (Sun), for current week use today for live data
+        today = get_today()
+        end_date = min(week_end, today)
 
         return LeaderboardService._get_ranked_entries_with_live(
             customer_id=customer_id,
             start_date=week_start,
-            end_date=as_of,
+            end_date=end_date,
             prev_start_date=prev_week_start,
             prev_end_date=prev_week_end,
         )
@@ -594,13 +599,22 @@ class LeaderboardService:
         """Get monthly leaderboard with rank changes from previous month."""
         # Current month
         month_start = as_of.replace(day=1)
+        # Last day of current month
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
         prev_month_end = month_start - timedelta(days=1)
         prev_month_start = prev_month_end.replace(day=1)
+
+        # For past months use the full month, for current month use today for live data
+        today = get_today()
+        end_date = min(month_end, today)
 
         return LeaderboardService._get_ranked_entries_with_live(
             customer_id=customer_id,
             start_date=month_start,
-            end_date=as_of,
+            end_date=end_date,
             prev_start_date=prev_month_start,
             prev_end_date=prev_month_end,
         )

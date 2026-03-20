@@ -8,7 +8,7 @@ import { useSoundEffects, type SoundEffect } from '@/hooks/useSoundEffects'
 import { RankingMedal, MilestoneBadge, CrownBadge as CrownBadgeComponent, PurpleHeartBadge, MILESTONE_CONFIGS } from '@/components/badges'
 import type { Rank, Metric as BadgeMetric, MilestoneKind, CrownKind } from '@/components/badges'
 import { AnimatedFlames } from '@/components/AnimatedFlames'
-import { addDays, subDays } from 'date-fns'
+import { addDays, subDays, parseISO } from 'date-fns'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import axios from '@/lib/axios-instance'
@@ -206,7 +206,7 @@ function TitleSlide({ weekStart, weekEnd }: { weekStart: string; weekEnd: string
         transition={{ delay: 1, duration: 0.5 }}
         className="text-2xl text-muted-foreground"
       >
-        {format(new Date(weekStart), 'MMM d')} - {format(new Date(weekEnd), 'MMM d, yyyy')}
+        {format(parseISO(weekStart), 'MMM d')} - {format(parseISO(weekEnd), 'MMM d, yyyy')}
       </motion.p>
       {/* Flame gradient at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-orange-500/20 via-orange-500/5 to-transparent pointer-events-none" />
@@ -582,7 +582,7 @@ function EngineerRecordRow({ records, delay }: { records: RecapRecord[]; delay: 
                 <span className="text-muted-foreground text-xs">(was {prevStr})</span>
               )}
               <span className="text-muted-foreground text-xs">
-                {format(new Date(record.recordDate), 'EEEE, MMMM d yyyy')}
+                {format(parseISO(record.recordDate), 'EEEE, MMMM d yyyy')}
               </span>
             </div>
           )
@@ -1221,7 +1221,7 @@ function WeeklyRecapContent() {
           <Calendar className="h-3.5 w-3.5" />
           {data ? (
             <span>
-              {format(new Date(data.weekStart), 'MMM d')} - {format(new Date(data.weekEnd), 'MMM d')}
+              {format(parseISO(data.weekStart), 'MMM d')} - {format(parseISO(data.weekEnd), 'MMM d')}
             </span>
           ) : (
             <span>Loading...</span>
